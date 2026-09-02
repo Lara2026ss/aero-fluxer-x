@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: aero-fluxer-feedback-gateway
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: FEEDBACK_RATE_LIMIT
+        value: 10
+      - key: FEEDBACK_MAX_PAYLOAD_MB
+        value: 3
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: FIREBASE_AUTH_TOKEN
+        sync: false
+      - key: FEEDBACK_NOTIFICATION_EMAIL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ADMIN_SECRET_KEY
+        generateValue: true
