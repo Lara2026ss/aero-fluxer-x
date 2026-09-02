@@ -141,16 +141,36 @@ export async function startServer() {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     try {
-      const rawArgs = req.params.arguments || {};
+      let rawArgs = req.params.arguments || {};
+      if (typeof rawArgs === "string") {
+        try { rawArgs = JSON.parse(rawArgs); } catch {}
+      }
       const action = rawArgs.action;
       let args = rawArgs.args;
 
-      if (!args || typeof args !== "object") {
+      if (typeof args === "string") {
+        try { args = JSON.parse(args); } catch {}
+      }
+
+      if (!args || typeof args !== "object" || Array.isArray(args)) {
         const { action: _, ...rest } = rawArgs;
         args = rest;
       } else {
         const { action: _, args: nested, ...rest } = rawArgs;
         args = { ...rest, ...nested };
+      }
+
+      if (args && typeof args.args === "string") {
+        try {
+          const parsed = JSON.parse(args.args);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            const { args: _, ...restArgs } = args;
+            args = { ...restArgs, ...parsed };
+          }
+        } catch {}
+      } else if (args && args.args && typeof args.args === "object" && !Array.isArray(args.args)) {
+        const { args: nested, ...restArgs } = args;
+        args = { ...restArgs, ...nested };
       }
 
       const response = await router.execute({

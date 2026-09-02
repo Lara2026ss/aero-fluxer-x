@@ -499,18 +499,36 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
     },
 
-    submit_feedback: async ({
-      type = "bug_report",
-      title,
-      description,
-      steps_to_reproduce = "",
-      expected_behavior = "",
-      actual_behavior = "",
-      severity = "medium",
-      screenshot = null,
-      attach_logs = true,
-      tool = null,
-    } = {}) => {
+    submit_feedback: async (rawInput = {}) => {
+      // Normalización defensiva: soporta clientes MCP (como Claude Desktop) que envían args serializados o anidados
+      let input = rawInput;
+      if (typeof input === "string") {
+        try { input = JSON.parse(input); } catch {}
+      }
+      if (input && typeof input.args === "string") {
+        try {
+          const parsed = JSON.parse(input.args);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            input = { ...input, ...parsed };
+          }
+        } catch {}
+      } else if (input && input.args && typeof input.args === "object" && !Array.isArray(input.args)) {
+        input = { ...input, ...input.args };
+      }
+
+      let {
+        type = "bug_report",
+        title,
+        description,
+        steps_to_reproduce = "",
+        expected_behavior = "",
+        actual_behavior = "",
+        severity = "medium",
+        screenshot = null,
+        attach_logs = true,
+        tool = null,
+      } = input || {};
+
       // 1. Validación de campos obligatorios
       if (!title || typeof title !== "string" || !title.trim() || !description || typeof description !== "string" || !description.trim()) {
         return {
