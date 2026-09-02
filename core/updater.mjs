@@ -30,9 +30,6 @@ import { getStorageStructure } from "./storage-paths.mjs";
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
-const DEFAULT_REPO_OWNER = "aero-fluxer";
-const DEFAULT_REPO_NAME = "aero-fluxer-x";
-
 /**
  * Registra una línea en el log dedicado de actualizaciones.
  */
@@ -54,14 +51,9 @@ function fetchJson(url, options = {}) {
   return new Promise((resolve, reject) => {
     const headers = {
       "User-Agent": `Aeron-Fluxer-X-Updater/v${CURRENT_VERSION}`,
-      Accept: "application/vnd.github.v3+json, application/json",
+      Accept: "application/json",
       ...(options.headers || {}),
     };
-
-    if (process.env.GITHUB_TOKEN || process.env.GITHUB_PERSONAL_ACCESS_TOKEN) {
-      const token = process.env.GITHUB_TOKEN || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-      headers["Authorization"] = `Bearer ${token}`;
-    }
 
     const client = url.startsWith("https") ? https : http;
     const req = client.get(url, { headers, timeout: options.timeout || 15000 }, (res) => {
@@ -105,11 +97,6 @@ function downloadFileWithHash(url, destinationPath, options = {}) {
       "User-Agent": `Aeron-Fluxer-X-Updater/v${CURRENT_VERSION}`,
       ...(options.headers || {}),
     };
-
-    if (process.env.GITHUB_TOKEN || process.env.GITHUB_PERSONAL_ACCESS_TOKEN) {
-      const token = process.env.GITHUB_TOKEN || process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-      headers["Authorization"] = `Bearer ${token}`;
-    }
 
     const req = client.get(url, { headers, timeout: options.timeout || 30000 }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -165,12 +152,10 @@ export async function computeFileSha256(filePath) {
 }
 
 /**
- * Consulta la versión más reciente disponible en GitHub Releases o en un Manifest URL.
+ * Consulta actualizaciones si se especifica un manifestUrl, o reporta estado desacoplado.
  *
  * @param {object} [options]
  * @param {string} [options.repoRoot]
- * @param {string} [options.owner]
- * @param {string} [options.repo]
  * @param {string} [options.manifestUrl]
  * @param {boolean} [options.allowDowngrade=false]
  * @param {boolean} [options.allowPrerelease=false]
@@ -178,25 +163,27 @@ export async function computeFileSha256(filePath) {
  */
 export async function checkForUpdates(options = {}) {
   const repoRoot = options.repoRoot || process.cwd();
-  const owner = options.owner || process.env.AERON_GITHUB_OWNER || DEFAULT_REPO_OWNER;
-  const repo = options.repo || process.env.AERON_GITHUB_REPO || DEFAULT_REPO_NAME;
   const manifestUrl = options.manifestUrl || process.env.AERON_UPDATE_MANIFEST_URL;
 
-  await logUpdaterMessage(repoRoot, "info", `Iniciando comprobación de actualizaciones para ${owner}/${repo}...`);
+  if (!manifestUrl) {
+    await logUpdaterMessage(repoRoot, "info", "Aero Fluxer X opera de forma autónoma y desacoplada de GitHub.");
+    return {
+      ok: true,
+      currentVersion: CURRENT_VERSION,
+      latestVersion: CURRENT_VERSION,
+      updateAvailable: false,
+      source: "standalone_decoupled",
+      message: "Aero Fluxer X opera de forma autónoma y desacoplada de GitHub. Cero dependencia de tokens o autorizaciones externas.",
+    };
+  }
+
+  await logUpdaterMessage(repoRoot, "info", `Iniciando comprobación de actualizaciones desde: ${manifestUrl}...`);
 
   let releaseData = null;
-  let source = "github_releases";
-
   try {
-    if (manifestUrl) {
-      source = "custom_manifest";
-      releaseData = await fetchJson(manifestUrl);
-    } else {
-      const githubUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
-      releaseData = await fetchJson(githubUrl);
-    }
+    releaseData = await fetchJson(manifestUrl);
   } catch (error) {
-    const errorMsg = `No se pudo consultar el servidor de actualizaciones: ${error.message}`;
+    const errorMsg = `No se pudo consultar el manifiesto de actualizaciones: ${error.message}`;
     await logUpdaterMessage(repoRoot, "warn", errorMsg);
     return {
       ok: false,
@@ -207,45 +194,26 @@ export async function checkForUpdates(options = {}) {
     };
   }
 
-  // Normalizar datos de la release
-  let latestVersion = "";
-  let releaseNotes = "";
+  const latestVersion = releaseData.version || "";
+  const releaseNotes = releaseData.changelog || releaseData.description || "";
+  const zipAsset = releaseData.assets?.zip || releaseData.asset;
   let downloadUrl = "";
   let expectedSha256 = "";
   let assetName = "";
 
-  if (source === "custom_manifest") {
-    latestVersion = releaseData.version || "";
-    releaseNotes = releaseData.changelog || releaseData.description || "";
-    const zipAsset = releaseData.assets?.zip || releaseData.asset;
-    if (zipAsset) {
-      downloadUrl = zipAsset.url || "";
-      expectedSha256 = (zipAsset.sha256 || "").toLowerCase().trim();
-      assetName = zipAsset.name || path.basename(downloadUrl);
-    }
-  } else {
-    // Formato estándar GitHub Releases API
-    latestVersion = (releaseData.tag_name || "").replace(/^v/i, "");
-    releaseNotes = releaseData.body || "";
+  if (zipAsset) {
+    downloadUrl = zipAsset.url || "";
+    expectedSha256 = (zipAsset.sha256 || "").toLowerCase().trim();
+    assetName = zipAsset.name || path.basename(downloadUrl);
+  }
 
-    // Buscar asset zip o manifest adjunto
-    const assets = Array.isArray(releaseData.assets) ? releaseData.assets : [];
-    const zipAsset = assets.find((a) => a.name && (a.name.endsWith(".zip") || a.name.endsWith(".tar.gz")));
-    const checksumAsset = assets.find((a) => a.name && (a.name.endsWith(".sha256") || a.name.includes("checksum")));
-
-    if (zipAsset) {
-      downloadUrl = zipAsset.browser_download_url;
-      assetName = zipAsset.name;
-    } else if (releaseData.zipball_url) {
-      downloadUrl = releaseData.zipball_url;
-      assetName = `aeron-fluxer-x-v${latestVersion}.zip`;
-    }
-
-    // Si hay asset checksum, se puede extraer del cuerpo o notas si existe el patrón
-    const shaMatch = releaseNotes.match(/sha256[:\s]+([a-fA-F0-9]{64})/i);
-    if (shaMatch) {
-      expectedSha256 = shaMatch[1].toLowerCase().trim();
-    }
+  if (!latestVersion || !downloadUrl) {
+    return {
+      ok: false,
+      currentVersion: CURRENT_VERSION,
+      error: "El manifiesto de actualización no contiene una versión o URL de descarga válida.",
+      recoverable: true,
+    };
   }
 
   const eligibility = checkUpdateEligibility(CURRENT_VERSION, latestVersion, {

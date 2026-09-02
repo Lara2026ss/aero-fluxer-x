@@ -113,7 +113,7 @@ async function cli() {
   }
 
   // Por defecto: comprobar estado
-  console.log(`  Consultando versiones disponibles en GitHub...`);
+  console.log(`  Comprobando estado de versiones (Modo Autónomo Desacoplado)...`);
   const check = await checkUpdate();
   if (!check.ok) {
     console.log(`  ${YELLOW}Aviso:${RESET} ${check.error}`);
@@ -128,7 +128,10 @@ async function cli() {
     console.log(`\n  Para aplicar esta actualización ejecute:`);
     console.log(`    ${BOLD}node update.mjs --apply${RESET}\n`);
   } else {
-    console.log(`  ${GREEN}✓ Sistema actualizado.${RESET} La versión v${CURRENT_VERSION} es la más reciente.`);
+    console.log(`  ${GREEN}✓ Sistema verificado:${RESET} v${CURRENT_VERSION} instalada.`);
+    if (check.message) {
+      console.log(`  ${CYAN}${check.message}${RESET}`);
+    }
   }
 }
 

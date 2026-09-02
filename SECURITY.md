@@ -19,6 +19,6 @@ Si descubres una vulnerabilidad de seguridad en Aero Fluxer X, por favor **NO ab
 - Pasos precisos para reproducir el fallo o vector de ataque.
 - Impacto potencial estimado.
 
-## Buenas Prácticas para Usuarios
-- Utilice variables de entorno (`.env` local, basado en `.env.example`) para almacenar claves privadas de servicios externos (GitHub, OpenAI, etc.).
+- Utilice variables de entorno (`.env` local, basado en `.env.example`) para configuraciones locales avanzadas.
 - Nunca suba su directorio `%APPDATA%\AeroFluxerX` ni su archivo `.env` a repositorios públicos.
+- Aero Fluxer X no requiere tokens ni conexiones a GitHub; mantenga separadas las credenciales de cualquier servicio externo.

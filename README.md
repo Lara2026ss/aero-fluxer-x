@@ -67,9 +67,12 @@ Estructura Local del Usuario:
 
 ### Paso 1: Obtener el Código
 ```bash
-git clone https://github.com/aero-fluxer/aero-fluxer-x.git
+git clone https://github.com/Lara2026ss/aero-fluxer-x.git
 cd aero-fluxer-x
 ```
+
+> [!NOTE]
+> **Arquitectura Desacoplada de GitHub**: Aero Fluxer X opera de forma 100% independiente y autónoma. No requiere tokens, claves ni conexiones a la API de GitHub para funcionar. Para interactuar con repositorios de GitHub (issues, pull requests, commits, ramas), utilice el servidor oficial `@modelcontextprotocol/server-github`. Aero Fluxer X se concentra exclusivamente en automatización local de sistema, archivos, procesos y bases de datos.
 
 ### Paso 2: Ejecutar el Asistente de Instalación
 Ejecute el script de configuración automática:
