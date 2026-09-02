@@ -28,6 +28,75 @@ export function createTerminalDomain({ runtime, path, fs, crypto, domain }) {
     return "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File";
   }
 
+  function extractEnvAssignments(command) {
+    const envVars = {};
+    if (!command || typeof command !== "string") return envVars;
+
+    // Divide el comando en instrucciones individuales separadas por ';' o saltos de línea,
+    // respetando las comillas simples y dobles para no dividir dentro de cadenas.
+    const statements = [];
+    let current = "";
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+
+    for (let i = 0; i < command.length; i++) {
+      const char = command[i];
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        current += char;
+      } else if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        current += char;
+      } else if ((char === ";" || char === "\n" || (char === "&" && command[i + 1] !== "&")) && !inSingleQuote && !inDoubleQuote) {
+        if (current.trim()) statements.push(current.trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    if (current.trim()) statements.push(current.trim());
+
+    for (const stmt of statements) {
+      // 1. PowerShell: $env:VAR = 'val' o $env:VAR = "val" o $env:VAR = val
+      const psMatch = stmt.match(/^\$env:([a-zA-Z_]\w*)\s*=\s*(.*)$/i);
+      if (psMatch) {
+        const name = psMatch[1];
+        let val = psMatch[2].trim();
+        if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
+          val = val.slice(1, -1);
+        }
+        envVars[name] = val;
+        continue;
+      }
+
+      // 2. POSIX: export VAR='val' o export VAR="val" o export VAR=val
+      const exportMatch = stmt.match(/^export\s+([a-zA-Z_]\w*)\s*=\s*(.*)$/i);
+      if (exportMatch) {
+        const name = exportMatch[1];
+        let val = exportMatch[2].trim();
+        if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
+          val = val.slice(1, -1);
+        }
+        envVars[name] = val;
+        continue;
+      }
+
+      // 3. Windows CMD: set VAR=val o set "VAR=val"
+      const cmdMatch = stmt.match(/^set\s+([a-zA-Z_]\w*)\s*=\s*(.*)$/i);
+      if (cmdMatch) {
+        const name = cmdMatch[1];
+        let val = cmdMatch[2].trim();
+        if ((val.startsWith("'") && val.endsWith("'")) || (val.startsWith('"') && val.endsWith('"'))) {
+          val = val.slice(1, -1);
+        }
+        envVars[name] = val;
+        continue;
+      }
+    }
+
+    return envVars;
+  }
+
   const actions = {
     // ── 1. Ejecución de Comandos ─────────────────────────────────────────────
     run_command: async ({ command, timeout, cwd, env: extraEnv, shell = "powershell", stripAnsi = true, maxOutputChars = 500000 } = {}) => {
@@ -276,13 +345,10 @@ export function createTerminalDomain({ runtime, path, fs, crypto, domain }) {
         }
       }
 
-      // Detección y persistencia de variables de entorno en la sesión (export / set / $env:)
-      const envMatch = trimmed.match(/^(?:export\s+([a-zA-Z_]\w*)\s*=\s*(.*)|set\s+([a-zA-Z_]\w*)\s*=\s*(.*)|\$env:([a-zA-Z_]\w*)\s*=\s*['"]?(.*?)['"]?\s*$)/i);
-      if (envMatch) {
-        const varName = envMatch[1] || envMatch[3] || envMatch[5];
-        let varVal = envMatch[2] || envMatch[4] || envMatch[6] || "";
-        varVal = varVal.replace(/^["']|["']$/g, "").trim();
-        session.env[varName] = varVal;
+      // Detección y persistencia robusta de variables de entorno en la sesión (PowerShell, bash, cmd)
+      const extractedEnvs = extractEnvAssignments(trimmed);
+      if (Object.keys(extractedEnvs).length > 0) {
+        Object.assign(session.env, extractedEnvs);
         session.updatedAt = new Date().toISOString();
       }
 

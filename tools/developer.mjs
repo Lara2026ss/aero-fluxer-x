@@ -514,6 +514,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       // 1. Validación de campos obligatorios
       if (!title || typeof title !== "string" || !title.trim() || !description || typeof description !== "string" || !description.trim()) {
         return {
+          ok: false,
           status: "invalid_input",
           code: "INVALID_INPUT",
           message: "Los campos 'title' y 'description' son obligatorios para enviar feedback.",
@@ -534,6 +535,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       const fullRawText = `${title}\n${description}\n${steps_to_reproduce || ""}\n${expected_behavior || ""}\n${actual_behavior || ""}`;
       if (sensitivePatterns.some((pattern) => pattern.test(fullRawText))) {
         return {
+          ok: false,
           status: "blocked",
           code: "BLOCKED_SENSITIVE_DATA",
           message: "El feedback contiene posibles credenciales, API keys o tokens de seguridad y fue bloqueado preventivamente.",
@@ -685,6 +687,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         if (gatewayResponse.status === 200 || gatewayResponse.status === 201) {
           return {
+            ok: true,
             status: gatewayResponse.data?.status || "received",
             id: gatewayResponse.data?.id || feedbackId,
           };
@@ -692,6 +695,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         if (gatewayResponse.status === 409 || gatewayResponse.data?.status === "duplicate") {
           return {
+            ok: true,
             status: "duplicate",
             id: gatewayResponse.data?.id || feedbackId,
           };
@@ -699,9 +703,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         if (gatewayResponse.status === 429) {
           return {
+            ok: false,
             status: "rate_limited",
             code: "RATE_LIMITED",
-            message: "Límite de envíos alcanzado. Intente de nuevo más tarde.",
+            message: gatewayResponse.data?.message || "Límite de envíos alcanzado. Intente de nuevo más tarde.",
+            reset_in_seconds: gatewayResponse.data?.reset_in_seconds,
           };
         }
 
@@ -714,13 +720,16 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             const outboxPath = path.join(storage.feedbackOutboxDir, `${feedbackId}.json`);
             await fs.writeFile(outboxPath, JSON.stringify(payload, null, 2), "utf8");
             return {
+              ok: true,
               status: "queued",
               id: feedbackId,
+              message: "Servicio fuera de línea momentáneamente. Feedback guardado localmente en outbox; se enviará automáticamente.",
             };
           } catch {}
         }
 
         return {
+          ok: false,
           status: "unavailable",
           code: "GATEWAY_UNAVAILABLE",
           message: "El servicio de feedback está temporalmente fuera de línea.",

@@ -8,10 +8,10 @@
 export class RateLimiter {
   /**
    * @param {object} options
-   * @param {number} [options.maxRequests=10] Máximo de peticiones permitidas en la ventana
+   * @param {number} [options.maxRequests=60] Máximo de peticiones permitidas en la ventana (60/hora)
    * @param {number} [options.windowMs=3600000] Duración de la ventana en milisegundos (1 hora por defecto)
    */
-  constructor({ maxRequests = 10, windowMs = 3600000 } = {}) {
+  constructor({ maxRequests = 60, windowMs = 3600000 } = {}) {
     this.maxRequests = Number(process.env.FEEDBACK_RATE_LIMIT) || maxRequests;
     this.windowMs = windowMs;
     this.clients = new Map();

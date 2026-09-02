@@ -73,10 +73,12 @@ const server = http.createServer(async (req, res) => {
     const limitCheck = rateLimiter.check(clientIp);
 
     if (!limitCheck.allowed) {
+      const waitMins = Math.max(1, Math.ceil(limitCheck.resetMs / 60000));
       return sendJson(res, 429, {
         status: "rate_limited",
         code: "RATE_LIMITED",
-        message: "Demasiados envíos de feedback. Por favor intente más tarde.",
+        message: `Límite de envíos alcanzado. Por favor intente en ${waitMins} minuto(s).`,
+        reset_in_seconds: Math.ceil(limitCheck.resetMs / 1000),
       });
     }
 

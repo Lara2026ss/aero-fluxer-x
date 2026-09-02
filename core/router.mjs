@@ -156,12 +156,19 @@ export class Router {
 
     let resolved = this.registry.resolve(tool, action);
     if (!resolved) {
-      // Búsqueda inversa: si la acción existe en algún dominio (ej: write_file -> files.write_file)
-      for (const domainName of this.registry.moduleNames()) {
-        if (this.registry.actionsFor(domainName).includes(action)) {
-          tool = domainName;
-          resolved = this.registry.resolve(tool, action);
-          break;
+      // Búsqueda inversa: solo permitida si el llamador NO especificó un dominio registrado concreto.
+      // Si el tool especificado ES un módulo registrado (ej: 'system', 'files'), pero la acción no existe
+      // en él, NO se debe secuestrar a otro dominio (previene cross-domain hijacking / confusión).
+      const registeredDomains = this.registry.moduleNames();
+      const isExplicitRegisteredDomain = registeredDomains.includes(tool);
+
+      if (!isExplicitRegisteredDomain) {
+        for (const domainName of registeredDomains) {
+          if (this.registry.actionsFor(domainName).includes(action)) {
+            tool = domainName;
+            resolved = this.registry.resolve(tool, action);
+            break;
+          }
         }
       }
     }
@@ -248,7 +255,43 @@ export class Router {
       const durationMs = Math.round(performance.now() - started);
       const compacted = this.runtime.compact(raw, args);
 
-      const isOk = raw?.ok !== undefined ? Boolean(raw.ok) : (compacted.ok !== false);
+      // Determinar si la acción tuvo éxito o falló inspeccionando ok, status, code y error
+      let isOk = true;
+      if (raw && typeof raw === "object") {
+        if (raw.ok !== undefined) {
+          isOk = Boolean(raw.ok);
+        } else if (raw.status !== undefined) {
+          const successStatuses = ["ok", "received", "success", "duplicate", "queued"];
+          isOk = successStatuses.includes(String(raw.status).toLowerCase());
+        } else if (raw.error !== undefined) {
+          isOk = false;
+        } else if (raw.code && ["RATE_LIMITED", "INVALID_INPUT", "BLOCKED_SENSITIVE_DATA", "GATEWAY_UNAVAILABLE"].includes(raw.code)) {
+          isOk = false;
+        } else if (compacted && typeof compacted === "object" && compacted.ok !== undefined) {
+          isOk = Boolean(compacted.ok);
+        }
+      }
+
+      // Determinar resultado semántico exacto para el audit log
+      let auditResult = isOk ? "ok" : "error";
+      if (raw && typeof raw === "object") {
+        if (raw.status === "rate_limited" || raw.code === "RATE_LIMITED") {
+          auditResult = "rate_limited";
+        } else if (raw.status === "blocked" || raw.code === "BLOCKED_SENSITIVE_DATA") {
+          auditResult = "blocked";
+        } else if (raw.status === "invalid_input" || raw.code === "INVALID_INPUT") {
+          auditResult = "invalid_input";
+        } else if (raw.status === "unavailable" || raw.code === "GATEWAY_UNAVAILABLE") {
+          auditResult = "unavailable";
+        } else if (raw.status === "duplicate") {
+          auditResult = "duplicate";
+        } else if (raw.status === "queued") {
+          auditResult = "queued";
+        } else if (!isOk) {
+          auditResult = "error";
+        }
+      }
+
       const innerData = compacted.data !== undefined ? compacted.data : compacted;
 
       let response;
@@ -271,33 +314,36 @@ export class Router {
         };
       }
 
-      this.runtime.circuitBreaker.success(`${tool}.${action}`);
+      if (isOk) {
+        this.runtime.circuitBreaker.success(`${tool}.${action}`);
+      }
 
       // Métricas automáticas por ruta
       this.runtime.metrics.timing("tool_duration", durationMs, {
         tool,
         action,
       });
-      this.runtime.metrics.inc("tool_calls", { tool, action, ok: "true" });
+      this.runtime.metrics.inc("tool_calls", { tool, action, ok: String(isOk) });
 
       this.runtime.memory.recordCall({
         tool,
         action,
-        ok: true,
+        ok: isOk,
         durationMs,
         client: this.runtime.client,
         traceId: requestId,
       });
 
-      // Audit log — herramienta ejecutada con éxito
+      // Audit log — registra el resultado real verificado
       const required2 = this.runtime.permissions.requiredFor({ tool, action }, resolved.unit);
       this.runtime.auditLog?.record({
         agent: this.runtime.client?.name,
         tool, action, args,
         permission: required2,
-        result: isOk ? "ok" : "error",
+        result: auditResult,
         durationMs,
         traceId: requestId,
+        ...(isOk ? {} : { error: raw?.message || raw?.error || auditResult }),
       });
 
       // Log estructurado con campos estándar
