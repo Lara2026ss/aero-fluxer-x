@@ -51,7 +51,7 @@ try {
   await fs.mkdir(downloadDir, { recursive: true });
 
   console.log(`1. Clonando repositorio público desde: ${REPO_URL}...`);
-  await execAsync(`git clone --depth 1 "${REPO_URL}" "${clonedDir}"`);
+  await execAsync(`git clone "${REPO_URL}" "${clonedDir}"`);
   console.log("   ✓ Clonado completado con éxito.");
 
   console.log("2. Inspeccionando archivos del repositorio clonado...");
