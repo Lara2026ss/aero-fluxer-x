@@ -1,0 +1,23 @@
+{
+  "name": "aero-fluxer-feedback-gateway",
+  "version": "1.0.0",
+  "description": "Aero Fluxer X — Public Feedback Gateway for Render & Firebase Realtime Database",
+  "main": "server.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node test.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "aero-fluxer-x",
+    "feedback",
+    "gateway",
+    "render",
+    "firebase"
+  ],
+  "author": "Aero Fluxer Maintainers",
+  "license": "MIT"
+}

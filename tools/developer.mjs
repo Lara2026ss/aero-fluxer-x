@@ -1,8 +1,10 @@
 import os from "node:os";
 import https from "node:https";
 import http from "node:http";
+import crypto from "node:crypto";
 import { getStorageStructure } from "../core/storage-paths.mjs";
 import { CURRENT_VERSION } from "../core/version.mjs";
+import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
 
 export function createDeveloperDomain({ runtime, domain, fs, path }) {
   function parseSkillFrontmatter(rawText) {
@@ -507,404 +509,274 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       severity = "medium",
       screenshot = null,
       attach_logs = true,
-      attach_system_info = true,
-      webhook_url = null,
+      tool = null,
     } = {}) => {
-      if (!title || !description) {
+      // 1. Validación de campos obligatorios
+      if (!title || typeof title !== "string" || !title.trim() || !description || typeof description !== "string" || !description.trim()) {
         return {
-          ok: false,
-          error: "Los campos 'title' y 'description' son obligatorios para enviar feedback.",
+          status: "invalid_input",
+          code: "INVALID_INPUT",
+          message: "Los campos 'title' y 'description' son obligatorios para enviar feedback.",
         };
       }
 
-      const validTypes = ["bug_report", "feature_request", "general_feedback", "performance"];
+      // 2. Escáner de seguridad y sanitización local (Cero Secretos)
+      const sensitivePatterns = [
+        /gsk_[a-zA-Z0-9]{20,}/i,
+        /Bearer\s+[a-zA-Z0-9_\-\.]{20,}/i,
+        /ghp_[a-zA-Z0-9]{36,}/i,
+        /gho_[a-zA-Z0-9]{36,}/i,
+        /-----BEGIN (RSA|EC|OPENSSH|PGP|PRIVATE) KEY-----/i,
+        /AIza[0-9A-Za-z-_]{35}/i,
+        /xox[baprs]-[0-9a-zA-Z]{10,}/i,
+      ];
+
+      const fullRawText = `${title}\n${description}\n${steps_to_reproduce || ""}\n${expected_behavior || ""}\n${actual_behavior || ""}`;
+      if (sensitivePatterns.some((pattern) => pattern.test(fullRawText))) {
+        return {
+          status: "blocked",
+          code: "BLOCKED_SENSITIVE_DATA",
+          message: "El feedback contiene posibles credenciales, API keys o tokens de seguridad y fue bloqueado preventivamente.",
+        };
+      }
+
+      const sanitize = (val) => {
+        if (!val || typeof val !== "string") return val;
+        let s = val;
+        const home = os.homedir();
+        if (home) s = s.split(home).join("~");
+        s = s.replace(/[a-zA-Z]:\\[Uu]sers\\[^\\]+/g, "~");
+        s = s.replace(/\/home\/[^\/]+/g, "~");
+        return s;
+      };
+
+      // 3. Generar Identificador Idempotente AFX-FB-XXXXXXXX
+      const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+      let code = "";
+      const bytes = crypto.randomBytes(6);
+      for (let i = 0; i < 6; i++) {
+        code += chars[bytes[i] % chars.length];
+      }
+      const feedbackId = `AFX-FB-${code}`;
+
+      // 4. Validar y procesar captura de pantalla (tamaño bounded max 2MB)
+      let attachmentPayload = null;
+      if (screenshot) {
+        try {
+          let buffer = null;
+          let mime = "image/png";
+          if (typeof screenshot === "string" && screenshot.startsWith("data:image")) {
+            const match = screenshot.match(/^data:(image\/\w+);base64,(.*)$/);
+            if (match) {
+              mime = match[1];
+              buffer = Buffer.from(match[2], "base64");
+            } else {
+              buffer = Buffer.from(screenshot.replace(/^data:image\/\w+;base64,/, ""), "base64");
+            }
+          } else if (typeof screenshot === "string" && (await fs.access(screenshot).then(() => true).catch(() => false))) {
+            buffer = await fs.readFile(screenshot);
+            const ext = path.extname(screenshot).toLowerCase();
+            if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
+            else if (ext === ".webp") mime = "image/webp";
+          }
+
+          if (buffer) {
+            if (buffer.length > 2 * 1024 * 1024) {
+              return {
+                status: "invalid_input",
+                code: "PAYLOAD_TOO_LARGE",
+                message: "La captura de pantalla supera el límite máximo permitido de 2MB.",
+              };
+            }
+            attachmentPayload = {
+              name: `${feedbackId}_screenshot.png`,
+              mime,
+              sizeBytes: buffer.length,
+              data: buffer.toString("base64"),
+            };
+          }
+        } catch {
+          attachmentPayload = null;
+        }
+      }
+
+      // 5. Sanitizar y extraer fragmento de logs relevante (máximo 30 líneas)
+      const storage = getStorageStructure(runtime.root);
+      let logsSnippet = null;
+      if (attach_logs !== false) {
+        try {
+          const logContent = await fs.readFile(storage.mainLog, "utf8").catch(() => "");
+          if (logContent) {
+            const lines = logContent.split("\n").filter(Boolean);
+            const tail = lines.slice(-30).join("\n");
+            logsSnippet = sanitize(tail);
+          }
+        } catch {}
+      }
+
+      // 6. Construir Payload Normalizado para el Gateway
+      const validTypes = ["bug_report", "feature_request", "general_feedback"];
       const feedbackType = validTypes.includes(type) ? type : "general_feedback";
 
       const validSeverities = ["low", "medium", "high", "critical"];
       const feedbackSeverity = validSeverities.includes(severity) ? severity : "medium";
 
-      const storage = getStorageStructure(runtime.root);
-      await fs.mkdir(storage.feedbackDir, { recursive: true }).catch(() => {});
-      await fs.mkdir(storage.feedbackAttachmentsDir, { recursive: true }).catch(() => {});
-
-      const feedbackId = `fb_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const timestamp = new Date().toISOString();
-
-      // 1. Diagnóstico del sistema
-      let systemInfo = null;
-      if (attach_system_info) {
-        systemInfo = {
-          platform: os.platform(),
-          release: os.release(),
-          arch: os.arch(),
-          nodeVersion: process.version,
-          totalMemoryMB: Math.round(os.totalmem() / (1024 * 1024)),
-          freeMemoryMB: Math.round(os.freemem() / (1024 * 1024)),
-          uptimeSeconds: Math.round(process.uptime()),
-          fluxerVersion: CURRENT_VERSION,
-        };
-      }
-
-      // 2. Extraer logs del servidor (enmascarando rutas privadas)
-      let logsSnippet = null;
-      if (attach_logs) {
-        try {
-          const logContent = await fs.readFile(storage.mainLog, "utf8").catch(() => "");
-          if (logContent) {
-            const lines = logContent.split("\n").filter(Boolean);
-            const tail = lines.slice(-50).join("\n");
-            const home = os.homedir();
-            logsSnippet = tail.split(home).join("~");
-          } else {
-            logsSnippet = "Sin logs registrados en fluxer.log";
-          }
-        } catch {
-          logsSnippet = "No se pudieron leer los logs del servidor.";
-        }
-      }
-
-      // 3. Procesar captura de pantalla / imágenes
-      let attachmentInfo = null;
-      if (screenshot) {
-        try {
-          let buffer = null;
-          let filename = `${feedbackId}_screenshot.png`;
-
-          if (typeof screenshot === "string" && screenshot.startsWith("data:image")) {
-            const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, "");
-            buffer = Buffer.from(base64Data, "base64");
-          } else if (typeof screenshot === "string" && (await fs.access(screenshot).then(() => true).catch(() => false))) {
-            buffer = await fs.readFile(screenshot);
-            filename = `${feedbackId}_${path.basename(screenshot)}`;
-          } else if (typeof screenshot === "string" && screenshot.length > 50 && !screenshot.includes("\n")) {
-            try {
-              buffer = Buffer.from(screenshot, "base64");
-            } catch {}
-          }
-
-          if (buffer) {
-            const destPath = path.join(storage.feedbackAttachmentsDir, filename);
-            await fs.writeFile(destPath, buffer);
-            attachmentInfo = {
-              filename,
-              path: destPath,
-              sizeBytes: buffer.length,
-            };
-          }
-        } catch (e) {
-          attachmentInfo = { error: `No se pudo adjuntar la captura: ${e.message}` };
-        }
-      }
-
-      // 4. Construir registro completo de feedback
-      const feedbackRecord = {
+      const payload = {
         id: feedbackId,
-        timestamp,
         type: feedbackType,
-        title,
-        description,
-        steps_to_reproduce: steps_to_reproduce || null,
-        expected_behavior: expected_behavior || null,
-        actual_behavior: actual_behavior || null,
+        title: sanitize(title).trim().slice(0, 200),
+        description: sanitize(description).trim().slice(0, 4000),
+        steps_to_reproduce: steps_to_reproduce ? sanitize(steps_to_reproduce).trim().slice(0, 2000) : null,
+        expected_behavior: expected_behavior ? sanitize(expected_behavior).trim().slice(0, 1000) : null,
+        actual_behavior: actual_behavior ? sanitize(actual_behavior).trim().slice(0, 1000) : null,
         severity: feedbackSeverity,
-        systemInfo,
-        logsSnippet,
-        attachment: attachmentInfo,
+        tool: tool ? sanitize(String(tool)).slice(0, 100) : null,
+        version: CURRENT_VERSION,
+        system: {
+          platform: os.platform(),
+          arch: os.arch(),
+          node: process.version,
+        },
+        logs: logsSnippet,
+        attachment: attachmentPayload,
+        created_at: new Date().toISOString(),
       };
 
-      const recordPath = path.join(storage.feedbackDir, `${feedbackId}.json`);
-      await fs.writeFile(recordPath, JSON.stringify(feedbackRecord, null, 2), "utf8");
-
-      // 5. Enviar por MD privado a través del bot de Discord (Nexus) si está configurado
-      const discordBotToken = process.env.DISCORD_TOKEN || runtime.config?.feedback?.discord_bot_token;
-      const discordRecipientId = runtime.config?.feedback?.discord_recipient_id || process.env.DISCORD_FEEDBACK_USER_ID || "971639277626720268";
-      let dmDelivered = false;
-      let dmDetails = null;
-
-      if (discordBotToken && discordRecipientId) {
-        try {
-          // Abrir o recuperar canal de DM
-          const dmChannel = await new Promise((res, rej) => {
-            const body = JSON.stringify({ recipient_id: discordRecipientId });
-            const req = https.request("https://discord.com/api/v10/users/@me/channels", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bot ${discordBotToken}`,
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(body),
-              },
-            }, (r) => {
-              let d = "";
-              r.on("data", (c) => (d += c));
-              r.on("end", () => {
-                if (r.statusCode >= 200 && r.statusCode < 300) res(JSON.parse(d));
-                else rej(new Error(`HTTP ${r.statusCode}: ${d}`));
-              });
-            });
-            req.on("error", rej);
-            req.write(body);
-            req.end();
-          });
-
-          // Construir embed para el DM privado
-          const colorMap = {
-            bug_report: 15158332,      // Rojo
-            feature_request: 3066993,  // Verde esmeralda
-            general_feedback: 3447003, // Azul
-            performance: 15844367,     // Naranja
-          };
-
-          const fields = [
-            { name: "Tipo", value: feedbackType.toUpperCase(), inline: true },
-            { name: "Severidad", value: feedbackSeverity.toUpperCase(), inline: true },
-            { name: "Versión", value: `v${CURRENT_VERSION}`, inline: true },
-            { name: "Descripción", value: description.slice(0, 1024) },
-          ];
-
-          if (steps_to_reproduce) {
-            fields.push({ name: "Pasos para reproducir", value: steps_to_reproduce.slice(0, 1024) });
-          }
-
-          if (expected_behavior || actual_behavior) {
-            fields.push({
-              name: "Comportamiento",
-              value: `**Esperado:** ${expected_behavior || 'N/A'}\n**Actual:** ${actual_behavior || 'N/A'}`.slice(0, 1024),
-            });
-          }
-
-          if (systemInfo) {
-            fields.push({
-              name: "Diagnóstico",
-              value: `${systemInfo.platform} (${systemInfo.arch}) | Node ${systemInfo.nodeVersion} | RAM libre: ${systemInfo.freeMemoryMB}MB / ${systemInfo.totalMemoryMB}MB`.slice(0, 1024),
-            });
-          }
-
-          if (attachmentInfo?.path) {
-            fields.push({
-              name: "Captura adjunta",
-              value: `Archivo: \`${attachmentInfo.filename}\` (${attachmentInfo.sizeBytes} bytes) guardado en disco.`,
-            });
-          }
-
-          const embed = {
-            title: `📩 Nuevo Feedback recibido: ${title.slice(0, 200)}`,
-            color: colorMap[feedbackType] || 3447003,
-            fields,
-            footer: { text: `ID: ${feedbackId} • Aero Fluxer X` },
-            timestamp,
-          };
-
-          // Enviar mensaje al canal de DM
-          await new Promise((res, rej) => {
-            const body = JSON.stringify({ embeds: [embed] });
-            const req = https.request(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
-              method: "POST",
-              headers: {
-                "Authorization": `Bot ${discordBotToken}`,
-                "Content-Type": "application/json",
-                "Content-Length": Buffer.byteLength(body),
-              },
-            }, (r) => {
-              let d = "";
-              r.on("data", (c) => (d += c));
-              r.on("end", () => {
-                if (r.statusCode >= 200 && r.statusCode < 300) {
-                  dmDelivered = true;
-                  dmDetails = `Enviado por MD a través del bot Nexus (Canal DM: ${dmChannel.id})`;
-                } else {
-                  dmDetails = `Fallo al enviar mensaje DM: HTTP ${r.statusCode} ${d}`;
-                }
-                res();
-              });
-            });
-            req.on("error", rej);
-            req.write(body);
-            req.end();
-          });
-        } catch (e) {
-          dmDetails = `Error en DM de Discord: ${e.message}`;
-        }
-      }
-
-      // 6. Enviar a Webhook si está configurado
-      const targetWebhook = webhook_url || process.env.AERON_FEEDBACK_WEBHOOK || runtime.config?.feedback?.webhook_url;
-      let webhookDelivered = false;
-      let deliveryDetails = null;
-
-      if (targetWebhook) {
-        try {
-          if (targetWebhook.includes("discord.com/api/webhooks")) {
-            const colorMap = {
-              bug_report: 15158332,      // Rojo
-              feature_request: 3066993,  // Verde esmeralda
-              general_feedback: 3447003, // Azul
-              performance: 15844367,     // Naranja
-            };
-
-            const fields = [
-              { name: "Tipo", value: feedbackType.toUpperCase(), inline: true },
-              { name: "Severidad", value: feedbackSeverity.toUpperCase(), inline: true },
-              { name: "Versión", value: `v${CURRENT_VERSION}`, inline: true },
-              { name: "Descripción", value: description.slice(0, 1024) },
-            ];
-
-            if (steps_to_reproduce) {
-              fields.push({ name: "Pasos para reproducir", value: steps_to_reproduce.slice(0, 1024) });
-            }
-
-            if (expected_behavior || actual_behavior) {
-              fields.push({
-                name: "Comportamiento",
-                value: `**Esperado:** ${expected_behavior || 'N/A'}\n**Actual:** ${actual_behavior || 'N/A'}`.slice(0, 1024),
-              });
-            }
-
-            if (systemInfo) {
-              fields.push({
-                name: "Diagnóstico del Sistema",
-                value: `${systemInfo.platform} (${systemInfo.arch}) | Node ${systemInfo.nodeVersion} | RAM libre: ${systemInfo.freeMemoryMB}MB / ${systemInfo.totalMemoryMB}MB`.slice(0, 1024),
-              });
-            }
-
-            const embed = {
-              title: `📢 Feedback: ${title.slice(0, 200)}`,
-              color: colorMap[feedbackType] || 3447003,
-              fields,
-              footer: { text: `ID: ${feedbackId} • Aero Fluxer X` },
-              timestamp,
-            };
-
-            const payloadStr = JSON.stringify({
-              username: "Aero Fluxer Feedback",
-              embeds: [embed],
-            });
-
-            const client = targetWebhook.startsWith("https") ? https : http;
-            await new Promise((res, rej) => {
-              const req = client.request(
-                targetWebhook,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(payloadStr),
-                    "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
-                  },
-                },
-                (r) => {
-                  let b = "";
-                  r.on("data", (c) => (b += c));
-                  r.on("end", () => {
-                    if (r.statusCode >= 200 && r.statusCode < 300) {
-                      webhookDelivered = true;
-                      deliveryDetails = "Entregado exitosamente al webhook de Discord";
-                    } else {
-                      deliveryDetails = `HTTP ${r.statusCode}: ${b}`;
-                    }
-                    res();
-                  });
-                }
-              );
-              req.on("error", rej);
-              req.write(payloadStr);
-              req.end();
-            });
-          } else {
-            // Webhook genérico
-            const payloadStr = JSON.stringify(feedbackRecord);
-            const client = targetWebhook.startsWith("https") ? https : http;
-            await new Promise((res, rej) => {
-              const req = client.request(
-                targetWebhook,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(payloadStr),
-                    "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
-                  },
-                },
-                (r) => {
-                  webhookDelivered = r.statusCode >= 200 && r.statusCode < 300;
-                  deliveryDetails = `Webhook respondió HTTP ${r.statusCode}`;
-                  res();
-                }
-              );
-              req.on("error", rej);
-              req.write(payloadStr);
-              req.end();
-            });
-          }
-        } catch (we) {
-          deliveryDetails = `Error al contactar webhook: ${we.message}`;
-        }
-      }
-
-      return {
-        ok: true,
-        feedbackId,
-        type: feedbackType,
-        storedLocally: true,
-        feedbackFile: recordPath,
-        attachmentSaved: Boolean(attachmentInfo?.path),
-        dmDelivered,
-        dmDetails: dmDetails || "Sin bot configurado para MD",
-        webhookDelivered,
-        deliveryDetails: dmDelivered ? dmDetails : (deliveryDetails || "Guardado en almacenamiento local de usuario"),
-        message: "¡Feedback registrado exitosamente!",
-      };
-    },
-
-    list_feedbacks: async ({ limit = 20 } = {}) => {
-      const storage = getStorageStructure(runtime.root);
-      const exists = await fs.access(storage.feedbackDir).then(() => true).catch(() => false);
-      if (!exists) return { ok: true, feedbacks: [], count: 0 };
-
-      const files = await fs.readdir(storage.feedbackDir);
-      const jsonFiles = files.filter((f) => f.startsWith("fb_") && f.endsWith(".json"));
-
-      const list = [];
-      for (const f of jsonFiles) {
-        try {
-          const raw = await fs.readFile(path.join(storage.feedbackDir, f), "utf8");
-          const data = JSON.parse(raw);
-          list.push({
-            id: data.id,
-            timestamp: data.timestamp,
-            type: data.type,
-            title: data.title,
-            severity: data.severity,
-            hasAttachment: Boolean(data.attachment?.path),
-            file: path.join(storage.feedbackDir, f),
-          });
-        } catch {}
-      }
-
-      list.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      return {
-        ok: true,
-        count: list.length,
-        feedbacks: list.slice(0, limit),
-      };
-    },
-
-    get_feedback: async ({ feedbackId } = {}) => {
-      if (!feedbackId) return { ok: false, error: "Se requiere 'feedbackId'." };
-      const storage = getStorageStructure(runtime.root);
-      const target = path.join(storage.feedbackDir, `${feedbackId.replace(/\.json$/, "")}.json`);
+      // 7. Despacho HTTPS al Feedback Gateway externo (Render)
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway.onrender.com/api/v1/feedback";
 
       try {
-        const raw = await fs.readFile(target, "utf8");
-        return { ok: true, feedback: JSON.parse(raw) };
-      } catch {
-        return { ok: false, error: `No se encontró el feedback con ID '${feedbackId}'.` };
+        const url = new URL(endpoint);
+        const client = url.protocol === "https:" ? https : http;
+        const payloadStr = JSON.stringify(payload);
+
+        const gatewayResponse = await new Promise((resolve, reject) => {
+          const req = client.request(
+            url,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(payloadStr),
+                "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
+              },
+              timeout: 6000,
+            },
+            (res) => {
+              let body = "";
+              res.on("data", (c) => (body += c));
+              res.on("end", () => {
+                try {
+                  resolve({ status: res.statusCode, data: JSON.parse(body) });
+                } catch {
+                  resolve({ status: res.statusCode, raw: body });
+                }
+              });
+            }
+          );
+          req.on("timeout", () => {
+            req.destroy();
+            reject(new Error("GATEWAY_TIMEOUT"));
+          });
+          req.on("error", (err) => reject(err));
+          req.write(payloadStr);
+          req.end();
+        });
+
+        if (gatewayResponse.status === 200 || gatewayResponse.status === 201) {
+          return {
+            status: gatewayResponse.data?.status || "received",
+            id: gatewayResponse.data?.id || feedbackId,
+          };
+        }
+
+        if (gatewayResponse.status === 409 || gatewayResponse.data?.status === "duplicate") {
+          return {
+            status: "duplicate",
+            id: gatewayResponse.data?.id || feedbackId,
+          };
+        }
+
+        if (gatewayResponse.status === 429) {
+          return {
+            status: "rate_limited",
+            code: "RATE_LIMITED",
+            message: "Límite de envíos alcanzado. Intente de nuevo más tarde.",
+          };
+        }
+
+        throw new Error(`Gateway returned HTTP ${gatewayResponse.status}`);
+      } catch (err) {
+        // Fallback a Outbox Local Seguro si el Gateway está inaccesible o en modo offline
+        if (runtime.config?.feedback?.queue_offline !== false) {
+          try {
+            await fs.mkdir(storage.feedbackOutboxDir, { recursive: true }).catch(() => {});
+            const outboxPath = path.join(storage.feedbackOutboxDir, `${feedbackId}.json`);
+            await fs.writeFile(outboxPath, JSON.stringify(payload, null, 2), "utf8");
+            return {
+              status: "queued",
+              id: feedbackId,
+            };
+          } catch {}
+        }
+
+        return {
+          status: "unavailable",
+          code: "GATEWAY_UNAVAILABLE",
+          message: "El servicio de feedback está temporalmente fuera de línea.",
+        };
       }
+    },
+
+    feedback_guide: async () => {
+      return {
+        types: ["bug_report", "feature_request", "general_feedback"],
+        required_fields: ["title", "description"],
+        optional_fields: [
+          "steps_to_reproduce",
+          "expected_behavior",
+          "actual_behavior",
+          "severity",
+          "screenshot",
+          "attach_logs",
+          "tool",
+        ],
+        guidelines: [
+          "Describa el comportamiento con claridad y precisión.",
+          "Nunca incluya API keys, tokens, credenciales o contraseñas.",
+          "Cualquier patrón de credenciales detectado bloqueará automáticamente el reporte.",
+          "Los reportes idénticos consecutivos son deduplicados automáticamente.",
+        ],
+      };
+    },
+
+    check_update: async () => {
+      const res = await checkForUpdates({ repoRoot: runtime.root });
+      return {
+        current: res.currentVersion,
+        latest: res.latestVersion,
+        update_available: res.updateAvailable,
+      };
+    },
+
+    update_info: async () => {
+      const res = await checkForUpdates({ repoRoot: runtime.root });
+      return {
+        version: res.latestVersion,
+        release_type: "patch",
+        update_available: res.updateAvailable,
+        breaking_changes: false,
+      };
+    },
+
+    update: async ({ allowDowngrade = false } = {}) => {
+      return await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
     },
   };
 
   return domain(
     "developer",
-    "Detección, análisis, tests, builds y gestión integral de skills de IA (.md) para desarrollo de software.",
+    "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.",
     actions,
     {
       create_skill: "user",
@@ -918,8 +790,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       diagnose_service: "user",
       refresh_service_state: "user",
       submit_feedback: "user",
-      list_feedbacks: "user",
-      get_feedback: "user",
+      feedback_guide: "user",
+      check_update: "user",
+      update_info: "user",
+      update: "poweruser",
     }
   );
 }

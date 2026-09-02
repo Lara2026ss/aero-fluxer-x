@@ -54,7 +54,9 @@
     "autoDetect": true
   },
   "feedback": {
-    "webhook_url": "",
-    "auto_collect_logs": true
+    "enabled": true,
+    "endpoint": "https://aero-fluxer-feedback-gateway.onrender.com/api/v1/feedback",
+    "attach_logs": true,
+    "queue_offline": true
   }
 }
