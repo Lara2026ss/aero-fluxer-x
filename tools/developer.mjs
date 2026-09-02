@@ -1,3 +1,11 @@
+import os from "node:os";
+import https from "node:https";
+import http from "node:http";
+import crypto from "node:crypto";
+import { getStorageStructure } from "../core/storage-paths.mjs";
+import { CURRENT_VERSION } from "../core/version.mjs";
+import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
+
 export function createDeveloperDomain({ runtime, domain, fs, path }) {
   function parseSkillFrontmatter(rawText) {
     const match = rawText.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -489,12 +497,286 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       } catch (e) {
         return { ok: false, error: e.message };
       }
-    }
+    },
+
+    submit_feedback: async ({
+      type = "bug_report",
+      title,
+      description,
+      steps_to_reproduce = "",
+      expected_behavior = "",
+      actual_behavior = "",
+      severity = "medium",
+      screenshot = null,
+      attach_logs = true,
+      tool = null,
+    } = {}) => {
+      // 1. Validación de campos obligatorios
+      if (!title || typeof title !== "string" || !title.trim() || !description || typeof description !== "string" || !description.trim()) {
+        return {
+          status: "invalid_input",
+          code: "INVALID_INPUT",
+          message: "Los campos 'title' y 'description' son obligatorios para enviar feedback.",
+        };
+      }
+
+      // 2. Escáner de seguridad y sanitización local (Cero Secretos)
+      const sensitivePatterns = [
+        /gsk_[a-zA-Z0-9]{20,}/i,
+        /Bearer\s+[a-zA-Z0-9_\-\.]{20,}/i,
+        /ghp_[a-zA-Z0-9]{36,}/i,
+        /gho_[a-zA-Z0-9]{36,}/i,
+        /-----BEGIN (RSA|EC|OPENSSH|PGP|PRIVATE) KEY-----/i,
+        /AIza[0-9A-Za-z-_]{35}/i,
+        /xox[baprs]-[0-9a-zA-Z]{10,}/i,
+      ];
+
+      const fullRawText = `${title}\n${description}\n${steps_to_reproduce || ""}\n${expected_behavior || ""}\n${actual_behavior || ""}`;
+      if (sensitivePatterns.some((pattern) => pattern.test(fullRawText))) {
+        return {
+          status: "blocked",
+          code: "BLOCKED_SENSITIVE_DATA",
+          message: "El feedback contiene posibles credenciales, API keys o tokens de seguridad y fue bloqueado preventivamente.",
+        };
+      }
+
+      const sanitize = (val) => {
+        if (!val || typeof val !== "string") return val;
+        let s = val;
+        const home = os.homedir();
+        if (home) s = s.split(home).join("~");
+        s = s.replace(/[a-zA-Z]:\\[Uu]sers\\[^\\]+/g, "~");
+        s = s.replace(/\/home\/[^\/]+/g, "~");
+        return s;
+      };
+
+      // 3. Generar Identificador Idempotente AFX-FB-XXXXXXXX
+      const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+      let code = "";
+      const bytes = crypto.randomBytes(6);
+      for (let i = 0; i < 6; i++) {
+        code += chars[bytes[i] % chars.length];
+      }
+      const feedbackId = `AFX-FB-${code}`;
+
+      // 4. Validar y procesar captura de pantalla (tamaño bounded max 2MB)
+      let attachmentPayload = null;
+      if (screenshot) {
+        try {
+          let buffer = null;
+          let mime = "image/png";
+          if (typeof screenshot === "string" && screenshot.startsWith("data:image")) {
+            const match = screenshot.match(/^data:(image\/\w+);base64,(.*)$/);
+            if (match) {
+              mime = match[1];
+              buffer = Buffer.from(match[2], "base64");
+            } else {
+              buffer = Buffer.from(screenshot.replace(/^data:image\/\w+;base64,/, ""), "base64");
+            }
+          } else if (typeof screenshot === "string" && (await fs.access(screenshot).then(() => true).catch(() => false))) {
+            buffer = await fs.readFile(screenshot);
+            const ext = path.extname(screenshot).toLowerCase();
+            if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
+            else if (ext === ".webp") mime = "image/webp";
+          }
+
+          if (buffer) {
+            if (buffer.length > 2 * 1024 * 1024) {
+              return {
+                status: "invalid_input",
+                code: "PAYLOAD_TOO_LARGE",
+                message: "La captura de pantalla supera el límite máximo permitido de 2MB.",
+              };
+            }
+            attachmentPayload = {
+              name: `${feedbackId}_screenshot.png`,
+              mime,
+              sizeBytes: buffer.length,
+              data: buffer.toString("base64"),
+            };
+          }
+        } catch {
+          attachmentPayload = null;
+        }
+      }
+
+      // 5. Sanitizar y extraer fragmento de logs relevante (máximo 30 líneas)
+      const storage = getStorageStructure(runtime.root);
+      let logsSnippet = null;
+      if (attach_logs !== false) {
+        try {
+          const logContent = await fs.readFile(storage.mainLog, "utf8").catch(() => "");
+          if (logContent) {
+            const lines = logContent.split("\n").filter(Boolean);
+            const tail = lines.slice(-30).join("\n");
+            logsSnippet = sanitize(tail);
+          }
+        } catch {}
+      }
+
+      // 6. Construir Payload Normalizado para el Gateway
+      const validTypes = ["bug_report", "feature_request", "general_feedback"];
+      const feedbackType = validTypes.includes(type) ? type : "general_feedback";
+
+      const validSeverities = ["low", "medium", "high", "critical"];
+      const feedbackSeverity = validSeverities.includes(severity) ? severity : "medium";
+
+      const payload = {
+        id: feedbackId,
+        type: feedbackType,
+        title: sanitize(title).trim().slice(0, 200),
+        description: sanitize(description).trim().slice(0, 4000),
+        steps_to_reproduce: steps_to_reproduce ? sanitize(steps_to_reproduce).trim().slice(0, 2000) : null,
+        expected_behavior: expected_behavior ? sanitize(expected_behavior).trim().slice(0, 1000) : null,
+        actual_behavior: actual_behavior ? sanitize(actual_behavior).trim().slice(0, 1000) : null,
+        severity: feedbackSeverity,
+        tool: tool ? sanitize(String(tool)).slice(0, 100) : null,
+        version: CURRENT_VERSION,
+        system: {
+          platform: os.platform(),
+          arch: os.arch(),
+          node: process.version,
+        },
+        logs: logsSnippet,
+        attachment: attachmentPayload,
+        created_at: new Date().toISOString(),
+      };
+
+      // 7. Despacho HTTPS al Feedback Gateway externo (Render)
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback.onrender.com/api/v1/feedback";
+
+      try {
+        const url = new URL(endpoint);
+        const client = url.protocol === "https:" ? https : http;
+        const payloadStr = JSON.stringify(payload);
+
+        const gatewayResponse = await new Promise((resolve, reject) => {
+          const req = client.request(
+            url,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(payloadStr),
+                "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
+              },
+              timeout: 6000,
+            },
+            (res) => {
+              let body = "";
+              res.on("data", (c) => (body += c));
+              res.on("end", () => {
+                try {
+                  resolve({ status: res.statusCode, data: JSON.parse(body) });
+                } catch {
+                  resolve({ status: res.statusCode, raw: body });
+                }
+              });
+            }
+          );
+          req.on("timeout", () => {
+            req.destroy();
+            reject(new Error("GATEWAY_TIMEOUT"));
+          });
+          req.on("error", (err) => reject(err));
+          req.write(payloadStr);
+          req.end();
+        });
+
+        if (gatewayResponse.status === 200 || gatewayResponse.status === 201) {
+          return {
+            status: gatewayResponse.data?.status || "received",
+            id: gatewayResponse.data?.id || feedbackId,
+          };
+        }
+
+        if (gatewayResponse.status === 409 || gatewayResponse.data?.status === "duplicate") {
+          return {
+            status: "duplicate",
+            id: gatewayResponse.data?.id || feedbackId,
+          };
+        }
+
+        if (gatewayResponse.status === 429) {
+          return {
+            status: "rate_limited",
+            code: "RATE_LIMITED",
+            message: "Límite de envíos alcanzado. Intente de nuevo más tarde.",
+          };
+        }
+
+        throw new Error(`Gateway returned HTTP ${gatewayResponse.status}`);
+      } catch (err) {
+        // Fallback a Outbox Local Seguro si el Gateway está inaccesible o en modo offline
+        if (runtime.config?.feedback?.queue_offline !== false) {
+          try {
+            await fs.mkdir(storage.feedbackOutboxDir, { recursive: true }).catch(() => {});
+            const outboxPath = path.join(storage.feedbackOutboxDir, `${feedbackId}.json`);
+            await fs.writeFile(outboxPath, JSON.stringify(payload, null, 2), "utf8");
+            return {
+              status: "queued",
+              id: feedbackId,
+            };
+          } catch {}
+        }
+
+        return {
+          status: "unavailable",
+          code: "GATEWAY_UNAVAILABLE",
+          message: "El servicio de feedback está temporalmente fuera de línea.",
+        };
+      }
+    },
+
+    feedback_guide: async () => {
+      return {
+        types: ["bug_report", "feature_request", "general_feedback"],
+        required_fields: ["title", "description"],
+        optional_fields: [
+          "steps_to_reproduce",
+          "expected_behavior",
+          "actual_behavior",
+          "severity",
+          "screenshot",
+          "attach_logs",
+          "tool",
+        ],
+        guidelines: [
+          "Describa el comportamiento con claridad y precisión.",
+          "Nunca incluya API keys, tokens, credenciales o contraseñas.",
+          "Cualquier patrón de credenciales detectado bloqueará automáticamente el reporte.",
+          "Los reportes idénticos consecutivos son deduplicados automáticamente.",
+        ],
+      };
+    },
+
+    check_update: async () => {
+      const res = await checkForUpdates({ repoRoot: runtime.root });
+      return {
+        current: res.currentVersion,
+        latest: res.latestVersion,
+        update_available: res.updateAvailable,
+      };
+    },
+
+    update_info: async () => {
+      const res = await checkForUpdates({ repoRoot: runtime.root });
+      return {
+        version: res.latestVersion,
+        release_type: "patch",
+        update_available: res.updateAvailable,
+        breaking_changes: false,
+      };
+    },
+
+    update: async ({ allowDowngrade = false } = {}) => {
+      return await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
+    },
   };
 
   return domain(
     "developer",
-    "Detección, análisis, tests, builds y gestión integral de skills de IA (.md) para desarrollo de software.",
+    "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.",
     actions,
     {
       create_skill: "user",
@@ -507,6 +789,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       run_project_build: "poweruser",
       diagnose_service: "user",
       refresh_service_state: "user",
+      submit_feedback: "user",
+      feedback_guide: "user",
+      check_update: "user",
+      update_info: "user",
+      update: "poweruser",
     }
   );
 }
