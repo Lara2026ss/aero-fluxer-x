@@ -53,5 +53,11 @@
   "workspace": {
     "path": null,
     "autoDetect": true
+  },
+  "feedback": {
+    "enabled": true,
+    "endpoint": "https://aero-fluxer-feedback.onrender.com/api/v1/feedback",
+    "attach_logs": true,
+    "queue_offline": true
   }
 }
