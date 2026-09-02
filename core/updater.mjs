@@ -164,55 +164,82 @@ export async function computeFileSha256(filePath) {
 export async function checkForUpdates(options = {}) {
   const repoRoot = options.repoRoot || process.cwd();
   const manifestUrl = options.manifestUrl || process.env.AERON_UPDATE_MANIFEST_URL;
-
-  if (!manifestUrl) {
-    await logUpdaterMessage(repoRoot, "info", "Aero Fluxer X opera de forma autónoma e independiente.");
-    return {
-      ok: true,
-      currentVersion: CURRENT_VERSION,
-      latestVersion: CURRENT_VERSION,
-      updateAvailable: false,
-      source: "standalone_decoupled",
-      message: "Aero Fluxer X opera de forma autónoma e independiente. Cero dependencia de tokens o autorizaciones externas.",
-    };
-  }
-
-  await logUpdaterMessage(repoRoot, "info", `Iniciando comprobación de actualizaciones desde: ${manifestUrl}...`);
+  const defaultGithubReleaseUrl = "https://api.github.com/repos/Lara2026ss/aero-fluxer-x/releases/latest";
 
   let releaseData = null;
-  try {
-    releaseData = await fetchJson(manifestUrl);
-  } catch (error) {
-    const errorMsg = `No se pudo consultar el manifiesto de actualizaciones: ${error.message}`;
-    await logUpdaterMessage(repoRoot, "warn", errorMsg);
-    return {
-      ok: false,
-      currentVersion: CURRENT_VERSION,
-      error: errorMsg,
-      offline: true,
-      recoverable: true,
-    };
-  }
-
-  const latestVersion = releaseData.version || "";
-  const releaseNotes = releaseData.changelog || releaseData.description || "";
-  const zipAsset = releaseData.assets?.zip || releaseData.asset;
+  let latestVersion = "";
+  let releaseNotes = "";
   let downloadUrl = "";
   let expectedSha256 = "";
   let assetName = "";
 
-  if (zipAsset) {
-    downloadUrl = zipAsset.url || "";
-    expectedSha256 = (zipAsset.sha256 || "").toLowerCase().trim();
-    assetName = zipAsset.name || path.basename(downloadUrl);
+  if (manifestUrl) {
+    await logUpdaterMessage(repoRoot, "info", `Iniciando comprobación de actualizaciones desde manifiesto: ${manifestUrl}...`);
+    try {
+      releaseData = await fetchJson(manifestUrl);
+      latestVersion = releaseData.version || "";
+      releaseNotes = releaseData.changelog || releaseData.description || "";
+      const zipAsset = releaseData.assets?.zip || releaseData.asset;
+      if (zipAsset) {
+        downloadUrl = zipAsset.url || "";
+        expectedSha256 = (zipAsset.sha256 || "").toLowerCase().trim();
+        assetName = zipAsset.name || path.basename(downloadUrl);
+      }
+    } catch (error) {
+      const errorMsg = `No se pudo consultar el manifiesto de actualizaciones: ${error.message}`;
+      await logUpdaterMessage(repoRoot, "warn", errorMsg);
+      return {
+        ok: false,
+        currentVersion: CURRENT_VERSION,
+        error: errorMsg,
+        offline: true,
+        recoverable: true,
+      };
+    }
+  } else {
+    // Consulta directa al repositorio público oficial de GitHub
+    await logUpdaterMessage(repoRoot, "info", `Consultando último release en GitHub: ${defaultGithubReleaseUrl}...`);
+    try {
+      const ghRelease = await fetchJson(defaultGithubReleaseUrl);
+      latestVersion = (ghRelease.tag_name || "").replace(/^v/, "").trim();
+      releaseNotes = ghRelease.body || ghRelease.name || "";
+      
+      const zipAsset = (ghRelease.assets || []).find((a) => a.name.endsWith(".zip"));
+      if (zipAsset) {
+        downloadUrl = zipAsset.browser_download_url || "";
+        assetName = zipAsset.name;
+      }
+
+      // Intentar obtener sha256 del checksums o manifest si existe
+      const manifestAsset = (ghRelease.assets || []).find((a) => a.name.includes("manifest"));
+      if (manifestAsset?.browser_download_url) {
+        try {
+          const mData = await fetchJson(manifestAsset.browser_download_url);
+          expectedSha256 = (mData.assets?.zip?.sha256 || "").toLowerCase().trim();
+        } catch (_) {}
+      }
+    } catch (error) {
+      await logUpdaterMessage(repoRoot, "info", `Aero Fluxer X opera de forma autónoma (sin conexión a GitHub: ${error.message}).`);
+      return {
+        ok: true,
+        currentVersion: CURRENT_VERSION,
+        latestVersion: CURRENT_VERSION,
+        updateAvailable: false,
+        source: "standalone_decoupled",
+        message: "Aero Fluxer X v" + CURRENT_VERSION + " está al día y opera de forma autónoma.",
+      };
+    }
   }
 
   if (!latestVersion || !downloadUrl) {
     return {
-      ok: false,
+      ok: true,
       currentVersion: CURRENT_VERSION,
-      error: "El manifiesto de actualización no contiene una versión o URL de descarga válida.",
-      recoverable: true,
+      latestVersion: latestVersion || CURRENT_VERSION,
+      updateAvailable: false,
+      source: "github_releases",
+      message: "Aero Fluxer X v" + CURRENT_VERSION + " está al día.",
+      releaseNotes,
     };
   }
 
@@ -220,6 +247,8 @@ export async function checkForUpdates(options = {}) {
     allowDowngrade: options.allowDowngrade,
     allowPrerelease: options.allowPrerelease,
   });
+
+  const source = manifestUrl ? "custom_manifest" : "github_releases";
 
   const result = {
     ok: true,

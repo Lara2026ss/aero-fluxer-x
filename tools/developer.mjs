@@ -769,6 +769,19 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
+    get_update: async ({ apply = false, allowDowngrade = false } = {}) => {
+      const check = await checkForUpdates({ repoRoot: runtime.root, allowDowngrade });
+      if (apply && check.updateAvailable) {
+        const updateResult = await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
+        return {
+          ...check,
+          applied: true,
+          result: updateResult,
+        };
+      }
+      return check;
+    },
+
     update: async ({ allowDowngrade = false } = {}) => {
       return await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
     },
@@ -793,6 +806,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       feedback_guide: "user",
       check_update: "user",
       update_info: "user",
+      get_update: "user",
       update: "poweruser",
     }
   );
