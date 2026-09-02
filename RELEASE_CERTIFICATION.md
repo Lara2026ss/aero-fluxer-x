@@ -33,6 +33,7 @@
 | **DIST-002** | Release Manifest | **PASS** | `dist/release-manifest.json` y `dist/checksums.sha256` generados y validados. |
 | **DIST-003** | Simulación Dual de Tercero | **PASS** | `CLEAN MACHINE #1` y `CLEAN MACHINE #2` ejecutadas en paralelo en sandboxes limpios sin datos compartidos ni rutas del autor: ambas completaron ciclo de vida PASS. |
 | **DOC-002** | Documentación Pública | **PASS** | `README.md`, `LICENSE` (MIT), `SECURITY.md`, `CONTRIBUTING.md` y `CHANGELOG.md` completos y listos para publicación. |
+| **GH-001** | Desacoplamiento Total de GitHub | **PASS** | Cero dependencia de tokens o APIs de GitHub en runtime; sin colisión con cuentas del autor ni fallos de autorización a terceros. |
 
 ---
 
