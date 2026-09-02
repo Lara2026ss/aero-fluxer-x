@@ -15,7 +15,7 @@
 | **SEC-001** | Secret Scan en Árbol de Código | **PASS** | Escaneo exhaustivo con regex sobre todas las extensiones (patrones de API keys, private keys, tokens). 0 secretos detectados. |
 | **SEC-002** | Git History Sanitization | **PASS** | Repositorio recién inicializado con commit raíz `a743262`. Cero commits históricos huérfanos o blobs con credenciales. |
 | **SEC-003** | Contención de Credencial Groq | **PASS** | Credencial local eliminada permanentemente del disco; no requerida por el autor y nunca registrada en el historial Git. |
-| **PRIV-001** | Rutas Personales del Autor | **PASS** | Búsqueda exhaustiva de `C:\Users\mauri`, `Users/mauri` y variables del autor arrojó 0 coincidencias en código y tests. |
+| **PRIV-001** | Rutas Personales del Autor | **PASS** | Búsqueda exhaustiva de perfiles de usuario locales y variables privadas del autor arrojó 0 coincidencias en código y tests. |
 | **STR-001** | Storage Isolation | **PASS** | `core/storage-paths.mjs` confina todos los datos en `%APPDATA%\AeroFluxerX\` (Windows) o `~/.config/aero-fluxer-x/` (Linux/macOS). Repositorio 100% apátrida. |
 | **STR-002** | Shortcuts y Macros Locales | **PASS** | `shortcuts.example.json` público. Generación automática en primer arranque. Prueba de persistencia de `TEST_LOCAL_SHORTCUT` superada tras reinicio/reinstalación. |
 | **CFG-001** | Separación de Configuración | **PASS** | Plantillas públicas `aeron.config.example.json` y `.env.example`. Precedencia verificada: Defaults < Repo < Usuario < Env Vars. |
