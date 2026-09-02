@@ -182,7 +182,7 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // 3. Endpoint administrativo privado (requiere ADMIN_SECRET_KEY)
+  // 3. Endpoint administrativo — lista de feedbacks con filtros
   if (req.method === "GET" && url.pathname === "/api/v1/feedbacks") {
     const authHeader = req.headers["authorization"] || "";
     const adminKey = process.env.ADMIN_SECRET_KEY;
@@ -191,15 +191,65 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 401, { error: "UNAUTHORIZED" });
     }
 
-    const pending = await firebaseStore.getPendingNotifications();
+    const type = url.searchParams.get("type") || undefined;
+    const severity = url.searchParams.get("severity") || undefined;
+    const status = url.searchParams.get("status") || undefined;
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50", 10), 100);
+
+    const result = await firebaseStore.listFeedbacks({ type, severity, status, limit });
     return sendJson(res, 200, {
       ok: true,
-      pendingCount: pending.length,
-      feedbacks: pending,
+      total: result.total,
+      count: result.items.length,
+      feedbacks: result.items,
     });
   }
 
-  // 4. Ruta no encontrada
+  // 4. Endpoint administrativo — leer un feedback específico
+  if (req.method === "GET" && url.pathname.startsWith("/api/v1/feedback/")) {
+    const authHeader = req.headers["authorization"] || "";
+    const adminKey = process.env.ADMIN_SECRET_KEY;
+
+    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
+      return sendJson(res, 401, { error: "UNAUTHORIZED" });
+    }
+
+    const feedbackId = url.pathname.replace("/api/v1/feedback/", "").trim();
+    if (!feedbackId) {
+      return sendJson(res, 400, { error: "MISSING_ID" });
+    }
+
+    const result = await firebaseStore.getFeedback(feedbackId);
+    if (!result.ok || !result.data) {
+      return sendJson(res, 404, { error: "NOT_FOUND", id: feedbackId });
+    }
+
+    return sendJson(res, 200, { ok: true, feedback: result.data });
+  }
+
+  // 5. Endpoint administrativo — eliminar un feedback específico
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/v1/feedback/")) {
+    const authHeader = req.headers["authorization"] || "";
+    const adminKey = process.env.ADMIN_SECRET_KEY;
+
+    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
+      return sendJson(res, 401, { error: "UNAUTHORIZED" });
+    }
+
+    const feedbackId = url.pathname.replace("/api/v1/feedback/", "").trim();
+    if (!feedbackId) {
+      return sendJson(res, 400, { error: "MISSING_ID" });
+    }
+
+    const result = await firebaseStore.deleteFeedback(feedbackId);
+    if (!result.ok) {
+      return sendJson(res, 404, { error: "NOT_FOUND_OR_ALREADY_DELETED", id: feedbackId });
+    }
+
+    return sendJson(res, 200, { ok: true, deleted: feedbackId, paths: result.deleted });
+  }
+
+  // 6. Ruta no encontrada
   return sendJson(res, 404, { error: "NOT_FOUND" });
 });
 

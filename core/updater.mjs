@@ -21,7 +21,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import https from "node:https";
 import http from "node:http";
-import { exec, execFile } from "node:child_process";
+import { exec, execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 import { CURRENT_VERSION, checkUpdateEligibility, compareSemVer } from "./version.mjs";
@@ -553,14 +553,35 @@ export async function executeAutoUpdate(options = {}) {
     const successMsg = `🎉 ACTUALIZACIÓN COMPLETADA CON ÉXITO a v${targetVersion}. Backup guardado en: ${backupInfo.backupDir}`;
     await logUpdaterMessage(repoRoot, "info", successMsg);
 
-    return {
+    const result = {
       ok: true,
       phase: "complete",
       previousVersion: CURRENT_VERSION,
       newVersion: targetVersion,
       backupId: backupInfo.backupId,
+      restart_required: true,
       message: successMsg,
     };
+
+    // 11. Reiniciar el proceso MCP: lanzar server.mjs actualizado como proceso independiente
+    // y terminar el proceso actual para que el cliente IA detecte la desconexión.
+    const serverEntry = path.join(repoRoot, "server.mjs");
+    try {
+      const child = spawn(process.execPath, [serverEntry], {
+        detached: true,
+        stdio: "ignore",
+        cwd: repoRoot,
+        env: process.env,
+      });
+      child.unref();
+    } catch (spawnErr) {
+      await logUpdaterMessage(repoRoot, "warn", `No se pudo lanzar el proceso de reinicio: ${spawnErr.message}. Reinicia el MCP manualmente.`);
+    }
+
+    // Pequeña espera para asegurar que el log se escribió antes de salir
+    await new Promise((r) => setTimeout(r, 200));
+    process.exit(0);
+
   } catch (err) {
     // 11. ROLLBACK AUTOMÁTICO ANTE CUALQUIER FALLO
     const errorMsg = `Error durante la actualización: ${err.message}`;

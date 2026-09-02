@@ -771,19 +771,208 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
     get_update: async ({ apply = false, allowDowngrade = false } = {}) => {
       const check = await checkForUpdates({ repoRoot: runtime.root, allowDowngrade });
-      if (apply && check.updateAvailable) {
-        const updateResult = await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
+
+      // Paso 1 — Solo comprobación (apply === false o no hay update)
+      if (!apply || !check.updateAvailable) {
+        const info = {
+          ok: check.ok,
+          current_version: check.currentVersion,
+          latest_version: check.latestVersion,
+          update_available: check.updateAvailable,
+          source: check.releaseInfo?.source || "github_releases",
+          reason: check.eligibility?.reason || (check.updateAvailable ? "Nueva versión disponible." : "Ya está en la versión más reciente."),
+        };
+
+        if (check.releaseInfo?.releaseNotes) {
+          info.release_notes = check.releaseInfo.releaseNotes.slice(0, 600);
+        }
+        if (check.releaseInfo?.downloadUrl) {
+          info.download_url = check.releaseInfo.downloadUrl;
+        }
+
+        if (check.updateAvailable) {
+          info.warning = [
+            `⚠️  ACTUALIZACIÓN DISPONIBLE: v${check.currentVersion} → v${check.latestVersion}`,
+            `Para aplicar, llama a: get_update({ apply: true })`,
+            `IMPORTANTE: Aplicar la actualización REINICIARÁ el proceso MCP.`,
+            `Después del reinicio deberás REINICIAR CLAUDE DESKTOP (u otro cliente IA) para reconectar.`,
+          ].join("\n");
+        }
+
+        return info;
+      }
+
+      // Paso 2 — Ejecutar update completo (backup + descarga + verificación + reemplazo + reinicio)
+      const updateResult = await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
+
+      if (updateResult.ok) {
+        // El reinicio se produce dentro de executeAutoUpdate si restart_required = true
+        // Retornamos antes de que process.exit(0) ocurra
         return {
-          ...check,
+          ok: true,
           applied: true,
-          result: updateResult,
+          previous_version: updateResult.previousVersion,
+          new_version: updateResult.newVersion,
+          backup_id: updateResult.backupId,
+          restart_required: true,
+          message: [
+            `🎉 AERON FLUXER X ACTUALIZADO A v${updateResult.newVersion}`,
+            `El proceso MCP se está reiniciando ahora.`,
+            `👉 REINICIA CLAUDE DESKTOP (o tu cliente IA) para reconectar al servidor actualizado.`,
+          ].join("\n"),
         };
       }
-      return check;
+
+      return {
+        ok: false,
+        applied: false,
+        error: updateResult.error,
+        rolled_back: updateResult.rolledBack,
+        message: updateResult.rolledBack
+          ? "La actualización falló. Se restauró la versión anterior automáticamente."
+          : "La actualización falló. El sistema puede estar en estado inconsistente. Revisa updater.log.",
+      };
     },
 
     update: async ({ allowDowngrade = false } = {}) => {
       return await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
+    },
+
+    list_feedbacks: async ({ type, severity, status, limit = 50 } = {}) => {
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const adminKey = process.env.AERON_FEEDBACK_ADMIN_KEY || runtime.config?.feedback?.admin_key;
+      const baseUrl = endpoint.replace("/api/v1/feedback", "");
+
+      if (!adminKey) {
+        return {
+          ok: false,
+          error: "ADMIN_KEY_REQUIRED",
+          message: "Se requiere AERON_FEEDBACK_ADMIN_KEY en las variables de entorno para listar feedbacks.",
+        };
+      }
+
+      try {
+        const queryParams = new URLSearchParams();
+        if (type) queryParams.set("type", type);
+        if (severity) queryParams.set("severity", severity);
+        if (status) queryParams.set("status", status);
+        queryParams.set("limit", String(Math.min(limit, 100)));
+
+        const url = new URL(`${baseUrl}/api/v1/feedbacks?${queryParams.toString()}`);
+        const client = url.protocol === "https:" ? https : http;
+
+        const response = await new Promise((resolve, reject) => {
+          const req = client.request(url, {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${adminKey}`, "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` },
+            timeout: 10000,
+          }, (res) => {
+            let body = "";
+            res.on("data", (c) => (body += c));
+            res.on("end", () => {
+              try { resolve({ status: res.statusCode, data: JSON.parse(body) }); }
+              catch { resolve({ status: res.statusCode, raw: body }); }
+            });
+          });
+          req.on("timeout", () => { req.destroy(); reject(new Error("TIMEOUT")); });
+          req.on("error", reject);
+          req.end();
+        });
+
+        if (response.status === 401) return { ok: false, error: "UNAUTHORIZED", message: "ADMIN_KEY inválida." };
+        if (response.status !== 200) return { ok: false, error: `HTTP ${response.status}`, raw: response.raw };
+
+        return {
+          ok: true,
+          total: response.data.total,
+          count: response.data.count,
+          feedbacks: response.data.feedbacks,
+        };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    },
+
+    read_feedback: async ({ id } = {}) => {
+      if (!id) return { ok: false, error: "ID requerido." };
+
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const adminKey = process.env.AERON_FEEDBACK_ADMIN_KEY || runtime.config?.feedback?.admin_key;
+      const baseUrl = endpoint.replace("/api/v1/feedback", "");
+
+      if (!adminKey) return { ok: false, error: "ADMIN_KEY_REQUIRED" };
+
+      try {
+        const url = new URL(`${baseUrl}/api/v1/feedback/${encodeURIComponent(id)}`);
+        const client = url.protocol === "https:" ? https : http;
+
+        const response = await new Promise((resolve, reject) => {
+          const req = client.request(url, {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${adminKey}`, "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` },
+            timeout: 8000,
+          }, (res) => {
+            let body = "";
+            res.on("data", (c) => (body += c));
+            res.on("end", () => {
+              try { resolve({ status: res.statusCode, data: JSON.parse(body) }); }
+              catch { resolve({ status: res.statusCode, raw: body }); }
+            });
+          });
+          req.on("timeout", () => { req.destroy(); reject(new Error("TIMEOUT")); });
+          req.on("error", reject);
+          req.end();
+        });
+
+        if (response.status === 401) return { ok: false, error: "UNAUTHORIZED" };
+        if (response.status === 404) return { ok: false, error: "NOT_FOUND", id };
+        if (response.status !== 200) return { ok: false, error: `HTTP ${response.status}` };
+
+        return { ok: true, feedback: response.data.feedback };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    },
+
+    delete_feedback: async ({ id } = {}) => {
+      if (!id) return { ok: false, error: "ID requerido." };
+
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const adminKey = process.env.AERON_FEEDBACK_ADMIN_KEY || runtime.config?.feedback?.admin_key;
+      const baseUrl = endpoint.replace("/api/v1/feedback", "");
+
+      if (!adminKey) return { ok: false, error: "ADMIN_KEY_REQUIRED", message: "Se requiere AERON_FEEDBACK_ADMIN_KEY para eliminar feedbacks." };
+
+      try {
+        const url = new URL(`${baseUrl}/api/v1/feedback/${encodeURIComponent(id)}`);
+        const client = url.protocol === "https:" ? https : http;
+
+        const response = await new Promise((resolve, reject) => {
+          const req = client.request(url, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${adminKey}`, "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` },
+            timeout: 8000,
+          }, (res) => {
+            let body = "";
+            res.on("data", (c) => (body += c));
+            res.on("end", () => {
+              try { resolve({ status: res.statusCode, data: JSON.parse(body) }); }
+              catch { resolve({ status: res.statusCode, raw: body }); }
+            });
+          });
+          req.on("timeout", () => { req.destroy(); reject(new Error("TIMEOUT")); });
+          req.on("error", reject);
+          req.end();
+        });
+
+        if (response.status === 401) return { ok: false, error: "UNAUTHORIZED" };
+        if (response.status === 404) return { ok: false, error: "NOT_FOUND", id, message: "El feedback no existe o ya fue eliminado." };
+        if (response.status !== 200) return { ok: false, error: `HTTP ${response.status}` };
+
+        return { ok: true, deleted: id, paths: response.data.paths };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
     },
   };
 
@@ -808,6 +997,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       update_info: "user",
       get_update: "user",
       update: "poweruser",
+      list_feedbacks: "poweruser",
+      read_feedback: "poweruser",
+      delete_feedback: "poweruser",
     }
   );
 }

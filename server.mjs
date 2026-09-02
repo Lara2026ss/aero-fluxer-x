@@ -242,6 +242,80 @@ export async function startServer() {
   }
 
   await server.connect(transport);
+
+  // Reintentar feedbacks del outbox local en background (sin bloquear el startup)
+  setImmediate(() => retryOutbox(runtime.root));
+}
+
+/**
+ * Reintenta feedbacks del outbox local que no pudieron enviarse al Gateway.
+ * Se ejecuta silenciosamente en background al arrancar el servidor MCP.
+ * @param {string} repoRoot
+ */
+async function retryOutbox(repoRoot) {
+  try {
+    const { getStorageStructure } = await import("./core/storage-paths.mjs");
+    const { readdir, readFile, unlink } = await import("node:fs/promises");
+    const { default: https } = await import("node:https");
+    const { default: http } = await import("node:http");
+    const { default: pathMod } = await import("node:path");
+
+    const storage = getStorageStructure(repoRoot);
+    const outboxDir = storage.feedbackOutboxDir;
+
+    let files;
+    try {
+      files = (await readdir(outboxDir)).filter((f) => f.endsWith(".json"));
+    } catch {
+      return; // No outbox dir = nada que reintentar
+    }
+
+    if (!files.length) return;
+
+    // Leer config para obtener el endpoint
+    let endpoint = process.env.AERON_FEEDBACK_ENDPOINT ||
+      "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+    try {
+      const cfgPath = pathMod.join(repoRoot, "aeron.config.json");
+      const cfg = JSON.parse(await readFile(cfgPath, "utf8"));
+      if (cfg?.feedback?.endpoint) endpoint = cfg.feedback.endpoint;
+    } catch { /* config no disponible, usar default */ }
+
+    for (const file of files) {
+      const filePath = pathMod.join(outboxDir, file);
+      try {
+        const payload = JSON.parse(await readFile(filePath, "utf8"));
+        if (!payload.created_at) payload.created_at = new Date().toISOString();
+
+        const payloadStr = JSON.stringify(payload);
+        const url = new URL(endpoint);
+        const client = url.protocol === "https:" ? https : http;
+
+        const statusCode = await new Promise((resolve) => {
+          const req = client.request(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(payloadStr),
+              "User-Agent": `Aero-Fluxer-X/v${VERSION}`,
+            },
+            timeout: 8000,
+          }, (res) => {
+            res.resume(); // Drenar body
+            resolve(res.statusCode);
+          });
+          req.on("timeout", () => { req.destroy(); resolve(null); });
+          req.on("error", () => resolve(null));
+          req.write(payloadStr);
+          req.end();
+        });
+
+        if (statusCode === 200 || statusCode === 201 || statusCode === 409) {
+          await unlink(filePath).catch(() => {});
+        }
+      } catch { /* Error en un archivo individual — continuar con los demás */ }
+    }
+  } catch { /* Error inesperado en retryOutbox — no debe afectar el servidor */ }
 }
 
 if (

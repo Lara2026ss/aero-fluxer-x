@@ -139,4 +139,81 @@ export class FirebaseStore {
   async clearPendingNotifications() {
     await this.request("fluxer_feedbacks/notifications/pending", "DELETE");
   }
+
+  /**
+   * Lee un feedback completo por ID.
+   * @param {string} id
+   * @returns {Promise<{ ok: boolean, data: object|null }>}
+   */
+  async getFeedback(id) {
+    const res = await this.request(`fluxer_feedbacks/items/${id}`, "GET");
+    if (res.ok && res.data) {
+      return { ok: true, data: res.data };
+    }
+    return { ok: false, data: null };
+  }
+
+  /**
+   * Lista todos los feedbacks con filtros opcionales.
+   * @param {object} [filters]
+   * @param {string} [filters.type]
+   * @param {string} [filters.severity]
+   * @param {string} [filters.status]
+   * @param {number} [filters.limit=50]
+   * @returns {Promise<{ ok: boolean, items: object[], total: number }>}
+   */
+  async listFeedbacks({ type, severity, status, limit = 50 } = {}) {
+    const res = await this.request("fluxer_feedbacks/items", "GET");
+    if (!res.ok || !res.data || typeof res.data !== "object") {
+      return { ok: true, items: [], total: 0 };
+    }
+
+    let items = Object.values(res.data);
+
+    if (type) items = items.filter((fb) => fb.type === type);
+    if (severity) items = items.filter((fb) => fb.severity === severity);
+    if (status) items = items.filter((fb) => fb.status === status);
+
+    // Ordenar por fecha desc
+    items.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    const total = items.length;
+    items = items.slice(0, Math.min(limit, 100));
+
+    return { ok: true, items, total };
+  }
+
+  /**
+   * Elimina un feedback y sus registros relacionados (fingerprint + notificación pendiente).
+   * @param {string} id
+   * @param {string} [fingerprint] Si se provee, elimina también el fingerprint
+   * @returns {Promise<{ ok: boolean, deleted: string[] }>}
+   */
+  async deleteFeedback(id, fingerprint) {
+    const deleted = [];
+
+    // 1. Obtener el item para extraer fingerprint si no se pasó
+    if (!fingerprint) {
+      const res = await this.request(`fluxer_feedbacks/items/${id}`, "GET");
+      if (res.ok && res.data?.fingerprint) {
+        fingerprint = res.data.fingerprint;
+      }
+    }
+
+    // 2. Eliminar el item principal
+    const itemRes = await this.request(`fluxer_feedbacks/items/${id}`, "DELETE");
+    if (itemRes.ok) deleted.push(`items/${id}`);
+
+    // 3. Eliminar fingerprint si se conoce
+    if (fingerprint) {
+      const fpRes = await this.request(`fluxer_feedbacks/fingerprints/${fingerprint}`, "DELETE");
+      if (fpRes.ok) deleted.push(`fingerprints/${fingerprint}`);
+    }
+
+    // 4. Eliminar notificación pendiente si existe
+    const notifRes = await this.request(`fluxer_feedbacks/notifications/pending/${id}`, "DELETE");
+    if (notifRes.ok) deleted.push(`notifications/pending/${id}`);
+
+    return { ok: deleted.length > 0, deleted };
+  }
 }
