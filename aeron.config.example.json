@@ -56,7 +56,7 @@
   },
   "feedback": {
     "enabled": true,
-    "endpoint": "https://aero-fluxer-feedback.onrender.com/api/v1/feedback",
+    "endpoint": "https://aero-fluxer-feedback-gateway.onrender.com/api/v1/feedback",
     "attach_logs": true,
     "queue_offline": true
   }
