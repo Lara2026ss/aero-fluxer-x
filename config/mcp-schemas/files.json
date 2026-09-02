@@ -1,0 +1,65 @@
+{
+  "name": "files",
+  "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.\nAcciones e inputs de exactos: append_to_file { path, content, addNewline } | batch_copy { files, overwrite, stopOnError } | batch_delete { paths, stopOnError } | batch_move { files, stopOnError } | batch_rename { directory, pattern, replacement } | calculate_checksum { path, algorithm } | compare_files { left, right } | compress_path { source, destination } | copy_file { source, destination, overwrite } | create_directory { path } | create_document { path, title, content, paragraphs, format, frontmatter, metadata } | delete_lines { path, startLine, endLine, lineNumbers, backup } | delete_path { path, recursive, force } | directory_tree { path, depth, maxEntries } | edit_file { path, oldText, find, search, targetContent, newText, replace, replacement, replacementContent, replaceAll, isRegex, backup } | extract_archive { source, destination } | file_diff { left, right } | file_exists { path } | find_and_replace_in_files { directory, filePattern, pattern, searchText, replaceText, find, replace, search, oldText, newText, excludePatterns, git, dist, build } | get_detailed_metadata { path } | get_file_info { path } | grep_files { path, query, isRegex, caseInsensitive, include, includePattern, limit, maxFileSize } | insert_lines { path, atLine, afterLine, afterPattern, lines, backup } | json_manager { path, op, key, value, createPath, backup } | list_allowed_directories { ok, directories, runtimedirshome, runtimedirsdownloads, runtimedirsdocuments, runtimedirsstorage } | list_archive_contents { path } | list_directory { path, limit, sortBy, recursive } | list_directory_with_sizes { path, limit, sortBy } | move_file { source, destination, overwrite } | patch_file { path, searchBlock, replaceBlock, backup } | read_binary_file { path, format, limitBytes } | read_csv { path, delimiter, hasHeader, maxRows } | read_document { path } | read_file_range { path, startLine, endLine, range, encoding, includeLineNumbers } | read_json { path, key, defaultValue } | read_multiple_files { paths, path, maxFiles } | read_text_file { path, head, tail, maxLines, page, linesPerPage, startLine, endLine, range, encoding, includeLineNumbers } | replace_lines { path, startLine, endLine, lines, backup } | search_files { path, pattern, excludePatterns, git, dist, build, limit } | set_attributes { path, readonly, hidden, mode } | touch_file { path } | validate_workspace { path } | write_csv { path, headers, rows, delimiter, append } | write_file { path, content, overwrite, backup, encoding } | write_json { path, data }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "append_to_file",
+          "batch_copy",
+          "batch_delete",
+          "batch_move",
+          "batch_rename",
+          "calculate_checksum",
+          "compare_files",
+          "compress_path",
+          "copy_file",
+          "create_directory",
+          "create_document",
+          "delete_lines",
+          "delete_path",
+          "directory_tree",
+          "edit_file",
+          "extract_archive",
+          "file_diff",
+          "file_exists",
+          "find_and_replace_in_files",
+          "get_detailed_metadata",
+          "get_file_info",
+          "grep_files",
+          "insert_lines",
+          "json_manager",
+          "list_allowed_directories",
+          "list_archive_contents",
+          "list_directory",
+          "list_directory_with_sizes",
+          "move_file",
+          "patch_file",
+          "read_binary_file",
+          "read_csv",
+          "read_document",
+          "read_file_range",
+          "read_json",
+          "read_multiple_files",
+          "read_text_file",
+          "replace_lines",
+          "search_files",
+          "set_attributes",
+          "touch_file",
+          "validate_workspace",
+          "write_csv",
+          "write_file",
+          "write_json"
+        ]
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

@@ -1,0 +1,2921 @@
+{
+  "totalAudited": 189,
+  "pass": 166,
+  "fail": 0,
+  "skipped": 23,
+  "matrix": [
+    {
+      "tool": "files.append_to_file",
+      "domain": "files",
+      "action": "append_to_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, content, addNewline }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.batch_copy",
+      "domain": "files",
+      "action": "batch_copy",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ files, overwrite, stopOnError }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.batch_delete",
+      "domain": "files",
+      "action": "batch_delete",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ paths, stopOnError }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.batch_move",
+      "domain": "files",
+      "action": "batch_move",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ files, stopOnError }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.batch_rename",
+      "domain": "files",
+      "action": "batch_rename",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ directory, pattern, replacement }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.calculate_checksum",
+      "domain": "files",
+      "action": "calculate_checksum",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, algorithm }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.compare_files",
+      "domain": "files",
+      "action": "compare_files",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ left, right }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.compress_path",
+      "domain": "files",
+      "action": "compress_path",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ source, destination }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.copy_file",
+      "domain": "files",
+      "action": "copy_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ source, destination, overwrite }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.create_directory",
+      "domain": "files",
+      "action": "create_directory",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "path"
+      ],
+      "produces": [
+        "created"
+      ],
+      "verificationRequirements": [
+        "dirExists"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.create_document",
+      "domain": "files",
+      "action": "create_document",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, title, content, paragraphs, format }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.delete_lines",
+      "domain": "files",
+      "action": "delete_lines",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, startLine, endLine, lineNumbers, backup }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.delete_path",
+      "domain": "files",
+      "action": "delete_path",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, recursive, force }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.directory_tree",
+      "domain": "files",
+      "action": "directory_tree",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, depth, maxEntries }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.edit_file",
+      "domain": "files",
+      "action": "edit_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, oldText, find, search, targetContent, newText, replace, replacement, replacementContent, replaceAll, isRegex, backup }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.extract_archive",
+      "domain": "files",
+      "action": "extract_archive",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ source, destination }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.file_diff",
+      "domain": "files",
+      "action": "file_diff",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ left, right }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.file_exists",
+      "domain": "files",
+      "action": "file_exists",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.find_and_replace_in_files",
+      "domain": "files",
+      "action": "find_and_replace_in_files",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ directory, filePattern, pattern, searchText, replaceText, find, replace, search, oldText, newText, excludePatterns, git, dist, build }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.get_detailed_metadata",
+      "domain": "files",
+      "action": "get_detailed_metadata",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.get_file_info",
+      "domain": "files",
+      "action": "get_file_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.grep_files",
+      "domain": "files",
+      "action": "grep_files",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, query, isRegex, caseInsensitive, include, includePattern, limit, maxFileSize }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.insert_lines",
+      "domain": "files",
+      "action": "insert_lines",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, atLine, afterLine, afterPattern, lines, backup }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.json_manager",
+      "domain": "files",
+      "action": "json_manager",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, op, key, value, createPath, backup }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.list_allowed_directories",
+      "domain": "files",
+      "action": "list_allowed_directories",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ ok, directories, runtimedirshome, runtimedirsdownloads, runtimedirsdocuments, runtimedirsstorage }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.list_archive_contents",
+      "domain": "files",
+      "action": "list_archive_contents",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.list_directory",
+      "domain": "files",
+      "action": "list_directory",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, limit, sortBy, recursive }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.list_directory_with_sizes",
+      "domain": "files",
+      "action": "list_directory_with_sizes",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, limit, sortBy }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.move_file",
+      "domain": "files",
+      "action": "move_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ source, destination, overwrite }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.patch_file",
+      "domain": "files",
+      "action": "patch_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, searchBlock, replaceBlock, backup }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_binary_file",
+      "domain": "files",
+      "action": "read_binary_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, format, limitBytes }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_csv",
+      "domain": "files",
+      "action": "read_csv",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, delimiter, hasHeader, maxRows }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_document",
+      "domain": "files",
+      "action": "read_document",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_file_range",
+      "domain": "files",
+      "action": "read_file_range",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, startLine, endLine, range, encoding, includeLineNumbers }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_json",
+      "domain": "files",
+      "action": "read_json",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, key, defaultValue }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_multiple_files",
+      "domain": "files",
+      "action": "read_multiple_files",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ paths, path, maxFiles }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.read_text_file",
+      "domain": "files",
+      "action": "read_text_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, head, tail, maxLines, page, linesPerPage, startLine, endLine, range, encoding, includeLineNumbers }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.replace_lines",
+      "domain": "files",
+      "action": "replace_lines",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, startLine, endLine, lines, backup }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.search_files",
+      "domain": "files",
+      "action": "search_files",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, pattern, excludePatterns, git, dist, build, limit }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.set_attributes",
+      "domain": "files",
+      "action": "set_attributes",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, readonly, hidden, mode }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.touch_file",
+      "domain": "files",
+      "action": "touch_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.validate_workspace",
+      "domain": "files",
+      "action": "validate_workspace",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.write_csv",
+      "domain": "files",
+      "action": "write_csv",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, headers, rows, delimiter, append }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.write_file",
+      "domain": "files",
+      "action": "write_file",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "path",
+        "content"
+      ],
+      "produces": [
+        "bytesWritten"
+      ],
+      "verificationRequirements": [
+        "fileExists",
+        "contentMatches"
+      ],
+      "signature": "{ path, content, overwrite, backup, encoding }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "files.write_json",
+      "domain": "files",
+      "action": "write_json",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "path",
+        "data"
+      ],
+      "produces": [
+        "bytesWritten"
+      ],
+      "verificationRequirements": [
+        "fileExists",
+        "jsonValid"
+      ],
+      "signature": "{ path, data }",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "tool": "system.dns_lookup",
+      "domain": "system",
+      "action": "dns_lookup",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ domain, rrtype }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_battery_info",
+      "domain": "system",
+      "action": "get_battery_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_clipboard",
+      "domain": "system",
+      "action": "get_clipboard",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_cpu_info",
+      "domain": "system",
+      "action": "get_cpu_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_defender_status",
+      "domain": "system",
+      "action": "get_defender_status",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_disk_info",
+      "domain": "system",
+      "action": "get_disk_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_env",
+      "domain": "system",
+      "action": "get_env",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_env_vars",
+      "domain": "system",
+      "action": "get_env_vars",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ scope, filter }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_folder_size",
+      "domain": "system",
+      "action": "get_folder_size",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_gpu_info",
+      "domain": "system",
+      "action": "get_gpu_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_hardware_info",
+      "domain": "system",
+      "action": "get_hardware_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_kernel_info",
+      "domain": "system",
+      "action": "get_kernel_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_local_ip",
+      "domain": "system",
+      "action": "get_local_ip",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_open_ports",
+      "domain": "system",
+      "action": "get_open_ports",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_performance_stats",
+      "domain": "system",
+      "action": "get_performance_stats",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_processes",
+      "domain": "system",
+      "action": "get_processes",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ limit }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_public_ip",
+      "domain": "system",
+      "action": "get_public_ip",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_ram_info",
+      "domain": "system",
+      "action": "get_ram_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_resource_usage",
+      "domain": "system",
+      "action": "get_resource_usage",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ ok, memory, uptime }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_sensors",
+      "domain": "system",
+      "action": "get_sensors",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_storage_info",
+      "domain": "system",
+      "action": "get_storage_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_system_info",
+      "domain": "system",
+      "action": "get_system_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ ok, platform, isWindowsOnly, arch, release, hostname, nodeVersion }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_system_load",
+      "domain": "system",
+      "action": "get_system_load",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_system_snapshot",
+      "domain": "system",
+      "action": "get_system_snapshot",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [
+        "platform",
+        "cpuModel",
+        "memory"
+      ],
+      "verificationRequirements": [
+        "snapshotValid"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_temperature",
+      "domain": "system",
+      "action": "get_temperature",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_wifi_networks",
+      "domain": "system",
+      "action": "get_wifi_networks",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_wifi_profile",
+      "domain": "system",
+      "action": "get_wifi_profile",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.get_windows_update_status",
+      "domain": "system",
+      "action": "get_windows_update_status",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.list_env",
+      "domain": "system",
+      "action": "list_env",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ filter }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.list_scheduled_tasks",
+      "domain": "system",
+      "action": "list_scheduled_tasks",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ filter }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.manage_services",
+      "domain": "system",
+      "action": "manage_services",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ service, action }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.manage_startup",
+      "domain": "system",
+      "action": "manage_startup",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.ping",
+      "domain": "system",
+      "action": "ping",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ host, count }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.read_registry",
+      "domain": "system",
+      "action": "read_registry",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ key, value }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.reload_server",
+      "domain": "system",
+      "action": "reload_server",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.remove_env_var",
+      "domain": "system",
+      "action": "remove_env_var",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "name"
+      ],
+      "produces": [
+        "name",
+        "scope"
+      ],
+      "verificationRequirements": [
+        "envVarNotExist"
+      ],
+      "signature": "{ name, scope }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.run_scheduled_task",
+      "domain": "system",
+      "action": "run_scheduled_task",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ name }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.send_notification",
+      "domain": "system",
+      "action": "send_notification",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ title, message }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.set_clipboard",
+      "domain": "system",
+      "action": "set_clipboard",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ text }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.set_env",
+      "domain": "system",
+      "action": "set_env",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ name, value }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.set_env_var",
+      "domain": "system",
+      "action": "set_env_var",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "name",
+        "value"
+      ],
+      "produces": [
+        "name",
+        "scope"
+      ],
+      "verificationRequirements": [
+        "envVarMatches"
+      ],
+      "signature": "{ name, value, scope }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.set_performance_mode",
+      "domain": "system",
+      "action": "set_performance_mode",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.set_power_profile",
+      "domain": "system",
+      "action": "set_power_profile",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ profile }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.shutdown_server",
+      "domain": "system",
+      "action": "shutdown_server",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.sleep",
+      "domain": "system",
+      "action": "sleep",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ seconds, ms }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.test_port",
+      "domain": "system",
+      "action": "test_port",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ host, port, timeoutMs }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.wait",
+      "domain": "system",
+      "action": "wait",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ seconds, ms }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "system.write_registry",
+      "domain": "system",
+      "action": "write_registry",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "key",
+        "name",
+        "data"
+      ],
+      "produces": [
+        "key",
+        "name"
+      ],
+      "verificationRequirements": [
+        "registryMatches"
+      ],
+      "signature": "{ key, name, data, type }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "tool": "terminal.attach_session",
+      "domain": "terminal",
+      "action": "attach_session",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ sessionId }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.close_session",
+      "domain": "terminal",
+      "action": "close_session",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ sessionId }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.create_session",
+      "domain": "terminal",
+      "action": "create_session",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ sessionId, cwd, env }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.get_background_output",
+      "domain": "terminal",
+      "action": "get_background_output",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ taskId, pid, tailLines }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.kill_background_task",
+      "domain": "terminal",
+      "action": "kill_background_task",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ taskId, pid }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.kill_process",
+      "domain": "terminal",
+      "action": "kill_process",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ pid }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.kill_process_tree",
+      "domain": "terminal",
+      "action": "kill_process_tree",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ pid }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.list_background_tasks",
+      "domain": "terminal",
+      "action": "list_background_tasks",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.list_processes",
+      "domain": "terminal",
+      "action": "list_processes",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ filterName, limit, sortBy }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.list_sessions",
+      "domain": "terminal",
+      "action": "list_sessions",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ id, cwd, createdAt, updatedAt, historyCount, envKeysCount }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.open_file_explorer",
+      "domain": "terminal",
+      "action": "open_file_explorer",
+      "mutating": true,
+      "async": true,
+      "cachePolicy": "bypass",
+      "requires": [
+        "path"
+      ],
+      "produces": [
+        "opened"
+      ],
+      "verificationRequirements": [
+        "processLaunched"
+      ],
+      "signature": "{ path }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.open_url",
+      "domain": "terminal",
+      "action": "open_url",
+      "mutating": true,
+      "async": true,
+      "cachePolicy": "bypass",
+      "requires": [
+        "url"
+      ],
+      "produces": [
+        "url"
+      ],
+      "verificationRequirements": [
+        "processLaunched"
+      ],
+      "signature": "{ url }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.run_as_admin",
+      "domain": "terminal",
+      "action": "run_as_admin",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ command, cwd }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.run_background",
+      "domain": "terminal",
+      "action": "run_background",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ command, cwd }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.run_command",
+      "domain": "terminal",
+      "action": "run_command",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "command"
+      ],
+      "produces": [
+        "stdout",
+        "stderr",
+        "exitCode"
+      ],
+      "verificationRequirements": [
+        "processCompleted"
+      ],
+      "signature": "{ command, timeout, cwd, env, shell, stripAnsi, maxOutputChars }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.run_inline_script",
+      "domain": "terminal",
+      "action": "run_inline_script",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "code"
+      ],
+      "produces": [
+        "stdout",
+        "stderr",
+        "exitCode"
+      ],
+      "verificationRequirements": [
+        "processCompleted"
+      ],
+      "signature": "{ code, language, args, cwd, timeout, stripAnsi }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.run_script",
+      "domain": "terminal",
+      "action": "run_script",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, args, interpreter, cwd, env, timeout, stripAnsi, maxOutputChars }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.run_session_command",
+      "domain": "terminal",
+      "action": "run_session_command",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ sessionId, command, cwd, env }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.stop_background_task",
+      "domain": "terminal",
+      "action": "stop_background_task",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ taskId, pid }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "terminal.wait_for_background_task",
+      "domain": "terminal",
+      "action": "wait_for_background_task",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ taskId, pid, timeoutMs, pollIntervalMs }",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "tool": "packages.add_repository",
+      "domain": "packages",
+      "action": "add_repository",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ manager, url, name }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.check_manager",
+      "domain": "packages",
+      "action": "check_manager",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ manager }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.install_package",
+      "domain": "packages",
+      "action": "install_package",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ manager, name }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.list_installed",
+      "domain": "packages",
+      "action": "list_installed",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ manager }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.list_repositories",
+      "domain": "packages",
+      "action": "list_repositories",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.package_info",
+      "domain": "packages",
+      "action": "package_info",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ manager, name }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.remove_package",
+      "domain": "packages",
+      "action": "remove_package",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ manager, name }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.remove_repository",
+      "domain": "packages",
+      "action": "remove_repository",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ manager, name }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.search_package",
+      "domain": "packages",
+      "action": "search_package",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ manager, query }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "packages.update_package",
+      "domain": "packages",
+      "action": "update_package",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ manager, name }",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "tool": "database.analyze_database",
+      "domain": "database",
+      "action": "analyze_database",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.backup_database",
+      "domain": "database",
+      "action": "backup_database",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database, destination }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.create_database",
+      "domain": "database",
+      "action": "create_database",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ database }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.delete_database",
+      "domain": "database",
+      "action": "delete_database",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ database }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.describe_table",
+      "domain": "database",
+      "action": "describe_table",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database, table }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.execute_query",
+      "domain": "database",
+      "action": "execute_query",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "query"
+      ],
+      "produces": [
+        "rows",
+        "changes"
+      ],
+      "verificationRequirements": [
+        "queryExecuted"
+      ],
+      "signature": "{ engine, database, query, user, password, host }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.execute_script",
+      "domain": "database",
+      "action": "execute_script",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ engine, database, scriptFile }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.explain_query",
+      "domain": "database",
+      "action": "explain_query",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database, query }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.export_table",
+      "domain": "database",
+      "action": "export_table",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database, table, format, destination }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.import_table",
+      "domain": "database",
+      "action": "import_table",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database, table, data, source }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.restore_database",
+      "domain": "database",
+      "action": "restore_database",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database, source }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "database.search_tables",
+      "domain": "database",
+      "action": "search_tables",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ database }",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "tool": "security.analyze_process",
+      "domain": "security",
+      "action": "analyze_process",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.approve_request",
+      "domain": "security",
+      "action": "approve_request",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ requestId }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.audit_log",
+      "domain": "security",
+      "action": "audit_log",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ limit, tool, action, result }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.audit_system",
+      "domain": "security",
+      "action": "audit_system",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.check_permissions",
+      "domain": "security",
+      "action": "check_permissions",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.decrypt_text",
+      "domain": "security",
+      "action": "decrypt_text",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ encrypted, password }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.deny_request",
+      "domain": "security",
+      "action": "deny_request",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ requestId, reason }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.encrypt_text",
+      "domain": "security",
+      "action": "encrypt_text",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ text, password }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.generate_token",
+      "domain": "security",
+      "action": "generate_token",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ length, bytes }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.generate_uuid",
+      "domain": "security",
+      "action": "generate_uuid",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.get_security_mode",
+      "domain": "security",
+      "action": "get_security_mode",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.grant_permission",
+      "domain": "security",
+      "action": "grant_permission",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ scope, role, level, args }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.hash_file",
+      "domain": "security",
+      "action": "hash_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, algorithm }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.hash_text",
+      "domain": "security",
+      "action": "hash_text",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ text, algorithm }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.health",
+      "domain": "security",
+      "action": "health",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ runtime, registry, config }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.permissions_active",
+      "domain": "security",
+      "action": "permissions_active",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.request_status",
+      "domain": "security",
+      "action": "request_status",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ requestId }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.revoke_permission",
+      "domain": "security",
+      "action": "revoke_permission",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ scope }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.scan_file",
+      "domain": "security",
+      "action": "scan_file",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.set_security_mode",
+      "domain": "security",
+      "action": "set_security_mode",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ mode }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "security.verify_hash",
+      "domain": "security",
+      "action": "verify_hash",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ text, hash, algorithm }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "tool": "shortcuts.clear_all",
+      "domain": "shortcuts",
+      "action": "clear_all",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{}",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.create",
+      "domain": "shortcuts",
+      "action": "create",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "name",
+        "steps"
+      ],
+      "produces": [
+        "name",
+        "storedAt"
+      ],
+      "verificationRequirements": [
+        "shortcutPersisted"
+      ],
+      "signature": "{ name, description, steps, category, tags }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.delete",
+      "domain": "shortcuts",
+      "action": "delete",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [
+        "name"
+      ],
+      "produces": [
+        "deleted"
+      ],
+      "verificationRequirements": [
+        "shortcutDeleted"
+      ],
+      "signature": "{ name, all }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.edit",
+      "domain": "shortcuts",
+      "action": "edit",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name, description, steps, category, tags }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.execute",
+      "domain": "shortcuts",
+      "action": "execute",
+      "mutating": true,
+      "async": true,
+      "cachePolicy": "bypass",
+      "requires": [
+        "name"
+      ],
+      "produces": [
+        "executedSteps",
+        "results"
+      ],
+      "verificationRequirements": [
+        "stepsVerified"
+      ],
+      "signature": "{ name, variables }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.export_shortcuts",
+      "domain": "shortcuts",
+      "action": "export_shortcuts",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ destination }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.get",
+      "domain": "shortcuts",
+      "action": "get",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.history",
+      "domain": "shortcuts",
+      "action": "history",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.import_shortcuts",
+      "domain": "shortcuts",
+      "action": "import_shortcuts",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ source, data, overwrite }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.inspect",
+      "domain": "shortcuts",
+      "action": "inspect",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.list",
+      "domain": "shortcuts",
+      "action": "list",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ category }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.reload",
+      "domain": "shortcuts",
+      "action": "reload",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.remove",
+      "domain": "shortcuts",
+      "action": "remove",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ name, all }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.rename",
+      "domain": "shortcuts",
+      "action": "rename",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name, newName }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.run",
+      "domain": "shortcuts",
+      "action": "run",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ name, variables }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.save",
+      "domain": "shortcuts",
+      "action": "save",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name, description, steps, category, tags }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "shortcuts.update",
+      "domain": "shortcuts",
+      "action": "update",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ name, description, steps, category, tags }",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "tool": "network.diagnose_network",
+      "domain": "network",
+      "action": "diagnose_network",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{}",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "tool": "network.dns_query",
+      "domain": "network",
+      "action": "dns_query",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ domain, rrtype }",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "tool": "network.get_interfaces",
+      "domain": "network",
+      "action": "get_interfaces",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name, item }",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "tool": "network.scan_ports",
+      "domain": "network",
+      "action": "scan_ports",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ host, ports, 443, 3000, 5000, 8000, 8080, 8765, timeoutMs }",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "tool": "network.test_connection",
+      "domain": "network",
+      "action": "test_connection",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ host, port, timeoutMs }",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "tool": "diagnostics.benchmark",
+      "domain": "diagnostics",
+      "action": "benchmark",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ loops }",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "tool": "diagnostics.health_check",
+      "domain": "diagnostics",
+      "action": "health_check",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ runtime, registry, config }",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "tool": "diagnostics.resolve_toolchain",
+      "domain": "diagnostics",
+      "action": "resolve_toolchain",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ forceRefresh }",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "tool": "diagnostics.self_test",
+      "domain": "diagnostics",
+      "action": "self_test",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ name, value, status }",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "tool": "diagnostics.system_diagnose",
+      "domain": "diagnostics",
+      "action": "system_diagnose",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ level, type, message }",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "tool": "developer.detect_project",
+      "domain": "developer",
+      "action": "detect_project",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "tool": "developer.diagnose_service",
+      "domain": "developer",
+      "action": "diagnose_service",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, serviceId }",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "tool": "developer.inspect_project",
+      "domain": "developer",
+      "action": "inspect_project",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path }",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "tool": "developer.refresh_service_state",
+      "domain": "developer",
+      "action": "refresh_service_state",
+      "mutating": false,
+      "async": false,
+      "cachePolicy": "normal",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "dataFetched"
+      ],
+      "signature": "{ path, serviceId }",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "tool": "developer.run_project_build",
+      "domain": "developer",
+      "action": "run_project_build",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, timeoutMs }",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "tool": "developer.run_project_tests",
+      "domain": "developer",
+      "action": "run_project_tests",
+      "mutating": true,
+      "async": false,
+      "cachePolicy": "bypass",
+      "requires": [],
+      "produces": [],
+      "verificationRequirements": [
+        "stateVerified"
+      ],
+      "signature": "{ path, timeoutMs }",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    }
+  ]
+}

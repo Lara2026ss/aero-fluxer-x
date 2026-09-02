@@ -1,0 +1,32 @@
+{
+  "name": "database",
+  "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).\nAcciones e inputs de exactos: analyze_database { database } | backup_database { database, destination } | create_database { database } | delete_database { database } | describe_table { database, table } | execute_query { engine, database, query, user, password, host } | execute_script { engine, database, scriptFile } | explain_query { database, query } | export_table { database, table, format, destination } | import_table { database, table, data, source } | restore_database { database, source } | search_tables { database }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "analyze_database",
+          "backup_database",
+          "create_database",
+          "delete_database",
+          "describe_table",
+          "execute_query",
+          "execute_script",
+          "explain_query",
+          "export_table",
+          "import_table",
+          "restore_database",
+          "search_tables"
+        ]
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

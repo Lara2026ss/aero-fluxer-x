@@ -1,0 +1,47 @@
+{
+  "verificar_sistema": {
+    "description": "Obtiene información básica del sistema y memoria disponible",
+    "category": "sistema",
+    "tags": ["sistema", "diagnostico"],
+    "steps": [
+      {
+        "tool": "system",
+        "action": "get_system_info",
+        "args": {}
+      }
+    ]
+  },
+  "inspeccionar_proyecto": {
+    "description": "Comprueba el archivo package.json y el estado del proyecto",
+    "category": "desarrollo",
+    "tags": ["desarrollo", "proyecto"],
+    "steps": [
+      {
+        "tool": "files",
+        "action": "get_file_info",
+        "args": {
+          "path": "package.json"
+        }
+      }
+    ]
+  },
+  "diagnostico_completo": {
+    "description": "Ejecuta diagnóstico de salud del sistema y verifica red",
+    "category": "mantenimiento",
+    "tags": ["salud", "red"],
+    "steps": [
+      {
+        "tool": "system",
+        "action": "get_system_info",
+        "args": {}
+      },
+      {
+        "tool": "network",
+        "action": "ping_host",
+        "args": {
+          "host": "127.0.0.1"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "web",
+  "description": "Búsqueda web robusta, descargas, extracciones Markdown limpias y cliente HTTP universal.\nAcciones y argumentos (usar en args): check_url_status { url, timeoutMs } | compare_sources { urls } | download_url { url, destination } | extract_images { url } | extract_links { url } | extract_structured_data { url } | extract_text { url } | fetch_markdown { url } | fetch_raw { url, headers } | follow_redirects { url } | get_metadata { url } | http_request { url, method, headers } | open_url { url } | post_request { url, data } | search_web { query } | summarize_website { url }",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "check_url_status",
+          "compare_sources",
+          "download_url",
+          "extract_images",
+          "extract_links",
+          "extract_structured_data",
+          "extract_text",
+          "fetch_markdown",
+          "fetch_raw",
+          "follow_redirects",
+          "get_metadata",
+          "http_request",
+          "open_url",
+          "post_request",
+          "search_web",
+          "summarize_website"
+        ],
+        "description": "Acción a ejecutar en el dominio web"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

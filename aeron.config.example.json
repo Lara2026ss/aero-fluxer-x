@@ -1,0 +1,57 @@
+{
+  "$schema": "./config/aeron.schema.json",
+  "version": "9.0.0",
+  "name": "aeron-fluxer-x",
+  "mcp": {
+    "transport": "stdio",
+    "serverName": "aeron-fluxer-x"
+  },
+  "http": {
+    "port": 8765,
+    "host": "127.0.0.1",
+    "enabled": true
+  },
+  "security": {
+    "mode": "NORMAL",
+    "trustedClient": false,
+    "confirmDangerousActions": true
+  },
+  "logging": {
+    "level": "info",
+    "auditEnabled": true,
+    "maxLogLines": 1000
+  },
+  "tools": {
+    "files": true,
+    "system": true,
+    "terminal": true,
+    "packages": true,
+    "database": true,
+    "security": true,
+    "shortcuts": true,
+    "network": true,
+    "diagnostics": true,
+    "developer": true
+  },
+  "timeouts": {
+    "filesystem": 10000,
+    "http": 15000,
+    "terminal": 30000,
+    "diagnostics": 15000
+  },
+  "compact": {
+    "enabled": true,
+    "level": "normal",
+    "maxChars": 15000,
+    "paginationEnabled": true,
+    "pageSize": 100
+  },
+  "taskQueue": {
+    "concurrency": 4,
+    "maxQueue": 250
+  },
+  "workspace": {
+    "path": null,
+    "autoDetect": true
+  }
+}

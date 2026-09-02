@@ -1,0 +1,25 @@
+{
+  "name": "network",
+  "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces.\nAcciones e inputs de exactos: diagnose_network {} | dns_query { domain, rrtype } | get_interfaces { name, item } | scan_ports { host, ports, 443, 3000, 5000, 8000, 8080, 8765, timeoutMs } | test_connection { host, port, timeoutMs }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "diagnose_network",
+          "dns_query",
+          "get_interfaces",
+          "scan_ports",
+          "test_connection"
+        ]
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

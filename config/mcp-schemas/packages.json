@@ -1,0 +1,30 @@
+{
+  "name": "packages",
+  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones e inputs de exactos: add_repository { manager, url, name } | check_manager { manager } | install_package { manager, name } | list_installed { manager } | list_repositories {} | package_info { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search_package { manager, query } | update_package { manager, name }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "add_repository",
+          "check_manager",
+          "install_package",
+          "list_installed",
+          "list_repositories",
+          "package_info",
+          "remove_package",
+          "remove_repository",
+          "search_package",
+          "update_package"
+        ]
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

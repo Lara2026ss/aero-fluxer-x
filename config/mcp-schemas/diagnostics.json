@@ -1,0 +1,25 @@
+{
+  "name": "diagnostics",
+  "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación.\nAcciones e inputs de exactos: benchmark { loops } | health_check { runtime, registry, config } | resolve_toolchain { forceRefresh } | self_test { name, value, status } | system_diagnose { level, type, message }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "benchmark",
+          "health_check",
+          "resolve_toolchain",
+          "self_test",
+          "system_diagnose"
+        ]
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

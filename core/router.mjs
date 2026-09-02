@@ -1,0 +1,390 @@
+import crypto from "node:crypto";
+
+function classifyError(error, tool, action) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  if (msg.includes("required") || msg.includes("inválid") || msg.includes("invalid") || msg.includes("se requiere") || msg.includes("es requerido")) {
+    return {
+      code: "INVALID_INPUT",
+      suggestion: `Verifique los parámetros requeridos para la acción "${tool}.${action}".`,
+      recoverable: true,
+    };
+  }
+  if (msg.includes("no existe") || msg.includes("not found") || msg.includes("enoent") || msg.includes("no encontrado")) {
+    return {
+      code: "NOT_FOUND",
+      suggestion: "Verifique que la ruta o el recurso solicitado exista y sea accesible.",
+      recoverable: true,
+    };
+  }
+  if (msg.includes("permission") || msg.includes("denied") || msg.includes("permiso") || msg.includes("requiere nivel") || msg.includes("unauthorized")) {
+    return {
+      code: "PERMISSION_DENIED",
+      suggestion: "Solicite confirmación o elevación de permisos al usuario.",
+      recoverable: true,
+    };
+  }
+  if (msg.includes("timed out") || msg.includes("timeout") || msg.includes("tiempo de espera agotado") || msg.includes("abort")) {
+    return {
+      code: "TIMEOUT",
+      suggestion: "Aumente el parámetro de timeout o ejecute la operación en background.",
+      recoverable: true,
+    };
+  }
+  if (msg.includes("blocked") || msg.includes("bloquead") || msg.includes("security")) {
+    return {
+      code: "SECURITY_BLOCKED",
+      suggestion: "La operación fue restringida por las reglas de seguridad activas.",
+      recoverable: false,
+    };
+  }
+  return {
+    code: "PROCESS_FAILED",
+    suggestion: "Consulte el detalle del error para diagnosticar la causa raíz.",
+    recoverable: true,
+  };
+}
+
+export class Router {
+  constructor({ runtime, registry }) {
+    this.runtime = runtime;
+    this.registry = registry;
+    if (this.runtime) {
+      this.runtime.router = this;
+    }
+    this.beforeHooks = [];
+    this.afterHooks = [];
+  }
+
+  before(fn) {
+    if (typeof fn === "function" && !this.beforeHooks.includes(fn)) {
+      this.beforeHooks.push(fn);
+    }
+    return this;
+  }
+
+  after(fn) {
+    if (typeof fn === "function" && !this.afterHooks.includes(fn)) {
+      this.afterHooks.push(fn);
+    }
+    return this;
+  }
+
+  removeBefore(fn) {
+    const idx = this.beforeHooks.indexOf(fn);
+    if (idx !== -1) this.beforeHooks.splice(idx, 1);
+    return this;
+  }
+
+  removeAfter(fn) {
+    const idx = this.afterHooks.indexOf(fn);
+    if (idx !== -1) this.afterHooks.splice(idx, 1);
+    return this;
+  }
+
+  clearBeforeHooks() {
+    this.beforeHooks = [];
+    return this;
+  }
+
+  clearAfterHooks() {
+    this.afterHooks = [];
+    return this;
+  }
+
+  clearHooks() {
+    this.beforeHooks = [];
+    this.afterHooks = [];
+    return this;
+  }
+
+  async execute(request, actionParam, argsParam) {
+    let tool = "";
+    let action = "";
+    let args = {};
+
+    if (typeof request === "string") {
+      tool = request;
+      action = String(actionParam || "");
+      args = argsParam ?? {};
+    } else if (request && typeof request === "object") {
+      tool = String(request.tool || "");
+      action = String(request.action || "");
+      if (request.args && typeof request.args === "object") {
+        const { tool: _t, action: _a, args: nested, ...rest } = request;
+        args = { ...rest, ...nested };
+      } else {
+        const { tool: _t, action: _a, ...rest } = request;
+        args = rest;
+      }
+    }
+
+    // Normalización inteligente de rutas (soporta fluxer:files.write_file, files.write_file, sleep/wait, etc.)
+    tool = tool.replace(/^(fluxer|mcp)[_:]/i, "").trim();
+    action = action.replace(/^(fluxer|mcp)[_:]/i, "").trim();
+
+    if (tool.includes(".")) {
+      const parts = tool.split(".");
+      tool = parts[0];
+      if (!action || action === parts[1]) action = parts[1];
+    }
+
+    if (action.includes(".")) {
+      const parts = action.split(".");
+      if (!tool || tool === parts[0]) tool = parts[0];
+      action = parts[1];
+    }
+
+    // Soporte nativo para sleep / wait (ej: tool: "sleep", action: "5")
+    if (["sleep", "wait", "delay"].includes(tool.toLowerCase())) {
+      const sec = Number(action) || Number(args.seconds) || Number(args.sec) || 1;
+      tool = "system";
+      action = "sleep";
+      args = { seconds: sec, ...args };
+    }
+
+    if (!tool || !action) throw new Error("tool and action are required");
+
+    if (action === "reload" || action === "reload_server") {
+      const reloadRes = await this.runtime.control.reload();
+      return { ok: true, tool, action, data: reloadRes };
+    }
+
+    if (action === "shutdown" || action === "shutdown_server") {
+      setTimeout(() => this.runtime.control.shutdown(), 50);
+      return { ok: true, tool, action, message: "Server shutting down for graceful restart." };
+    }
+
+    let resolved = this.registry.resolve(tool, action);
+    if (!resolved) {
+      // Búsqueda inversa: si la acción existe en algún dominio (ej: write_file -> files.write_file)
+      for (const domainName of this.registry.moduleNames()) {
+        if (this.registry.actionsFor(domainName).includes(action)) {
+          tool = domainName;
+          resolved = this.registry.resolve(tool, action);
+          break;
+        }
+      }
+    }
+
+    if (!resolved) throw new Error(`unknown route: ${tool}.${action}`);
+
+    // ID único de trazabilidad para toda la cadena de ejecución
+    const requestId = crypto.randomUUID();
+    const started = performance.now();
+
+    try {
+      // Si la acción requiere más nivel del que hay activo, en vez de sólo
+      // lanzar PERMISSION_DENIED creamos una solicitud de confirmación
+      // puntual ("pedir permiso al usuario"). El cliente MCP (Claude) recibe
+      // CONFIRMATION_REQUIRED + requestId, se lo muestra al humano, y si
+      // dice que sí llama a security.approve_request con ese requestId —
+      // lo cual reintenta ESTA llamada exacta, no un grant general.
+      const required = this.runtime.permissions.requiredFor({ tool, action }, resolved.unit);
+      const current = this.runtime.permissions.currentLevel();
+      const trustedBypass = process.env.FLUXER_TRUSTED_CLIENT === "true" || this.runtime.config?.security?.trustedClient === true;
+
+      const needsMoreLevel = this.runtime.permissions.levelRank(current) < this.runtime.permissions.levelRank(required);
+
+      // No basta con que el llamador mande "__confirmed: true": eso sería
+      // trivial de falsificar y anularía todo el sistema. Se exige el
+      // requestId real emitido por este mismo router, y se verifica en el
+      // store que esa solicitud sigue existiendo con status "approved" —
+      // approve_request() es el único lugar que la pone en ese estado, y
+      // solo lo hace tras una llamada explícita del humano.
+      const confirmedReq = args.__confirmationRequestId
+        ? this.runtime.confirmations.get(args.__confirmationRequestId)
+        : null;
+      const wasJustConfirmed = Boolean(
+        confirmedReq &&
+        confirmedReq.status === "approved" &&
+        confirmedReq.tool === tool &&
+        confirmedReq.action === action,
+      );
+
+      if (!trustedBypass && needsMoreLevel && !wasJustConfirmed) {
+        const { requestId } = this.runtime.confirmations.request({ tool, action, args, required, current });
+        const durationMs = Math.round(performance.now() - started);
+        this.runtime.logger.warn("confirmation_required", { request_id: requestId, tool, action, required, current });
+        // Audit log — acción requirió confirmación
+        this.runtime.auditLog?.record({
+          agent: this.runtime.client?.name,
+          tool, action, args,
+          permission: required,
+          result: "confirmation_required",
+          durationMs,
+          traceId: requestId,
+        });
+        return {
+          ok: false,
+          code: "CONFIRMATION_REQUIRED",
+          tool,
+          action,
+          requestId,
+          required,
+          current,
+          durationMs,
+          message: `La acción "${tool}.${action}" requiere nivel "${required}" (actual: "${current}"). Pide confirmación al usuario y, si acepta, llama a security.approve_request con { requestId: "${requestId}" }.`,
+        };
+      }
+
+      // wasJustConfirmed=true significa que existe un requestId real, con
+      // status "approved", emitido por este router para este tool.action
+      // exacto — esa aprobación puntual del humano ES la autorización para
+      // esta llamada, así que no volvemos a exigir el nivel general aquí.
+      // Una vez consumida, se marca como gastada para que no sirva dos veces.
+      if (!wasJustConfirmed) {
+        this.runtime.permissions.assertAllowed({ tool, action }, resolved.unit);
+      } else {
+        confirmedReq.status = "consumed";
+      }
+      this.runtime.circuitBreaker.assert(`${tool}.${action}`);
+
+      for (const hook of this.beforeHooks) {
+        await hook({ request: { tool, action, args }, runtime: this.runtime });
+      }
+
+
+      const raw = await resolved.handler(args, this.runtime, this);
+      const durationMs = Math.round(performance.now() - started);
+      const compacted = this.runtime.compact(raw, args);
+
+      const isOk = raw?.ok !== undefined ? Boolean(raw.ok) : (compacted.ok !== false);
+      const innerData = compacted.data !== undefined ? compacted.data : compacted;
+
+      let response;
+      if (typeof innerData === "object" && innerData !== null && !Array.isArray(innerData)) {
+        response = {
+          ok: isOk,
+          tool,
+          action,
+          durationMs,
+          ...innerData,
+        };
+        if (response.ok === undefined) response.ok = isOk;
+      } else {
+        response = {
+          ok: isOk,
+          tool,
+          action,
+          durationMs,
+          data: innerData,
+        };
+      }
+
+      this.runtime.circuitBreaker.success(`${tool}.${action}`);
+
+      // Métricas automáticas por ruta
+      this.runtime.metrics.timing("tool_duration", durationMs, {
+        tool,
+        action,
+      });
+      this.runtime.metrics.inc("tool_calls", { tool, action, ok: "true" });
+
+      this.runtime.memory.recordCall({
+        tool,
+        action,
+        ok: true,
+        durationMs,
+        client: this.runtime.client,
+        traceId: requestId,
+      });
+
+      // Audit log — herramienta ejecutada con éxito
+      const required2 = this.runtime.permissions.requiredFor({ tool, action }, resolved.unit);
+      this.runtime.auditLog?.record({
+        agent: this.runtime.client?.name,
+        tool, action, args,
+        permission: required2,
+        result: isOk ? "ok" : "error",
+        durationMs,
+        traceId: requestId,
+      });
+
+      // Log estructurado con campos estándar
+      this.runtime.logger.info("tool_ok", {
+        request_id: requestId,
+        client: this.runtime.client.name,
+        tool,
+        action,
+        elapsed_ms: durationMs,
+        queue_size: this.runtime.taskQueue.queueSize,
+      });
+
+      for (const hook of this.afterHooks) {
+        await hook({
+          request: { tool, action, args },
+          response,
+          runtime: this.runtime,
+        });
+      }
+
+      // Format response if handler returned ok: false with error
+      if (!isOk && response.error && !response.code) {
+        const classification = classifyError(response.error, tool, action);
+        response.code = classification.code;
+        if (!response.suggestion) response.suggestion = classification.suggestion;
+        if (response.recoverable === undefined) response.recoverable = classification.recoverable;
+      }
+
+      return response;
+    } catch (error) {
+      const durationMs = Math.round(performance.now() - started);
+      const normalizedError =
+        error instanceof Error
+          ? error
+          : new Error(
+              typeof error === "string"
+                ? error
+                : JSON.stringify(error ?? "unknown_error"),
+            );
+
+      const classification = classifyError(normalizedError, tool, action);
+
+      this.runtime.circuitBreaker.failure(`${tool}.${action}`);
+      this.runtime.metrics.inc("tool_calls", { tool, action, ok: "false" });
+
+      try {
+        this.runtime.memory.recordCall({
+          tool,
+          action,
+          ok: false,
+          durationMs,
+          client: this.runtime.client,
+          error: normalizedError.message,
+        });
+      } catch {}
+
+      // Audit log — herramienta falló
+      this.runtime.auditLog?.record({
+        agent: this.runtime.client?.name,
+        tool, action, args,
+        permission: "unknown",
+        result: "error",
+        durationMs,
+        error: normalizedError.message,
+        traceId: requestId,
+      });
+
+      this.runtime.logger.error("tool_fail", {
+        request_id: requestId,
+        client: this.runtime.client.name,
+        tool,
+        action,
+        elapsed_ms: durationMs,
+        error: normalizedError.message,
+        code: classification.code,
+        queue_size: this.runtime.taskQueue.queueSize,
+      });
+
+      // Enrich error object with structured fields
+      normalizedError.code = normalizedError.code || classification.code;
+      normalizedError.suggestion = classification.suggestion;
+      normalizedError.recoverable = classification.recoverable;
+      normalizedError.durationMs = durationMs;
+      normalizedError.tool = tool;
+      normalizedError.action = action;
+
+      throw normalizedError;
+    }
+  }
+}

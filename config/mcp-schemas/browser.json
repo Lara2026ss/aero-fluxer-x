@@ -1,0 +1,33 @@
+{
+  "name": "browser",
+  "description": "Automatización Headless de Navegador (dump DOM, PDF y capturas).\nAcciones y argumentos (usar en args): close_page { ok, note } | dump_dom { url } | extract_html { url } | extract_links { url } | extract_text { url } | navigate { url } | open_page { url } | reload_page { ok, note } | save_pdf { url, destination } | take_screenshot { path, url }",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "close_page",
+          "dump_dom",
+          "extract_html",
+          "extract_links",
+          "extract_text",
+          "navigate",
+          "open_page",
+          "reload_page",
+          "save_pdf",
+          "take_screenshot"
+        ],
+        "description": "Acción a ejecutar en el dominio browser"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

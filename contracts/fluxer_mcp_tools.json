@@ -1,0 +1,432 @@
+{
+  "version": "6.5.0",
+  "tools": [
+    {
+      "name": "files",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.\nAcciones y argumentos (usar en args): append_to_file { path, content, addNewline } | batch_copy { files, overwrite, stopOnError } | batch_delete { paths, stopOnError } | batch_move { files, stopOnError } | batch_rename { directory, pattern, replacement } | calculate_checksum { path, algorithm } | compare_files { left, right } | compress_path { source, destination } | copy_file { source, destination, overwrite } | create_directory { path } | create_document { path, title, content, paragraphs, format, frontmatter, metadata } | delete_lines { path, startLine, endLine, lineNumbers, backup } | delete_path { path, recursive, force } | directory_tree { path, depth, maxEntries } | edit_file { path, oldText, find, search, targetContent, newText, replace, replacement, replacementContent, replaceAll, isRegex, backup } | extract_archive { source, destination } | file_diff { left, right } | file_exists { path } | find_and_replace_in_files { directory, filePattern, pattern, searchText, replaceText, find, replace, search, oldText, newText, excludePatterns, git, dist, build } | get_detailed_metadata { path } | get_file_info { path } | grep_files { path, query, isRegex, caseInsensitive, include, includePattern, limit, maxFileSize } | insert_lines { path, atLine, afterLine, afterPattern, lines, backup } | json_manager { path, op, key, value, createPath, backup } | list_allowed_directories { ok, directories, runtimedirshome, runtimedirsdownloads, runtimedirsdocuments, runtimedirsstorage } | list_archive_contents { path } | list_directory { path, limit, sortBy, recursive } | list_directory_with_sizes { path, limit, sortBy } | move_file { source, destination, overwrite } | patch_file { path, searchBlock, replaceBlock, backup } | read_binary_file { path, format, limitBytes } | read_csv { path, delimiter, hasHeader, maxRows } | read_document { path } | read_file_range { path, startLine, endLine, range, encoding, includeLineNumbers } | read_json { path, key, defaultValue } | read_multiple_files { paths, path, maxFiles } | read_text_file { path, head, tail, maxLines, page, linesPerPage, startLine, endLine, range, encoding, includeLineNumbers } | replace_lines { path, startLine, endLine, lines, backup } | search_files { path, pattern, excludePatterns, git, dist, build, limit } | set_attributes { path, readonly, hidden, mode } | touch_file { path } | validate_workspace { path } | write_csv { path, headers, rows, delimiter, append } | write_file { path, content, overwrite, backup, encoding } | write_json { path, data }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "append_to_file",
+              "batch_copy",
+              "batch_delete",
+              "batch_move",
+              "batch_rename",
+              "calculate_checksum",
+              "compare_files",
+              "compress_path",
+              "copy_file",
+              "create_directory",
+              "create_document",
+              "delete_lines",
+              "delete_path",
+              "directory_tree",
+              "edit_file",
+              "extract_archive",
+              "file_diff",
+              "file_exists",
+              "find_and_replace_in_files",
+              "get_detailed_metadata",
+              "get_file_info",
+              "grep_files",
+              "insert_lines",
+              "json_manager",
+              "list_allowed_directories",
+              "list_archive_contents",
+              "list_directory",
+              "list_directory_with_sizes",
+              "move_file",
+              "patch_file",
+              "read_binary_file",
+              "read_csv",
+              "read_document",
+              "read_file_range",
+              "read_json",
+              "read_multiple_files",
+              "read_text_file",
+              "replace_lines",
+              "search_files",
+              "set_attributes",
+              "touch_file",
+              "validate_workspace",
+              "write_csv",
+              "write_file",
+              "write_json"
+            ],
+            "description": "Acción a ejecutar en el dominio files"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "system",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.\nAcciones y argumentos (usar en args): apply_update { force, targetVersion, downloadUrl, expectedSha256 } | check_for_updates { allowDowngrade, allowPrerelease } | dns_lookup { domain, rrtype } | get_battery_info {} | get_clipboard {} | get_cpu_info {} | get_defender_status {} | get_disk_info {} | get_env { name } | get_env_vars { scope, filter } | get_folder_size { path } | get_gpu_info {} | get_hardware_info {} | get_kernel_info {} | get_local_ip {} | get_open_ports {} | get_performance_stats {} | get_processes { limit } | get_public_ip {} | get_ram_info {} | get_resource_usage { ok, memory, uptime } | get_sensors {} | get_storage_info {} | get_system_info { ok, platform, isWindowsOnly, arch, release, hostname, nodeVersion } | get_system_load {} | get_system_snapshot {} | get_temperature {} | get_wifi_networks {} | get_wifi_profile {} | get_windows_update_status {} | list_backups {} | list_env { filter } | list_scheduled_tasks { filter } | manage_services { service, action } | manage_startup {} | ping { host, count } | read_registry { key, value } | reload_server {} | remove_env_var { name, scope } | rollback_update { backupId } | run_scheduled_task { name } | send_notification { title, message } | set_clipboard { text } | set_env { name, value } | set_env_var { name, value, scope } | set_performance_mode {} | set_power_profile { profile } | shutdown_server {} | sleep { seconds, ms } | test_port { host, port, timeoutMs } | wait { seconds, ms } | write_registry { key, name, data, type }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "apply_update",
+              "check_for_updates",
+              "dns_lookup",
+              "get_battery_info",
+              "get_clipboard",
+              "get_cpu_info",
+              "get_defender_status",
+              "get_disk_info",
+              "get_env",
+              "get_env_vars",
+              "get_folder_size",
+              "get_gpu_info",
+              "get_hardware_info",
+              "get_kernel_info",
+              "get_local_ip",
+              "get_open_ports",
+              "get_performance_stats",
+              "get_processes",
+              "get_public_ip",
+              "get_ram_info",
+              "get_resource_usage",
+              "get_sensors",
+              "get_storage_info",
+              "get_system_info",
+              "get_system_load",
+              "get_system_snapshot",
+              "get_temperature",
+              "get_wifi_networks",
+              "get_wifi_profile",
+              "get_windows_update_status",
+              "list_backups",
+              "list_env",
+              "list_scheduled_tasks",
+              "manage_services",
+              "manage_startup",
+              "ping",
+              "read_registry",
+              "reload_server",
+              "remove_env_var",
+              "rollback_update",
+              "run_scheduled_task",
+              "send_notification",
+              "set_clipboard",
+              "set_env",
+              "set_env_var",
+              "set_performance_mode",
+              "set_power_profile",
+              "shutdown_server",
+              "sleep",
+              "test_port",
+              "wait",
+              "write_registry"
+            ],
+            "description": "Acción a ejecutar en el dominio system"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "terminal",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema.\nAcciones y argumentos (usar en args): attach_session { sessionId } | close_session { sessionId } | create_session { sessionId, cwd, env } | get_background_output { taskId, pid, tailLines } | kill_background_task { taskId, pid } | kill_process { pid } | kill_process_tree { pid } | list_background_tasks {} | list_processes { filterName, limit, sortBy } | list_sessions { id, cwd, createdAt, updatedAt, historyCount, envKeysCount } | open_file_explorer { path } | open_url { url } | run_as_admin { command, cwd } | run_background { command, cwd } | run_command { command, timeout, cwd, env, shell, stripAnsi, maxOutputChars } | run_inline_script { code, language, args, cwd, timeout, stripAnsi } | run_script { path, args, interpreter, cwd, env, timeout, stripAnsi, maxOutputChars } | run_session_command { sessionId, command, cwd, env } | stop_background_task { taskId, pid } | wait_for_background_task { taskId, pid, timeoutMs, pollIntervalMs }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "attach_session",
+              "close_session",
+              "create_session",
+              "get_background_output",
+              "kill_background_task",
+              "kill_process",
+              "kill_process_tree",
+              "list_background_tasks",
+              "list_processes",
+              "list_sessions",
+              "open_file_explorer",
+              "open_url",
+              "run_as_admin",
+              "run_background",
+              "run_command",
+              "run_inline_script",
+              "run_script",
+              "run_session_command",
+              "stop_background_task",
+              "wait_for_background_task"
+            ],
+            "description": "Acción a ejecutar en el dominio terminal"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "packages",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones y argumentos (usar en args): add_repository { manager, url, name } | check_manager { manager } | install_package { manager, name } | list_installed { manager } | list_repositories {} | package_info { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search_package { manager, query } | update_package { manager, name }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "add_repository",
+              "check_manager",
+              "install_package",
+              "list_installed",
+              "list_repositories",
+              "package_info",
+              "remove_package",
+              "remove_repository",
+              "search_package",
+              "update_package"
+            ],
+            "description": "Acción a ejecutar en el dominio packages"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "database",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).\nAcciones y argumentos (usar en args): analyze_database { database } | backup_database { database, destination } | create_database { database } | delete_database { database } | describe_table { database, table } | execute_query { engine, database, query, user, password, host } | execute_script { engine, database, scriptFile } | explain_query { database, query } | export_table { database, table, format, destination } | import_table { database, table, data, source } | restore_database { database, source } | search_tables { database }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "analyze_database",
+              "backup_database",
+              "create_database",
+              "delete_database",
+              "describe_table",
+              "execute_query",
+              "execute_script",
+              "explain_query",
+              "export_table",
+              "import_table",
+              "restore_database",
+              "search_tables"
+            ],
+            "description": "Acción a ejecutar en el dominio database"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "security",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId } | audit_log { limit, tool, action, result } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | grant_permission { scope, role, level, args } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | permissions_active {} | request_status { requestId } | revoke_permission { scope } | scan_file { path } | set_security_mode { mode } | verify_hash { text, hash, algorithm }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "analyze_process",
+              "approve_request",
+              "audit_log",
+              "audit_system",
+              "check_permissions",
+              "decrypt_text",
+              "deny_request",
+              "encrypt_text",
+              "generate_token",
+              "generate_uuid",
+              "get_security_mode",
+              "grant_permission",
+              "hash_file",
+              "hash_text",
+              "health",
+              "permissions_active",
+              "request_status",
+              "revoke_permission",
+              "scan_file",
+              "set_security_mode",
+              "verify_hash"
+            ],
+            "description": "Acción a ejecutar en el dominio security"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "shortcuts",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload.\nAcciones y argumentos (usar en args): clear_all {} | create { name, description, steps, category, tags } | delete { name, all } | edit { name, description, steps, category, tags } | execute { name, variables } | export_shortcuts { destination } | get { name } | history { name } | import_shortcuts { source, data, overwrite } | inspect { name } | list { category } | reload {} | remove { name, all } | rename { name, newName } | run { name, variables } | save { name, description, steps, category, tags } | update { name, description, steps, category, tags }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "clear_all",
+              "create",
+              "delete",
+              "edit",
+              "execute",
+              "export_shortcuts",
+              "get",
+              "history",
+              "import_shortcuts",
+              "inspect",
+              "list",
+              "reload",
+              "remove",
+              "rename",
+              "run",
+              "save",
+              "update"
+            ],
+            "description": "Acción a ejecutar en el dominio shortcuts"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "network",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces.\nAcciones y argumentos (usar en args): diagnose_network {} | dns_query { domain, rrtype } | get_interfaces { name, item } | scan_ports { host, ports, 443, 3000, 5000, 8000, 8080, 8765, timeoutMs } | test_connection { host, port, timeoutMs }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "diagnose_network",
+              "dns_query",
+              "get_interfaces",
+              "scan_ports",
+              "test_connection"
+            ],
+            "description": "Acción a ejecutar en el dominio network"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "diagnostics",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación.\nAcciones y argumentos (usar en args): benchmark { loops } | health_check { runtime, registry, config } | resolve_toolchain { forceRefresh } | self_test { name, value, status } | system_diagnose { level, type, message }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "benchmark",
+              "health_check",
+              "resolve_toolchain",
+              "self_test",
+              "system_diagnose"
+            ],
+            "description": "Acción a ejecutar en el dominio diagnostics"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "developer",
+      "description": "Detección, análisis, tests, builds y gestión integral de skills de IA (.md) para desarrollo de software.\nAcciones y argumentos (usar en args): create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite } | detect_project { path } | diagnose_service { path, serviceId } | get_skill { name, path } | inspect_project { path } | list_skills { path, searchGlobal } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | validate_skill { path }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create_skill",
+              "detect_project",
+              "diagnose_service",
+              "get_skill",
+              "inspect_project",
+              "list_skills",
+              "refresh_service_state",
+              "run_project_build",
+              "run_project_tests",
+              "validate_skill"
+            ],
+            "description": "Acción a ejecutar en el dominio developer"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

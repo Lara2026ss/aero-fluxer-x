@@ -1,0 +1,545 @@
+/**
+ * FLUXER — tools/system.mjs
+ * Dominio: diagnóstico de hardware, entorno, clipboard, servicios, red, energía y actualizaciones.
+ */
+import { checkForUpdates, executeAutoUpdate, executeRollback, listAvailableBackups } from "../core/updater.mjs";
+import { CURRENT_VERSION } from "../core/version.mjs";
+
+export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchText, sendNativeNotification }) {
+  return domain(
+    "system",
+    "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.",
+    {
+      // ── Hardware / OS ────────────────────────────────────────────────────────
+      get_cpu_info: async () => {
+        const cpus = os.cpus();
+        const logicalCount = cpus.length;
+        const physicalCount = logicalCount > 1 ? Math.floor(logicalCount / 2) : 1;
+        return {
+          ok: true,
+          arch: process.arch,
+          model: cpus[0]?.model || "Generic CPU",
+          cores: physicalCount,
+          physicalCores: physicalCount,
+          logicalProcessors: logicalCount,
+          speedMHz: cpus[0]?.speed || 0,
+          loadavg: os.loadavg(),
+        };
+      },
+
+      get_system_snapshot: async () => {
+        const cpus = os.cpus();
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const nets = os.networkInterfaces();
+        const ips = [];
+        for (const name of Object.keys(nets)) {
+          for (const net of nets[name] || []) {
+            if (net.family === "IPv4" && !net.internal) ips.push(net.address);
+          }
+        }
+        return {
+          ok: true,
+          platform: process.platform,
+          osRelease: os.release(),
+          hostname: os.hostname(),
+          uptimeSeconds: Math.round(os.uptime()),
+          cpuModel: cpus[0]?.model || "Generic CPU",
+          cores: cpus.length,
+          memory: {
+            totalGB: Number((totalMem / 1024 ** 3).toFixed(2)),
+            usedGB: Number((usedMem / 1024 ** 3).toFixed(2)),
+            freeGB: Number((freeMem / 1024 ** 3).toFixed(2)),
+            usagePercent: Number(((usedMem / totalMem) * 100).toFixed(1)),
+          },
+          localIps: ips,
+          nodeVersion: process.version,
+        };
+      },
+
+      get_gpu_info: async () => {
+        try {
+          const cmd = "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), output: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_ram_info: async () => {
+        try {
+          const total = os.totalmem();
+          const free = os.freemem();
+          const used = total - free;
+          return {
+            ok: true,
+            totalBytes: total,
+            freeBytes: free,
+            usedBytes: used,
+            totalGB: Number((total / 1024 ** 3).toFixed(2)),
+            usedGB: Number((used / 1024 ** 3).toFixed(2)),
+            freeGB: Number((free / 1024 ** 3).toFixed(2)),
+            processMemory: process.memoryUsage(),
+          };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_storage_info: async () => {
+        try {
+          const cmd = "Get-PSDrive -PSProvider FileSystem | Select-Object Name,Used,Free | Format-Table";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), storage: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_battery_info: async () => {
+        try {
+          const cmd = "Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object EstimatedChargeRemaining,BatteryStatus | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), battery: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_temperature: async () => {
+        try {
+          const cmd = "Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi -ErrorAction SilentlyContinue | Select-Object CurrentTemperature | Format-List";
+          const res = await runtime.run(cmd);
+          const hasSensors = Boolean(res.stdout && res.stdout.trim());
+          return {
+            ok: true,
+            sensors: hasSensors ? res.stdout.trim() : "No se detectaron sensores térmicos WMI/ACPI compatibles en este equipo.",
+            available: hasSensors
+          };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_system_info: async () => ({
+        ok: true,
+        platform: "win32",
+        isWindowsOnly: true,
+        arch: process.arch,
+        release: os.release(),
+        hostname: os.hostname(),
+        nodeVersion: process.version,
+      }),
+
+      get_kernel_info: async () => {
+        try {
+          const cmd = "[System.Environment]::OSVersion | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), kernel: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_hardware_info: async () => {
+        try {
+          const cmd = "Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model,TotalPhysicalMemory,SystemType | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), info: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_processes: async ({ limit = 30 } = {}) => {
+        try {
+          const n = Math.min(Number(limit) || 30, 100);
+          const cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,WorkingSet | Format-Table`;
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), output: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_resource_usage: async () => ({
+        ok: true,
+        memory: process.memoryUsage(),
+        uptime: process.uptime(),
+      }),
+
+      get_system_load: async () => {
+        try {
+          const cmd = "Get-CimInstance Win32_Processor | Select-Object LoadPercentage | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), load: res.stdout || res.stderr, loadavg: os.loadavg() };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_performance_stats: async () => {
+        try {
+          const cmd = "Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\" -ErrorAction SilentlyContinue | Select-Object PercentProcessorTime | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), stats: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      get_sensors: async () => {
+        try {
+          const cmd = "Get-CimInstance Win32_TemperatureProbe -ErrorAction SilentlyContinue | Format-List; Get-CimInstance Win32_Fan -ErrorAction SilentlyContinue | Format-List";
+          const res = await runtime.run(cmd);
+          return { ok: res.ok || Boolean(res.stdout), output: res.stdout || res.stderr };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      // ── Clipboard ───────────────────────────────────────────────────────────
+      get_clipboard: async () => {
+        const cmd = "Get-Clipboard";
+        const res = await runtime.run(cmd);
+        return { ok: true, text: res.stdout || "" };
+      },
+
+      set_clipboard: async ({ text = "" } = {}) => {
+        const cmd = `Set-Clipboard -Value ${runtime.shellQuote(text)}`;
+        await runtime.run(cmd);
+        return { ok: true, copiedBytes: Buffer.byteLength(text, "utf8") };
+      },
+
+      // ── Variables de entorno ─────────────────────────────────────────────────
+      get_env: async ({ name } = {}) => {
+        if (!name) return { ok: false, error: "El parámetro 'name' es requerido." };
+        const value = process.env[name] || runtime.env?.[name];
+        if (value === undefined) return { ok: true, name, value: null, exists: false };
+        const isSecret = /key|secret|token|password|passwd|auth|credential|api_?key/i.test(name);
+        if (isSecret) return { ok: true, name, value: "[CONFIGURED]", exists: true, masked: true, length: value.length };
+        return { ok: true, name, value, exists: true, masked: false };
+      },
+
+      set_env: async ({ name, value = "" } = {}) => {
+        if (!name) return { ok: false, error: "El parámetro 'name' es requerido." };
+        process.env[name] = String(value);
+        if (runtime.env) runtime.env[name] = String(value);
+        return { ok: true, name, value: String(value) };
+      },
+
+      list_env: async ({ filter } = {}) => {
+        const entries = {};
+        const q = filter ? filter.toLowerCase() : null;
+        for (const [k, v] of Object.entries(process.env)) {
+          if (!q || k.toLowerCase().includes(q)) {
+            const isSecret = /key|secret|token|password|passwd|auth|credential|api_?key/i.test(k);
+            entries[k] = isSecret ? "[CONFIGURED]" : v;
+          }
+        }
+        return { ok: true, count: Object.keys(entries).length, env: entries };
+      },
+
+      // ── Red ─────────────────────────────────────────────────────────────────
+      ping: async ({ host = "8.8.8.8", count = 3 } = {}) => {
+        const n = Math.min(Number(count) || 3, 10);
+        const cmd = `ping -n ${n} ${runtime.shellQuote(host)}`;
+        const res = await runtime.run(cmd);
+        return { ok: res.ok, host, output: res.stdout };
+      },
+
+      dns_lookup: async ({ domain: domainName, rrtype = "A" } = {}) => {
+        if (!domainName) return { ok: false, error: "El parámetro 'domain' es requerido." };
+        try {
+          const records = await dns.resolve(domainName, rrtype.toUpperCase());
+          return { ok: true, domain: domainName, rrtype, records };
+        } catch (e) {
+          return { ok: false, domain: domainName, error: e.message };
+        }
+      },
+
+      test_port: async ({ host, port, timeoutMs = 3000 } = {}) => {
+        if (!host || !port) return { ok: false, error: "Los parámetros 'host' y 'port' son requeridos." };
+        return new Promise((resolve) => {
+          const socket = new net.Socket();
+          socket.setTimeout(Number(timeoutMs) || 3000);
+          socket.on("connect", () => { socket.destroy(); resolve({ ok: true, host, port: Number(port), open: true }); });
+          socket.on("timeout", () => { socket.destroy(); resolve({ ok: false, host, port: Number(port), open: false, error: "Timeout." }); });
+          socket.on("error", (err) => { socket.destroy(); resolve({ ok: false, host, port: Number(port), open: false, error: err.message }); });
+          socket.connect(Number(port), host);
+        });
+      },
+
+      get_public_ip: async () => {
+        const httpRes = await httpFetchText("https://api.ipify.org");
+        return { ok: true, ip: httpRes.ok ? httpRes.text.trim() : "Desconocida" };
+      },
+
+      get_local_ip: async () => {
+        const nets = os.networkInterfaces();
+        const ips = [];
+        for (const name of Object.keys(nets)) {
+          for (const n of nets[name] || []) {
+            if (n.family === "IPv4" && !n.internal) ips.push(n.address);
+          }
+        }
+        return { ok: true, ip: ips.join(", ") || "127.0.0.1" };
+      },
+
+      get_open_ports: async () => {
+        const cmd = "Get-NetTCPConnection -State Listen | Select-Object LocalPort,OwningProcess | Sort-Object LocalPort | Format-Table";
+        return { ok: true, ports: (await runtime.run(cmd)).stdout };
+      },
+
+      // ── Servicios ───────────────────────────────────────────────────────────
+      manage_services: async ({ service = "", action = "status" } = {}) => {
+        const winActions = { status: "Get-Service", start: "Start-Service", stop: "Stop-Service", restart: "Restart-Service" };
+        let cmd = "";
+        if (!service || action === "list") {
+          cmd = "Get-Service | Select-Object -First 30 Name,Status,DisplayName | Format-Table";
+        } else {
+          cmd = `${winActions[action] || "Get-Service"} -Name ${runtime.shellQuote(service)} | Format-List`;
+        }
+        return { ok: true, output: (await runtime.run(cmd)).stdout };
+      },
+
+      manage_startup: async () => {
+        const cmd = "Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location | Format-Table";
+        return { ok: true, output: (await runtime.run(cmd)).stdout };
+      },
+
+      // ── Variables de Entorno ─────────────────────────────────────────────────
+      get_env_vars: async ({ scope = "all", filter } = {}) => {
+        // scope: "process" → lee process.env de Node.js (en vivo, inmediato)
+        // scope: "user" | "system" → consulta el Registro de Windows vía PowerShell
+        if (scope === "system" || scope === "user") {
+          const target = scope === "system" ? "Machine" : "User";
+          const res = await runtime.run(`[System.Environment]::GetEnvironmentVariables([System.EnvironmentVariableTarget]::${target}) | ConvertTo-Json`);
+          try {
+            let vars = JSON.parse(res.stdout);
+            if (filter) {
+              const f = String(filter).toLowerCase();
+              vars = Object.fromEntries(Object.entries(vars).filter(([k]) => k.toLowerCase().includes(f)));
+            }
+            return { ok: true, scope, count: Object.keys(vars).length, vars };
+          } catch { return { ok: false, scope, error: res.stderr }; }
+        }
+        // scope: "process" o "all" → process.env directamente
+        const envs = {};
+        for (const [k, v] of Object.entries(process.env)) {
+          if (filter && !k.toLowerCase().includes(String(filter).toLowerCase())) continue;
+          envs[k] = v;
+        }
+        return { ok: true, scope: "process", count: Object.keys(envs).length, vars: envs };
+      },
+
+      set_env_var: async ({ name, value, scope = "user" } = {}) => {
+        if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
+        const val = String(value ?? "");
+        if (scope === "process") {
+          // Operar directamente sobre process.env del proceso MCP — sin subproceso
+          process.env[name] = val;
+          runtime.env[name] = val;
+          return { ok: true, name, value: val, scope: "process", note: "Variable activa en el proceso MCP actual (sesion)." };
+        }
+        const target = scope === "system" ? "Machine" : "User";
+        const cmd = `[System.Environment]::SetEnvironmentVariable(${runtime.shellQuote(name)}, ${runtime.shellQuote(val)}, [System.EnvironmentVariableTarget]::${target}); Write-Output "OK"`;
+        const res = await runtime.run(cmd);
+        return { ok: res.ok, name, value: val, scope, persisted: true, output: res.stdout };
+      },
+
+      remove_env_var: async ({ name, scope = "user" } = {}) => {
+        if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
+        if (scope === "process") {
+          // Eliminar del proceso MCP en vivo
+          const existed = name in process.env;
+          delete process.env[name];
+          delete runtime.env[name];
+          return { ok: true, name, scope: "process", existed, note: "Variable eliminada del proceso MCP actual (sesion)." };
+        }
+        const target = scope === "system" ? "Machine" : "User";
+        const cmd = `[System.Environment]::SetEnvironmentVariable(${runtime.shellQuote(name)}, $null, [System.EnvironmentVariableTarget]::${target}); Write-Output "Removed"`;
+        const res = await runtime.run(cmd);
+        return { ok: res.ok, name, scope, persisted: true, output: res.stdout };
+      },
+
+      // ── Disco / Almacenamiento ──────────────────────────────────────────────
+      get_disk_info: async () => {
+        const cmd = "Get-PSDrive -PSProvider FileSystem | Select-Object Name,@{N='UsedGB';E={[Math]::Round($_.Used/1GB,2)}},@{N='FreeGB';E={[Math]::Round($_.Free/1GB,2)}},@{N='TotalGB';E={[Math]::Round(($_.Used+$_.Free)/1GB,2)}} | ConvertTo-Json";
+        const res = await runtime.run(cmd);
+        try { return { ok: true, drives: JSON.parse(res.stdout) }; } catch { return { ok: true, raw: res.stdout }; }
+      },
+
+      get_folder_size: async ({ path: folderPath } = {}) => {
+        if (!folderPath) return { ok: false, error: "El parametro 'path' es requerido." };
+        const cmd = `$s=(Get-ChildItem -Path ${runtime.shellQuote(runtime.hp(folderPath))} -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum; Write-Output ([Math]::Round($s/1MB,2))`;
+        const res = await runtime.run(cmd);
+        return { ok: res.ok, path: folderPath, sizeMB: parseFloat(res.stdout.trim()) || 0 };
+      },
+
+      // ── Batería ─────────────────────────────────────────────────────────────
+      get_battery_info: async () => {
+        const cmd = "Get-CimInstance Win32_Battery | Select-Object Name,BatteryStatus,EstimatedChargeRemaining,EstimatedRunTime,DesignCapacity | ConvertTo-Json";
+        const res = await runtime.run(cmd);
+        try { return { ok: true, battery: JSON.parse(res.stdout) }; }
+        catch { return { ok: true, raw: res.stdout || "No se detecto bateria (equipo de escritorio)." }; }
+      },
+
+      // ── Tareas Programadas ──────────────────────────────────────────────────
+      list_scheduled_tasks: async ({ filter } = {}) => {
+        const cmd = filter
+          ? `Get-ScheduledTask | Where-Object { $_.TaskName -like ${runtime.shellQuote("*" + filter + "*")} } | Select-Object TaskName,TaskPath,State | ConvertTo-Json`
+          : "Get-ScheduledTask | Select-Object TaskName,TaskPath,State | Sort-Object State | ConvertTo-Json -Depth 1";
+        const res = await runtime.run(cmd);
+        const raw = (res.stdout || "").trim();
+        if (!raw) {
+          // Sin coincidencias (filtro sin resultados)
+          return { ok: true, count: 0, tasks: [], filter: filter || null };
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          const tasks = Array.isArray(parsed) ? parsed : [parsed];
+          return { ok: true, count: tasks.length, tasks, filter: filter || null };
+        } catch {
+          return { ok: true, raw, filter: filter || null };
+        }
+      },
+
+      run_scheduled_task: async ({ name } = {}) => {
+        if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
+        const res = await runtime.run(`Start-ScheduledTask -TaskName ${runtime.shellQuote(name)}`);
+        return { ok: res.ok, name, output: res.stdout || res.stderr };
+      },
+
+      // ── Registro de Windows ──────────────────────────────────────────────────
+      read_registry: async ({ key, value } = {}) => {
+        if (!key) return { ok: false, error: "El parametro 'key' es requerido. Ejemplo: HKCU\\Software\\MyApp o HKCU:\\Software\\MyApp" };
+        // Normalizar: HKCU\ -> HKCU:\ — aceptar ambos formatos
+        const normalizedKey = key.replace(
+          /^(HKCU|HKLM|HKCC|HKU|HKCR)(\\)/i,
+          (_, hive, sep) => hive.toUpperCase() + ":" + sep
+        );
+        const cmd = value
+          ? `Get-ItemPropertyValue -Path ${runtime.shellQuote(normalizedKey)} -Name ${runtime.shellQuote(value)} -ErrorAction Stop`
+          : `Get-ItemProperty -Path ${runtime.shellQuote(normalizedKey)} -ErrorAction Stop | ConvertTo-Json`;
+        const res = await runtime.run(cmd);
+        if (!res.ok) return { ok: false, key: normalizedKey, error: res.stderr };
+        return { ok: true, key: normalizedKey, value: value || null, data: res.stdout.trim() };
+      },
+
+      write_registry: async ({ key, name, data, type = "String" } = {}) => {
+        if (!key || !name) return { ok: false, error: "Los parametros 'key' y 'name' son requeridos." };
+        // Normalizar hive (mismo fix que read_registry)
+        const normalizedKey = key.replace(
+          /^(HKCU|HKLM|HKCC|HKU|HKCR)(\\)/i,
+          (_, hive, sep) => hive.toUpperCase() + ":" + sep
+        );
+        const validTypes = ["String", "ExpandString", "DWord", "QWord", "Binary", "MultiString"];
+        const regType = validTypes.includes(type) ? type : "String";
+        const cmd = `New-ItemProperty -Path ${runtime.shellQuote(normalizedKey)} -Name ${runtime.shellQuote(name)} -Value ${runtime.shellQuote(String(data ?? ""))} -PropertyType ${regType} -Force | Out-Null; Write-Output "OK"`;
+        const res = await runtime.run(cmd);
+        return { ok: res.ok, key: normalizedKey, name, type: regType, output: res.stdout };
+      },
+
+      // ── Windows Update / Defender ────────────────────────────────────────────
+      get_windows_update_status: async () => {
+        const cmd = "Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 10 HotFixID,Description,InstalledOn | ConvertTo-Json";
+        const res = await runtime.run(cmd);
+        try { return { ok: true, recentUpdates: JSON.parse(res.stdout) }; }
+        catch { return { ok: true, raw: res.stdout }; }
+      },
+
+      get_defender_status: async () => {
+        const cmd = "Get-MpComputerStatus | Select-Object AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated,QuickScanEndTime | ConvertTo-Json";
+        const res = await runtime.run(cmd);
+        try { return { ok: true, defender: JSON.parse(res.stdout) }; }
+        catch { return { ok: false, error: res.stderr }; }
+      },
+
+      // ── Información de red adicional ─────────────────────────────────────────
+      get_wifi_networks: async () => {
+        const res = await runtime.run("netsh wlan show networks mode=Bssid");
+        return {
+          ok: res.ok,
+          output: res.stdout || res.stderr || "",
+          ...(res.ok ? {} : { error: res.stderr || "El servicio WLAN Autoconfig no está ejecutándose o la tarjeta Wi-Fi está desactivada." })
+        };
+      },
+
+      get_wifi_profile: async () => {
+        const res = await runtime.run("netsh wlan show profiles");
+        return {
+          ok: res.ok,
+          output: res.stdout || res.stderr || "",
+          ...(res.ok ? {} : { error: res.stderr || "No se pudieron obtener los perfiles de red inalámbrica." })
+        };
+      },
+
+      // ── Energía ─────────────────────────────────────────────────────────────
+      set_power_profile: async ({ profile = "balanced" } = {}) => {
+        const profiles = {
+          balanced: "381b4222-f694-41f0-9685-ff5bb260df2e",
+          performance: "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c",
+          powersaver: "a1841308-3541-4fab-bc81-f71556f20b4a",
+        };
+        const cmd = `powercfg /setactive ${profiles[profile] || profiles.balanced}`;
+        return { ok: true, output: (await runtime.run(cmd)).stdout };
+      },
+
+      set_performance_mode: async () => {
+        const cmd = "powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
+        return { ok: true, output: (await runtime.run(cmd)).stdout };
+      },
+
+      // ── Notificaciones / Utilidades ──────────────────────────────────────────
+      send_notification: async ({ title = "AERON FLUXER X", message = "" } = {}) => {
+        const sent = sendNativeNotification(title, message);
+        return { ok: true, sent };
+      },
+
+      sleep: async ({ seconds = 1, ms } = {}) => {
+        const delayMs = Number(ms) || Math.max(0, Number(seconds) * 1000);
+        await new Promise((r) => setTimeout(r, delayMs));
+        return { ok: true, sleptMs: delayMs };
+      },
+
+      wait: async ({ seconds = 1, ms } = {}) => {
+        const delayMs = Number(ms) || Math.max(0, Number(seconds) * 1000);
+        await new Promise((r) => setTimeout(r, delayMs));
+        return { ok: true, waitedMs: delayMs };
+      },
+
+      // ── Actualizaciones y Mantenimiento ──────────────────────────────────────
+      check_for_updates: async ({ allowDowngrade = false, allowPrerelease = false } = {}) => {
+        return checkForUpdates({ repoRoot: runtime.dirs.root, allowDowngrade, allowPrerelease });
+      },
+
+      apply_update: async ({ force = false, targetVersion, downloadUrl, expectedSha256 } = {}) => {
+        return executeAutoUpdate({ repoRoot: runtime.dirs.root, force, targetVersion, downloadUrl, expectedSha256 });
+      },
+
+      rollback_update: async ({ backupId } = {}) => {
+        const backups = await listAvailableBackups(runtime.dirs.root);
+        let selected = null;
+        if (backupId) {
+          selected = backups.backups?.find((b) => b.backupId === backupId);
+        } else {
+          selected = backups.backups?.[backups.backups.length - 1];
+        }
+        if (!selected) {
+          return { ok: false, error: "No se encontró ningún backup disponible para restaurar." };
+        }
+        return executeRollback(selected.path, runtime.dirs.root);
+      },
+
+      list_backups: async () => {
+        return listAvailableBackups(runtime.dirs.root);
+      },
+
+      reload_server: async () => runtime.control.reload(),
+      shutdown_server: async () => runtime.control.shutdown(),
+    }
+  );
+}

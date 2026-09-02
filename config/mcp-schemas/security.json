@@ -1,0 +1,41 @@
+{
+  "name": "security",
+  "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad.\nAcciones e inputs de exactos: analyze_process {} | approve_request { requestId } | audit_log { limit, tool, action, result } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | grant_permission { scope, role, level, args } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | permissions_active {} | request_status { requestId } | revoke_permission { scope } | scan_file { path } | set_security_mode { mode } | verify_hash { text, hash, algorithm }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "analyze_process",
+          "approve_request",
+          "audit_log",
+          "audit_system",
+          "check_permissions",
+          "decrypt_text",
+          "deny_request",
+          "encrypt_text",
+          "generate_token",
+          "generate_uuid",
+          "get_security_mode",
+          "grant_permission",
+          "hash_file",
+          "hash_text",
+          "health",
+          "permissions_active",
+          "request_status",
+          "revoke_permission",
+          "scan_file",
+          "set_security_mode",
+          "verify_hash"
+        ]
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

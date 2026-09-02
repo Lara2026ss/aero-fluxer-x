@@ -1,0 +1,47 @@
+{
+  "name": "aeron-fluxer-x",
+  "version": "9.0.0",
+  "description": "Aeron Fluxer X MCP v9.0 — Motor MCP de nueva generación para Windows 11 y multi-plataforma",
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "Fluxer-Load": "./Fluxer-Load"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "mammoth": "^1.12.1",
+    "pdf-lib": "^1.17.1",
+    "pngjs": "^7.0.0",
+    "unpdf": "^1.8.1"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "start:mjs": "node server.mjs",
+    "dev": "node --watch server.js",
+    "setup": "node scripts/install.mjs",
+    "doctor": "node doctor.mjs",
+    "health": "node -e \"import('./core/health.mjs').then(m => m.runHealthCheck({})).then(r => console.log(r.formattedReport))\"",
+    "update": "node update.mjs",
+    "update:check": "node update.mjs",
+    "update:apply": "node update.mjs --apply",
+    "update:rollback": "node update.mjs --rollback",
+    "check": "node --check server.mjs && node --check server.js && node --check core/runtime.mjs && node --check core/registry.mjs && node --check core/router.mjs && node --check core/permissions.mjs",
+    "test": "node tests/test_fluxer_suite.mjs",
+    "build": "node scripts/build_modern_registry.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "fluxer",
+    "runtime",
+    "windows",
+    "linux",
+    "modular",
+    "ai-agent",
+    "permission-engine",
+    "security"
+  ],
+  "author": "mau",
+  "license": "MIT"
+}
