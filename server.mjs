@@ -16,6 +16,7 @@ import { Router } from "./core/router.mjs";
 import { startDashboardApi } from "./core/dashboard-api.mjs";
 import { PluginLoader } from "./core/plugin-loader.mjs";
 import { sendNativeNotification } from "./core/notify.mjs";
+import { parseResilientJson, unwrapArgs } from "./core/json-utils.mjs";
 
 assertWindows({ strict: false });
 
@@ -143,16 +144,13 @@ export async function startServer() {
     try {
       let rawArgs = req.params.arguments || {};
       if (typeof rawArgs === "string") {
-        try { rawArgs = JSON.parse(rawArgs); } catch {}
+        const parsed = parseResilientJson(rawArgs);
+        if (parsed && typeof parsed === "object") rawArgs = parsed;
       }
       const action = rawArgs.action;
       let args = rawArgs.args;
 
-      if (typeof args === "string") {
-        try { args = JSON.parse(args); } catch {}
-      }
-
-      if (!args || typeof args !== "object" || Array.isArray(args)) {
+      if (!args || typeof args !== "object") {
         const { action: _, ...rest } = rawArgs;
         args = rest;
       } else {
@@ -160,18 +158,7 @@ export async function startServer() {
         args = { ...rest, ...nested };
       }
 
-      if (args && typeof args.args === "string") {
-        try {
-          const parsed = JSON.parse(args.args);
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-            const { args: _, ...restArgs } = args;
-            args = { ...restArgs, ...parsed };
-          }
-        } catch {}
-      } else if (args && args.args && typeof args.args === "object" && !Array.isArray(args.args)) {
-        const { args: nested, ...restArgs } = args;
-        args = { ...restArgs, ...nested };
-      }
+      args = unwrapArgs(args);
 
       const response = await router.execute({
         tool: req.params.name,

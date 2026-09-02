@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { unwrapArgs } from "./json-utils.mjs";
 
 function classifyError(error, tool, action) {
   const msg = String(error?.message || error || "").toLowerCase();
@@ -118,22 +119,8 @@ export class Router {
       }
     }
 
-    // Normalización de args: soporta serialización en JSON string o anidación excesiva de clientes MCP
-    if (typeof args === "string") {
-      try { args = JSON.parse(args); } catch {}
-    }
-    if (args && typeof args.args === "string") {
-      try {
-        const parsed = JSON.parse(args.args);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          const { args: _, ...rest } = args;
-          args = { ...rest, ...parsed };
-        }
-      } catch {}
-    } else if (args && args.args && typeof args.args === "object" && !Array.isArray(args.args)) {
-      const { args: nested, ...rest } = args;
-      args = { ...rest, ...nested };
-    }
+    // Normalización de args: soporta serialización en JSON string o anidación excesiva de clientes MCP (Claude Desktop)
+    args = unwrapArgs(args);
 
     // Normalización inteligente de rutas (soporta fluxer:files.write_file, files.write_file, sleep/wait, etc.)
     tool = tool.replace(/^(fluxer|mcp)[_:]/i, "").trim();

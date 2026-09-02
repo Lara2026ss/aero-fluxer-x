@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { getStorageStructure } from "../core/storage-paths.mjs";
 import { CURRENT_VERSION } from "../core/version.mjs";
 import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
+import { unwrapArgs } from "../core/json-utils.mjs";
 
 export function createDeveloperDomain({ runtime, domain, fs, path }) {
   function parseSkillFrontmatter(rawText) {
@@ -500,21 +501,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     },
 
     submit_feedback: async (rawInput = {}) => {
-      // Normalización defensiva: soporta clientes MCP (como Claude Desktop) que envían args serializados o anidados
-      let input = rawInput;
-      if (typeof input === "string") {
-        try { input = JSON.parse(input); } catch {}
-      }
-      if (input && typeof input.args === "string") {
-        try {
-          const parsed = JSON.parse(input.args);
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-            input = { ...input, ...parsed };
-          }
-        } catch {}
-      } else if (input && input.args && typeof input.args === "object" && !Array.isArray(input.args)) {
-        input = { ...input, ...input.args };
-      }
+      // Normalización defensiva: soporta clientes MCP (como Claude Desktop) con JSON stringificado, anidado o con data/args
+      const input = unwrapArgs(rawInput);
 
       let {
         type = "bug_report",
