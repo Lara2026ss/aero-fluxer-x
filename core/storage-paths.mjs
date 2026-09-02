@@ -46,8 +46,7 @@ export function getStorageStructure(repoRoot) {
   const base = resolveUserDataDir();
   const home = os.homedir();
 
-  return {
-    base,
+  return {\n    base,
     configDir: path.join(base, "config"),
     configFile: path.join(base, "config", "aeron.config.json"),
     shortcutsDir: path.join(base, "shortcuts"),
