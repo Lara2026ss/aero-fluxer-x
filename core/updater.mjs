@@ -6,7 +6,7 @@
  *
  * Características:
  * 1. Detección precisa de versión instalada vs remota (SemVer).
- * 2. Soporte nativo para GitHub Releases API y Release Manifests JSON.
+ * 2. Soporte nativo para Release Manifests JSON y paquetes firmados.
  * 3. Verificación de integridad estricta con SHA-256 (previene archivos corruptos).
  * 4. Backup preventivo automático del código antes de modificar nada.
  * 5. Verificación de sintaxis y prueba de estado real post-actualización.
@@ -166,14 +166,14 @@ export async function checkForUpdates(options = {}) {
   const manifestUrl = options.manifestUrl || process.env.AERON_UPDATE_MANIFEST_URL;
 
   if (!manifestUrl) {
-    await logUpdaterMessage(repoRoot, "info", "Aero Fluxer X opera de forma autónoma y desacoplada de GitHub.");
+    await logUpdaterMessage(repoRoot, "info", "Aero Fluxer X opera de forma autónoma e independiente.");
     return {
       ok: true,
       currentVersion: CURRENT_VERSION,
       latestVersion: CURRENT_VERSION,
       updateAvailable: false,
       source: "standalone_decoupled",
-      message: "Aero Fluxer X opera de forma autónoma y desacoplada de GitHub. Cero dependencia de tokens o autorizaciones externas.",
+      message: "Aero Fluxer X opera de forma autónoma e independiente. Cero dependencia de tokens o autorizaciones externas.",
     };
   }
 

@@ -1,7 +1,7 @@
 {
   "name": "packages",
-  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones e inputs de exactos: add_repository { manager, url, name } | check_manager { manager } | install_package { manager, name } | list_installed { manager } | list_repositories {} | package_info { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search_package { manager, query } | update_package { manager, name }",
-  "parameters": {
+  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones y argumentos (usar en args): add_repository { manager, url, name } | check_manager { manager } | install_package { manager, name } | list_installed { manager } | list_repositories {} | package_info { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search_package { manager, query } | update_package { manager, name }",
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
@@ -17,14 +17,17 @@
           "remove_repository",
           "search_package",
           "update_package"
-        ]
+        ],
+        "description": "Acción a ejecutar en el dominio packages"
       },
       "args": {
-        "type": "object"
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
       }
     },
     "required": [
       "action"
-    ]
+    ],
+    "additionalProperties": false
   }
 }

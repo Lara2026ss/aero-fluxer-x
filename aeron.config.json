@@ -52,5 +52,9 @@
   "workspace": {
     "path": null,
     "autoDetect": true
+  },
+  "feedback": {
+    "webhook_url": "",
+    "auto_collect_logs": true
   }
 }

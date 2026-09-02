@@ -1,3 +1,9 @@
+import os from "node:os";
+import https from "node:https";
+import http from "node:http";
+import { getStorageStructure } from "../core/storage-paths.mjs";
+import { CURRENT_VERSION } from "../core/version.mjs";
+
 export function createDeveloperDomain({ runtime, domain, fs, path }) {
   function parseSkillFrontmatter(rawText) {
     const match = rawText.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -489,7 +495,411 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       } catch (e) {
         return { ok: false, error: e.message };
       }
-    }
+    },
+
+    submit_feedback: async ({
+      type = "bug_report",
+      title,
+      description,
+      steps_to_reproduce = "",
+      expected_behavior = "",
+      actual_behavior = "",
+      severity = "medium",
+      screenshot = null,
+      attach_logs = true,
+      attach_system_info = true,
+      webhook_url = null,
+    } = {}) => {
+      if (!title || !description) {
+        return {
+          ok: false,
+          error: "Los campos 'title' y 'description' son obligatorios para enviar feedback.",
+        };
+      }
+
+      const validTypes = ["bug_report", "feature_request", "general_feedback", "performance"];
+      const feedbackType = validTypes.includes(type) ? type : "general_feedback";
+
+      const validSeverities = ["low", "medium", "high", "critical"];
+      const feedbackSeverity = validSeverities.includes(severity) ? severity : "medium";
+
+      const storage = getStorageStructure(runtime.root);
+      await fs.mkdir(storage.feedbackDir, { recursive: true }).catch(() => {});
+      await fs.mkdir(storage.feedbackAttachmentsDir, { recursive: true }).catch(() => {});
+
+      const feedbackId = `fb_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const timestamp = new Date().toISOString();
+
+      // 1. Diagnóstico del sistema
+      let systemInfo = null;
+      if (attach_system_info) {
+        systemInfo = {
+          platform: os.platform(),
+          release: os.release(),
+          arch: os.arch(),
+          nodeVersion: process.version,
+          totalMemoryMB: Math.round(os.totalmem() / (1024 * 1024)),
+          freeMemoryMB: Math.round(os.freemem() / (1024 * 1024)),
+          uptimeSeconds: Math.round(process.uptime()),
+          fluxerVersion: CURRENT_VERSION,
+        };
+      }
+
+      // 2. Extraer logs del servidor (enmascarando rutas privadas)
+      let logsSnippet = null;
+      if (attach_logs) {
+        try {
+          const logContent = await fs.readFile(storage.mainLog, "utf8").catch(() => "");
+          if (logContent) {
+            const lines = logContent.split("\n").filter(Boolean);
+            const tail = lines.slice(-50).join("\n");
+            const home = os.homedir();
+            logsSnippet = tail.split(home).join("~");
+          } else {
+            logsSnippet = "Sin logs registrados en fluxer.log";
+          }
+        } catch {
+          logsSnippet = "No se pudieron leer los logs del servidor.";
+        }
+      }
+
+      // 3. Procesar captura de pantalla / imágenes
+      let attachmentInfo = null;
+      if (screenshot) {
+        try {
+          let buffer = null;
+          let filename = `${feedbackId}_screenshot.png`;
+
+          if (typeof screenshot === "string" && screenshot.startsWith("data:image")) {
+            const base64Data = screenshot.replace(/^data:image\/\w+;base64,/, "");
+            buffer = Buffer.from(base64Data, "base64");
+          } else if (typeof screenshot === "string" && (await fs.access(screenshot).then(() => true).catch(() => false))) {
+            buffer = await fs.readFile(screenshot);
+            filename = `${feedbackId}_${path.basename(screenshot)}`;
+          } else if (typeof screenshot === "string" && screenshot.length > 50 && !screenshot.includes("\n")) {
+            try {
+              buffer = Buffer.from(screenshot, "base64");
+            } catch {}
+          }
+
+          if (buffer) {
+            const destPath = path.join(storage.feedbackAttachmentsDir, filename);
+            await fs.writeFile(destPath, buffer);
+            attachmentInfo = {
+              filename,
+              path: destPath,
+              sizeBytes: buffer.length,
+            };
+          }
+        } catch (e) {
+          attachmentInfo = { error: `No se pudo adjuntar la captura: ${e.message}` };
+        }
+      }
+
+      // 4. Construir registro completo de feedback
+      const feedbackRecord = {
+        id: feedbackId,
+        timestamp,
+        type: feedbackType,
+        title,
+        description,
+        steps_to_reproduce: steps_to_reproduce || null,
+        expected_behavior: expected_behavior || null,
+        actual_behavior: actual_behavior || null,
+        severity: feedbackSeverity,
+        systemInfo,
+        logsSnippet,
+        attachment: attachmentInfo,
+      };
+
+      const recordPath = path.join(storage.feedbackDir, `${feedbackId}.json`);
+      await fs.writeFile(recordPath, JSON.stringify(feedbackRecord, null, 2), "utf8");
+
+      // 5. Enviar por MD privado a través del bot de Discord (Nexus) si está configurado
+      const discordBotToken = process.env.DISCORD_TOKEN || runtime.config?.feedback?.discord_bot_token;
+      const discordRecipientId = runtime.config?.feedback?.discord_recipient_id || process.env.DISCORD_FEEDBACK_USER_ID || "971639277626720268";
+      let dmDelivered = false;
+      let dmDetails = null;
+
+      if (discordBotToken && discordRecipientId) {
+        try {
+          // Abrir o recuperar canal de DM
+          const dmChannel = await new Promise((res, rej) => {
+            const body = JSON.stringify({ recipient_id: discordRecipientId });
+            const req = https.request("https://discord.com/api/v10/users/@me/channels", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bot ${discordBotToken}`,
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(body),
+              },
+            }, (r) => {
+              let d = "";
+              r.on("data", (c) => (d += c));
+              r.on("end", () => {
+                if (r.statusCode >= 200 && r.statusCode < 300) res(JSON.parse(d));
+                else rej(new Error(`HTTP ${r.statusCode}: ${d}`));
+              });
+            });
+            req.on("error", rej);
+            req.write(body);
+            req.end();
+          });
+
+          // Construir embed para el DM privado
+          const colorMap = {
+            bug_report: 15158332,      // Rojo
+            feature_request: 3066993,  // Verde esmeralda
+            general_feedback: 3447003, // Azul
+            performance: 15844367,     // Naranja
+          };
+
+          const fields = [
+            { name: "Tipo", value: feedbackType.toUpperCase(), inline: true },
+            { name: "Severidad", value: feedbackSeverity.toUpperCase(), inline: true },
+            { name: "Versión", value: `v${CURRENT_VERSION}`, inline: true },
+            { name: "Descripción", value: description.slice(0, 1024) },
+          ];
+
+          if (steps_to_reproduce) {
+            fields.push({ name: "Pasos para reproducir", value: steps_to_reproduce.slice(0, 1024) });
+          }
+
+          if (expected_behavior || actual_behavior) {
+            fields.push({
+              name: "Comportamiento",
+              value: `**Esperado:** ${expected_behavior || 'N/A'}\n**Actual:** ${actual_behavior || 'N/A'}`.slice(0, 1024),
+            });
+          }
+
+          if (systemInfo) {
+            fields.push({
+              name: "Diagnóstico",
+              value: `${systemInfo.platform} (${systemInfo.arch}) | Node ${systemInfo.nodeVersion} | RAM libre: ${systemInfo.freeMemoryMB}MB / ${systemInfo.totalMemoryMB}MB`.slice(0, 1024),
+            });
+          }
+
+          if (attachmentInfo?.path) {
+            fields.push({
+              name: "Captura adjunta",
+              value: `Archivo: \`${attachmentInfo.filename}\` (${attachmentInfo.sizeBytes} bytes) guardado en disco.`,
+            });
+          }
+
+          const embed = {
+            title: `📩 Nuevo Feedback recibido: ${title.slice(0, 200)}`,
+            color: colorMap[feedbackType] || 3447003,
+            fields,
+            footer: { text: `ID: ${feedbackId} • Aero Fluxer X` },
+            timestamp,
+          };
+
+          // Enviar mensaje al canal de DM
+          await new Promise((res, rej) => {
+            const body = JSON.stringify({ embeds: [embed] });
+            const req = https.request(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bot ${discordBotToken}`,
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(body),
+              },
+            }, (r) => {
+              let d = "";
+              r.on("data", (c) => (d += c));
+              r.on("end", () => {
+                if (r.statusCode >= 200 && r.statusCode < 300) {
+                  dmDelivered = true;
+                  dmDetails = `Enviado por MD a través del bot Nexus (Canal DM: ${dmChannel.id})`;
+                } else {
+                  dmDetails = `Fallo al enviar mensaje DM: HTTP ${r.statusCode} ${d}`;
+                }
+                res();
+              });
+            });
+            req.on("error", rej);
+            req.write(body);
+            req.end();
+          });
+        } catch (e) {
+          dmDetails = `Error en DM de Discord: ${e.message}`;
+        }
+      }
+
+      // 6. Enviar a Webhook si está configurado
+      const targetWebhook = webhook_url || process.env.AERON_FEEDBACK_WEBHOOK || runtime.config?.feedback?.webhook_url;
+      let webhookDelivered = false;
+      let deliveryDetails = null;
+
+      if (targetWebhook) {
+        try {
+          if (targetWebhook.includes("discord.com/api/webhooks")) {
+            const colorMap = {
+              bug_report: 15158332,      // Rojo
+              feature_request: 3066993,  // Verde esmeralda
+              general_feedback: 3447003, // Azul
+              performance: 15844367,     // Naranja
+            };
+
+            const fields = [
+              { name: "Tipo", value: feedbackType.toUpperCase(), inline: true },
+              { name: "Severidad", value: feedbackSeverity.toUpperCase(), inline: true },
+              { name: "Versión", value: `v${CURRENT_VERSION}`, inline: true },
+              { name: "Descripción", value: description.slice(0, 1024) },
+            ];
+
+            if (steps_to_reproduce) {
+              fields.push({ name: "Pasos para reproducir", value: steps_to_reproduce.slice(0, 1024) });
+            }
+
+            if (expected_behavior || actual_behavior) {
+              fields.push({
+                name: "Comportamiento",
+                value: `**Esperado:** ${expected_behavior || 'N/A'}\n**Actual:** ${actual_behavior || 'N/A'}`.slice(0, 1024),
+              });
+            }
+
+            if (systemInfo) {
+              fields.push({
+                name: "Diagnóstico del Sistema",
+                value: `${systemInfo.platform} (${systemInfo.arch}) | Node ${systemInfo.nodeVersion} | RAM libre: ${systemInfo.freeMemoryMB}MB / ${systemInfo.totalMemoryMB}MB`.slice(0, 1024),
+              });
+            }
+
+            const embed = {
+              title: `📢 Feedback: ${title.slice(0, 200)}`,
+              color: colorMap[feedbackType] || 3447003,
+              fields,
+              footer: { text: `ID: ${feedbackId} • Aero Fluxer X` },
+              timestamp,
+            };
+
+            const payloadStr = JSON.stringify({
+              username: "Aero Fluxer Feedback",
+              embeds: [embed],
+            });
+
+            const client = targetWebhook.startsWith("https") ? https : http;
+            await new Promise((res, rej) => {
+              const req = client.request(
+                targetWebhook,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(payloadStr),
+                    "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
+                  },
+                },
+                (r) => {
+                  let b = "";
+                  r.on("data", (c) => (b += c));
+                  r.on("end", () => {
+                    if (r.statusCode >= 200 && r.statusCode < 300) {
+                      webhookDelivered = true;
+                      deliveryDetails = "Entregado exitosamente al webhook de Discord";
+                    } else {
+                      deliveryDetails = `HTTP ${r.statusCode}: ${b}`;
+                    }
+                    res();
+                  });
+                }
+              );
+              req.on("error", rej);
+              req.write(payloadStr);
+              req.end();
+            });
+          } else {
+            // Webhook genérico
+            const payloadStr = JSON.stringify(feedbackRecord);
+            const client = targetWebhook.startsWith("https") ? https : http;
+            await new Promise((res, rej) => {
+              const req = client.request(
+                targetWebhook,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(payloadStr),
+                    "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
+                  },
+                },
+                (r) => {
+                  webhookDelivered = r.statusCode >= 200 && r.statusCode < 300;
+                  deliveryDetails = `Webhook respondió HTTP ${r.statusCode}`;
+                  res();
+                }
+              );
+              req.on("error", rej);
+              req.write(payloadStr);
+              req.end();
+            });
+          }
+        } catch (we) {
+          deliveryDetails = `Error al contactar webhook: ${we.message}`;
+        }
+      }
+
+      return {
+        ok: true,
+        feedbackId,
+        type: feedbackType,
+        storedLocally: true,
+        feedbackFile: recordPath,
+        attachmentSaved: Boolean(attachmentInfo?.path),
+        dmDelivered,
+        dmDetails: dmDetails || "Sin bot configurado para MD",
+        webhookDelivered,
+        deliveryDetails: dmDelivered ? dmDetails : (deliveryDetails || "Guardado en almacenamiento local de usuario"),
+        message: "¡Feedback registrado exitosamente!",
+      };
+    },
+
+    list_feedbacks: async ({ limit = 20 } = {}) => {
+      const storage = getStorageStructure(runtime.root);
+      const exists = await fs.access(storage.feedbackDir).then(() => true).catch(() => false);
+      if (!exists) return { ok: true, feedbacks: [], count: 0 };
+
+      const files = await fs.readdir(storage.feedbackDir);
+      const jsonFiles = files.filter((f) => f.startsWith("fb_") && f.endsWith(".json"));
+
+      const list = [];
+      for (const f of jsonFiles) {
+        try {
+          const raw = await fs.readFile(path.join(storage.feedbackDir, f), "utf8");
+          const data = JSON.parse(raw);
+          list.push({
+            id: data.id,
+            timestamp: data.timestamp,
+            type: data.type,
+            title: data.title,
+            severity: data.severity,
+            hasAttachment: Boolean(data.attachment?.path),
+            file: path.join(storage.feedbackDir, f),
+          });
+        } catch {}
+      }
+
+      list.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      return {
+        ok: true,
+        count: list.length,
+        feedbacks: list.slice(0, limit),
+      };
+    },
+
+    get_feedback: async ({ feedbackId } = {}) => {
+      if (!feedbackId) return { ok: false, error: "Se requiere 'feedbackId'." };
+      const storage = getStorageStructure(runtime.root);
+      const target = path.join(storage.feedbackDir, `${feedbackId.replace(/\.json$/, "")}.json`);
+
+      try {
+        const raw = await fs.readFile(target, "utf8");
+        return { ok: true, feedback: JSON.parse(raw) };
+      } catch {
+        return { ok: false, error: `No se encontró el feedback con ID '${feedbackId}'.` };
+      }
+    },
   };
 
   return domain(
@@ -507,6 +917,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       run_project_build: "poweruser",
       diagnose_service: "user",
       refresh_service_state: "user",
+      submit_feedback: "user",
+      list_feedbacks: "user",
+      get_feedback: "user",
     }
   );
 }

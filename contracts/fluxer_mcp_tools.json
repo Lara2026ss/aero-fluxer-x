@@ -397,7 +397,7 @@
     },
     {
       "name": "developer",
-      "description": "Detección, análisis, tests, builds y gestión integral de skills de IA (.md) para desarrollo de software.\nAcciones y argumentos (usar en args): create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite } | detect_project { path } | diagnose_service { path, serviceId } | get_skill { name, path } | inspect_project { path } | list_skills { path, searchGlobal } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | validate_skill { path }",
+      "description": "Detección, análisis, tests, builds y gestión integral de skills de IA (.md) para desarrollo de software.\nAcciones y argumentos (usar en args): create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite } | detect_project { path } | diagnose_service { path, serviceId } | get_feedback { feedbackId } | get_skill { name, path } | inspect_project { path } | list_feedbacks { limit } | list_skills { path, searchGlobal } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | submit_feedback { type, title, description, steps_to_reproduce, expected_behavior, actual_behavior, severity, screenshot, attach_logs, attach_system_info, webhook_url } | validate_skill { path }",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -407,12 +407,15 @@
               "create_skill",
               "detect_project",
               "diagnose_service",
+              "get_feedback",
               "get_skill",
               "inspect_project",
+              "list_feedbacks",
               "list_skills",
               "refresh_service_state",
               "run_project_build",
               "run_project_tests",
+              "submit_feedback",
               "validate_skill"
             ],
             "description": "Acción a ejecutar en el dominio developer"

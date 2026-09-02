@@ -60,6 +60,8 @@ export function getStorageStructure(repoRoot) {
     updaterLog: path.join(base, "logs", "updater.log"),
     cacheDir: path.join(base, "cache"),
     backupsDir: path.join(base, "cache", "backups"),
+    feedbackDir: path.join(base, "feedback"),
+    feedbackAttachmentsDir: path.join(base, "feedback", "attachments"),
     runtimeDir: path.join(base, "runtime"),
     statusFile: path.join(base, "runtime", "status.json"),
     downloads: path.join(home, "Downloads"),
@@ -87,6 +89,8 @@ export async function ensureUserDataInitialized(repoRoot) {
     structure.logsDir,
     structure.cacheDir,
     structure.backupsDir,
+    structure.feedbackDir,
+    structure.feedbackAttachmentsDir,
     structure.runtimeDir,
   ];
 

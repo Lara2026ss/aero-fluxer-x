@@ -21,4 +21,4 @@ Si descubres una vulnerabilidad de seguridad en Aero Fluxer X, por favor **NO ab
 
 - Utilice variables de entorno (`.env` local, basado en `.env.example`) para configuraciones locales avanzadas.
 - Nunca suba su directorio `%APPDATA%\AeroFluxerX` ni su archivo `.env` a repositorios públicos.
-- Aero Fluxer X no requiere tokens ni conexiones a GitHub; mantenga separadas las credenciales de cualquier servicio externo.
+- Aero Fluxer X no requiere tokens ni conexiones a cuentas remotas externas; mantenga separadas las credenciales de cualquier servicio.

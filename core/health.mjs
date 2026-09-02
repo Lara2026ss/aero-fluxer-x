@@ -280,9 +280,9 @@ export async function runHealthCheck({ runtime, registry, config } = {}) {
     });
   }
 
-  // 10. Conectividad con GitHub / Sistema de Actualizaciones
-  const gitHubCheck = await checkCommand(isWin ? "ping -n 1 8.8.8.8" : "ping -c 1 8.8.8.8", 2000);
-  if (gitHubCheck.ok) {
+  // 10. Conectividad de Red General
+  const netCheck = await checkCommand(isWin ? "ping -n 1 8.8.8.8" : "ping -c 1 8.8.8.8", 2000);
+  if (netCheck.ok) {
     checks.push({
       name: "Conectividad de Red / Updater",
       status: "PASS",
