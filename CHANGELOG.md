@@ -3,6 +3,15 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.6] - 2026-09-02 (Simplificación de Herramientas de Actualización: upd_check, upd_info, upd)
+
+### Cambiado
+- **Eliminación de todas las tool calls previas de actualización**: Se eliminaron `get_update`, `update`, `check_update`, `update_info`, `check_for_updates`, `apply_update`, `rollback_update` y `list_backups`.
+- **Implementación exclusiva de las 3 tool calls solicitadas**:
+  - `upd_check`: Comprueba en el repositorio de GitHub si existe una nueva versión disponible.
+  - `upd_info`: Consulta el repositorio de GitHub y entrega información detallada de lo que se actualizó (Release Notes y Changelog).
+  - `upd`: Actualiza el servidor MCP remotamente descargando y reemplazando los archivos de código desde GitHub. Desconecta el servidor al actualizar y le solicita al usuario reiniciar la aplicación (Claude Desktop).
+
 ## [9.0.5] - 2026-09-02 (Eliminación de Auto-Update y Transición a Actualización Manual)
 
 ### Cambiado

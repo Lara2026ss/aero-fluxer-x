@@ -146,6 +146,12 @@ export class Router {
       args = { seconds: sec, ...args };
     }
 
+    // Soporte nativo para upd_check / upd_info / upd invocados directamente como tool
+    if (["upd", "upd_check", "upd_info"].includes(tool.toLowerCase())) {
+      action = tool.toLowerCase();
+      tool = "developer";
+    }
+
     if (!tool || !action) throw new Error("tool and action are required");
 
     if (action === "reload" || action === "reload_server") {

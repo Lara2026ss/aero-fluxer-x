@@ -134,6 +134,36 @@ export async function startServer() {
     const description = `${baseDescription}\nAcciones y argumentos (usar en args): ${actionsCheatSheet}`;
     return toolSchema(name, description, registry.actionsFor(name));
   });
+
+  // Exponer también las 3 tool calls de actualización solicitadas
+  tools.push(
+    {
+      name: "upd_check",
+      description: "Checa en el repositorio de GitHub si hay una nueva versión o actualización disponible para Aeron Fluxer X.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
+      name: "upd_info",
+      description: "Checa el repositorio de GitHub y obtiene información detallada de lo que se actualizó (Release Notes y Changelog).",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
+      name: "upd",
+      description: "Actualiza el servidor MCP Aeron Fluxer X remotamente desde GitHub (descarga archivos y los reemplaza). Desconecta el servidor al actualizar y solicita al usuario reiniciar la aplicación (Claude Desktop).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          force: { type: "boolean", description: "Forzar actualización" },
+        },
+      },
+    }
+  );
   const server = new Server(
     { name: SERVER_NAME, version: VERSION },
     { capabilities: { tools: {} } },

@@ -765,60 +765,71 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    check_update: async () => {
-      const res = await checkForUpdates({ repoRoot: runtime.root });
+    upd_check: async () => {
+      const check = await checkForUpdates({ repoRoot: runtime.root });
       return {
-        current: res.currentVersion,
-        latest: res.latestVersion,
-        update_available: res.updateAvailable,
-      };
-    },
-
-    update_info: async () => {
-      const res = await checkForUpdates({ repoRoot: runtime.root });
-      return {
-        version: res.latestVersion,
-        release_type: "patch",
-        update_available: res.updateAvailable,
-        breaking_changes: false,
-      };
-    },
-
-    get_update: async ({ allowDowngrade = false } = {}) => {
-      const check = await checkForUpdates({ repoRoot: runtime.root, allowDowngrade });
-      const info = {
         ok: check.ok,
         current_version: check.currentVersion,
         latest_version: check.latestVersion,
         update_available: check.updateAvailable,
+        status: check.updateAvailable
+          ? `Hay una actualización disponible (v${check.currentVersion} → v${check.latestVersion}). Usa 'upd_info' para ver los cambios o 'upd' para actualizar.`
+          : `Aeron Fluxer X está al día (v${check.currentVersion}).`,
         source: check.releaseInfo?.source || "github_releases",
-        reason: check.eligibility?.reason || (check.updateAvailable ? "Nueva versión disponible." : "Ya está en la versión más reciente."),
       };
-
-      if (check.releaseInfo?.releaseNotes) {
-        info.release_notes = check.releaseInfo.releaseNotes.slice(0, 600);
-      }
-      if (check.releaseInfo?.downloadUrl) {
-        info.download_url = check.releaseInfo.downloadUrl;
-      }
-
-      if (check.updateAvailable) {
-        info.instructions = [
-          `💡 ACTUALIZACIÓN DISPONIBLE: v${check.currentVersion} → v${check.latestVersion}`,
-          `Las actualizaciones se aplican de forma manual para garantizar que nunca se desconecte la sesión de Claude Desktop ni se interrumpan tareas en curso.`,
-          `Para actualizar de forma segura cuando no estés usando el MCP, abre una terminal y ejecuta:`,
-          `npm run update:apply`,
-        ].join("\n");
-      }
-
-      return info;
     },
 
-    update: async () => {
+    upd_info: async () => {
+      const check = await checkForUpdates({ repoRoot: runtime.root });
+      return {
+        ok: check.ok,
+        current_version: check.currentVersion,
+        latest_version: check.latestVersion,
+        update_available: check.updateAvailable,
+        release_tag: check.releaseInfo?.tag || `v${check.latestVersion}`,
+        release_notes: check.releaseInfo?.releaseNotes || "Sin notas de versión disponibles.",
+        download_url: check.releaseInfo?.downloadUrl || null,
+        source: check.releaseInfo?.source || "github_releases",
+      };
+    },
+
+    upd: async ({ force = false } = {}) => {
+      const updateResult = await executeAutoUpdate({ repoRoot: runtime.root, force });
+
+      if (updateResult.ok) {
+        if (updateResult.upToDate) {
+          return {
+            ok: true,
+            status: "ALREADY_UP_TO_DATE",
+            current_version: updateResult.currentVersion,
+            message: `Aeron Fluxer X ya está en la versión más reciente (v${updateResult.currentVersion}). No se requirió actualización.`,
+          };
+        }
+
+        // Desconectar el servidor MCP después de enviar la respuesta al cliente IA
+        // para que la IA y el usuario reciban el mensaje antes de la desconexión.
+        setTimeout(() => {
+          process.exit(0);
+        }, 600);
+
+        return {
+          ok: true,
+          status: "ACTUALIZADO_EXITOSAMENTE",
+          previous_version: updateResult.previousVersion,
+          new_version: updateResult.newVersion,
+          backup_id: updateResult.backupId,
+          message: `🎉 Aeron Fluxer X se ha actualizado exitosamente a v${updateResult.newVersion} desde GitHub. El servidor MCP se desconectará en breve para aplicar los cambios. Por favor, REINICIA TU APLICACIÓN (Claude Desktop) para reconectar.`,
+          user_action_required: "Por favor reinicia la aplicación (Claude Desktop) para reconectar con la nueva versión.",
+        };
+      }
+
       return {
         ok: false,
-        manual_update_required: true,
-        message: "Las actualizaciones automáticas en caliente están desactivadas para evitar desconectar Claude Desktop. Para actualizar manualmente cuando lo desees, ejecuta en tu terminal: npm run update:apply",
+        error: updateResult.error,
+        rolled_back: updateResult.rolledBack,
+        message: updateResult.rolledBack
+          ? "La actualización falló y se restauró la versión anterior mediante rollback automático. Revisa updater.log."
+          : `Fallo en la actualización: ${updateResult.error}`,
       };
     },
 
@@ -977,10 +988,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       refresh_service_state: "user",
       submit_feedback: "user",
       feedback_guide: "user",
-      check_update: "user",
-      update_info: "user",
-      get_update: "user",
-      update: "poweruser",
+      upd_check: "user",
+      upd_info: "user",
+      upd: "poweruser",
       list_feedbacks: "poweruser",
       read_feedback: "poweruser",
       delete_feedback: "poweruser",

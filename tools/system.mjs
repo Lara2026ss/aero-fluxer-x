@@ -2,7 +2,6 @@
  * FLUXER — tools/system.mjs
  * Dominio: diagnóstico de hardware, entorno, clipboard, servicios, red, energía y actualizaciones.
  */
-import { checkForUpdates, executeAutoUpdate, executeRollback, listAvailableBackups } from "../core/updater.mjs";
 import { CURRENT_VERSION } from "../core/version.mjs";
 
 export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchText, sendNativeNotification }) {
@@ -522,37 +521,6 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         const delayMs = Number(ms) || Math.max(0, Number(seconds) * 1000);
         await new Promise((r) => setTimeout(r, delayMs));
         return { ok: true, waitedMs: delayMs };
-      },
-
-      // ── Actualizaciones y Mantenimiento ──────────────────────────────────────
-      check_for_updates: async ({ allowDowngrade = false, allowPrerelease = false } = {}) => {
-        return checkForUpdates({ repoRoot: runtime.dirs.root, allowDowngrade, allowPrerelease });
-      },
-
-      apply_update: async () => {
-        return {
-          ok: false,
-          manual_update_required: true,
-          message: "Las actualizaciones automáticas en caliente están desactivadas para evitar desconectar Claude Desktop. Para actualizar manualmente cuando lo desees, ejecuta en tu terminal: npm run update:apply",
-        };
-      },
-
-      rollback_update: async ({ backupId } = {}) => {
-        const backups = await listAvailableBackups(runtime.dirs.root);
-        let selected = null;
-        if (backupId) {
-          selected = backups.backups?.find((b) => b.backupId === backupId);
-        } else {
-          selected = backups.backups?.[backups.backups.length - 1];
-        }
-        if (!selected) {
-          return { ok: false, error: "No se encontró ningún backup disponible para restaurar." };
-        }
-        return executeRollback(selected.path, runtime.dirs.root);
-      },
-
-      list_backups: async () => {
-        return listAvailableBackups(runtime.dirs.root);
       },
 
       reload_server: async () => runtime.control.reload(),
