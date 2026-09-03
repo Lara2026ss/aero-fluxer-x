@@ -1,7 +1,19 @@
 export function createNetworkDomain({ runtime, dns, net, domain }) {
   const actions = {
     diagnose_network: async () => {
-      const cmd = "Get-NetIPConfiguration | Select-Object InterfaceAlias,IPv4Address,IPv4DefaultGateway,DNSServer | Format-List";
+      const isWin = process.platform === "win32";
+      if (!isWin) {
+        const res = await runtime.run("ip addr || ifconfig");
+        return { ok: true, diagnostics: res.stdout || res.stderr };
+      }
+      const cmd = `Get-NetIPConfiguration | ForEach-Object {
+        [PSCustomObject]@{
+          InterfaceAlias     = $_.InterfaceAlias
+          IPv4Address        = ($_.IPv4Address.IPAddress -join ', ')
+          IPv4DefaultGateway = ($_.IPv4DefaultGateway.NextHop -join ', ')
+          DNSServers         = ($_.DNSServer.ServerAddresses -join ', ')
+        }
+      } | Format-List`;
       const res = await runtime.run(cmd);
       return { ok: true, diagnostics: res.stdout || res.stderr };
     },

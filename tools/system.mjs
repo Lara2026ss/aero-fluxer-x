@@ -454,7 +454,20 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       get_defender_status: async () => {
         const cmd = "Get-MpComputerStatus | Select-Object AntivirusEnabled,RealTimeProtectionEnabled,AntivirusSignatureLastUpdated,QuickScanEndTime | ConvertTo-Json";
         const res = await runtime.run(cmd);
-        try { return { ok: true, defender: JSON.parse(res.stdout) }; }
+        try {
+          const parsed = JSON.parse(res.stdout);
+          const parseDotNetDate = (val) => {
+            if (typeof val === "string") {
+              const m = val.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+              if (m) return new Date(Number(m[1])).toISOString();
+            }
+            return val;
+          };
+          for (const key of Object.keys(parsed)) {
+            parsed[key] = parseDotNetDate(parsed[key]);
+          }
+          return { ok: true, defender: parsed };
+        }
         catch { return { ok: false, error: res.stderr }; }
       },
 

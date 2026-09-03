@@ -17,6 +17,7 @@ import { startDashboardApi } from "./core/dashboard-api.mjs";
 import { PluginLoader } from "./core/plugin-loader.mjs";
 import { sendNativeNotification } from "./core/notify.mjs";
 import { parseResilientJson, unwrapArgs } from "./core/json-utils.mjs";
+import { getPendingUpdateNotice } from "./core/updater.mjs";
 
 assertWindows({ strict: false });
 
@@ -165,6 +166,16 @@ export async function startServer() {
         action,
         args,
       });
+
+      // Si existe una actualización en GitHub, se adjunta un aviso a la IA UNA SOLA VEZ
+      // para que no interrumpa el trabajo en progreso y solo informe al usuario al finalizar.
+      if (response && typeof response === "object" && !response._update_notice) {
+        const updateNotice = await getPendingUpdateNotice(runtime.root).catch(() => null);
+        if (updateNotice) {
+          response._update_notice = updateNotice;
+        }
+      }
+
       return mcpText(response);
     } catch (error) {
       const message =

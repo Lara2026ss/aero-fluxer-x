@@ -271,6 +271,48 @@ export async function checkForUpdates(options = {}) {
   return result;
 }
 
+let updateCheckPromise = null;
+let cachedCheckResult = null;
+let lastCheckTime = 0;
+let hasNotifiedAiInThisSession = false;
+
+/**
+ * Consulta en background si existe una nueva versión en GitHub y retorna
+ * un aviso para la IA UNA SOLA VEZ por sesión.
+ * Nunca auto-actualiza ni reinicia sin orden explícita del usuario.
+ */
+export async function getPendingUpdateNotice(repoRoot) {
+  if (hasNotifiedAiInThisSession) return null;
+
+  const now = Date.now();
+  // Verificar en background cada 15 minutos máximo
+  if (!cachedCheckResult || now - lastCheckTime > 15 * 60 * 1000) {
+    if (!updateCheckPromise) {
+      updateCheckPromise = checkForUpdates({ repoRoot }).then((res) => {
+        cachedCheckResult = res;
+        lastCheckTime = Date.now();
+        updateCheckPromise = null;
+        return res;
+      }).catch(() => {
+        updateCheckPromise = null;
+        return null;
+      });
+    }
+  }
+
+  if (cachedCheckResult?.updateAvailable) {
+    hasNotifiedAiInThisSession = true;
+    return {
+      update_available: true,
+      current_version: cachedCheckResult.currentVersion,
+      latest_version: cachedCheckResult.latestVersion,
+      instructions_for_ai: `Hay una nueva versión de Aeron Fluxer X disponible en GitHub (v${cachedCheckResult.currentVersion} → v${cachedCheckResult.latestVersion}). NO interrumpas tu tarea actual. Cuando termines por completo tu trabajo con el usuario, infórmale amablemente que hay una actualización disponible para que decida si desea aplicarla con developer.get_update({ apply: true }).`,
+    };
+  }
+
+  return null;
+}
+
 /**
  * Crea un backup preventivo del código actual antes de aplicar cualquier cambio.
  *

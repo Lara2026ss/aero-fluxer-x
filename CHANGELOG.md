@@ -3,6 +3,17 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.3] - 2026-09-02 (Avisos No-Intrusivos a la IA & Correcciones de Diagnóstico)
+
+### Añadido
+- **Aviso no-intrusivo de actualización a la IA (`_update_notice`)**: El MCP ya no realiza actualizaciones automáticas ni reinicios que puedan cortar trabajos en curso. En su lugar, cuando hay una actualización disponible en GitHub, adjunta un aviso una sola vez por sesión para que la IA informe al usuario al concluir su tarea, permitiendo al usuario decidir cuándo actualizar con `developer.get_update({ apply: true })`.
+
+### Corregido
+- **Bug `AFX-FB-8TCCFE` — `network.diagnose_network` no expandía propiedades complejas.**
+  `IPv4DefaultGateway` y `DNSServer` ahora expanden `.NextHop` y `.ServerAddresses` en cadenas legibles en lugar de representaciones WMI crudas.
+- **Bug `AFX-FB-WDVJ7A` — `system.get_defender_status` devolvía fechas en formato `.NET` sin parsear.**
+  Los campos de fecha ahora se normalizan a formato estándar ISO 8601 en lugar de `/Date(timestamp)/`.
+
 ## [9.0.2] - 2026-09-02 (Bugfixes de Seguridad y Motor de Shortcuts)
 
 ### Corregido
