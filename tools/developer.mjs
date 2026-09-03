@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { getStorageStructure } from "../core/storage-paths.mjs";
 import { CURRENT_VERSION } from "../core/version.mjs";
 import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
+import { getClientRestartNotice } from "../core/client-restart.mjs";
 import { unwrapArgs } from "../core/json-utils.mjs";
 
 export function createDeveloperDomain({ runtime, domain, fs, path }) {
@@ -906,11 +907,13 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           };
         }
 
-        // Desconectar el servidor MCP después de enviar la respuesta al cliente IA
-        // para que la IA y el usuario reciban el mensaje antes de la desconexión.
+        const restartNotice = getClientRestartNotice(runtime);
+
+        // Desconectar el servidor MCP limpiamente después de enviar la respuesta
+        // para que la aplicación host y el usuario reciban la confirmación.
         setTimeout(() => {
           process.exit(0);
-        }, 600);
+        }, 1000);
 
         return {
           ok: true,
@@ -918,8 +921,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           previous_version: updateResult.previousVersion,
           new_version: updateResult.newVersion,
           backup_id: updateResult.backupId,
-          message: `🎉 Aeron Fluxer X se ha actualizado exitosamente a v${updateResult.newVersion} desde GitHub. El servidor MCP se desconectará en breve para aplicar los cambios. Por favor, REINICIA TU APLICACIÓN (Claude Desktop) para reconectar.`,
-          user_action_required: "Por favor reinicia la aplicación (Claude Desktop) para reconectar con la nueva versión.",
+          duration_seconds: updateResult.durationSeconds || undefined,
+          detected_client: restartNotice.detected_client,
+          user_action_required: restartNotice.user_action_required,
+          quick_action: restartNotice.quick_action,
+          message: `🎉 Aeron Fluxer X se ha actualizado exitosamente a v${updateResult.newVersion} desde GitHub. ${restartNotice.message}`,
         };
       }
 

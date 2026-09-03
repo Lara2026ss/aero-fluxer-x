@@ -431,6 +431,7 @@ export async function runPostUpdateSelfCheck(repoRoot) {
 export async function executeAutoUpdate(options = {}) {
   const repoRoot = options.repoRoot || process.cwd();
   const storage = getStorageStructure(repoRoot);
+  const updateStartTime = Date.now();
 
   await logUpdaterMessage(repoRoot, "info", "══════════ INICIANDO PROCESO DE ACTUALIZACIÓN AUTOMÁTICA ══════════");
 
@@ -539,6 +540,18 @@ export async function executeAutoUpdate(options = {}) {
       await fs.cp(src, dest, { recursive: true, force: true });
     }
 
+    // 8b. Instalación y compilación de dependencias
+    await logUpdaterMessage(repoRoot, "info", "Instalando y compilando dependencias del proyecto (npm install)...");
+    try {
+      await execAsync("npm install --omit=dev --no-audit --no-fund", {
+        cwd: repoRoot,
+        timeout: 120000,
+      });
+      await logUpdaterMessage(repoRoot, "info", "Dependencias instaladas y compiladas correctamente.");
+    } catch (npmErr) {
+      await logUpdaterMessage(repoRoot, "warn", `npm install finalizó con advertencia (continuando): ${npmErr.message}`);
+    }
+
     // 9. Verificación Post-Actualización (Doctor Self-Check)
     await logUpdaterMessage(repoRoot, "info", "Ejecutando auto-diagnóstico post-actualización...");
     const selfCheck = await runPostUpdateSelfCheck(repoRoot);
@@ -550,7 +563,8 @@ export async function executeAutoUpdate(options = {}) {
     // 10. Limpieza de staging exitoso
     await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
 
-    const successMsg = `🎉 ACTUALIZACIÓN COMPLETADA CON ÉXITO a v${targetVersion}. Backup guardado en: ${backupInfo.backupDir}`;
+    const durationSeconds = Math.round((Date.now() - updateStartTime) / 1000);
+    const successMsg = `🎉 ACTUALIZACIÓN COMPLETADA CON ÉXITO a v${targetVersion} en ${durationSeconds}s. Backup guardado en: ${backupInfo.backupDir}`;
     await logUpdaterMessage(repoRoot, "info", successMsg);
 
     const result = {
@@ -559,6 +573,7 @@ export async function executeAutoUpdate(options = {}) {
       previousVersion: CURRENT_VERSION,
       newVersion: targetVersion,
       backupId: backupInfo.backupId,
+      durationSeconds,
       message: successMsg,
     };
 

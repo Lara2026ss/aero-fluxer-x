@@ -155,7 +155,7 @@ export async function startServer() {
     },
     {
       name: "upd",
-      description: "Actualiza el servidor MCP Aeron Fluxer X remotamente desde GitHub (descarga archivos y los reemplaza). Desconecta el servidor al actualizar y solicita al usuario reiniciar la aplicación (Claude Desktop).",
+      description: "Actualiza el servidor MCP Aeron Fluxer X remotamente desde GitHub (descarga archivos, instala dependencias y los reemplaza). Detecta dinámicamente el entorno host (Claude Desktop, Antigravity, Codex, Cursor) y solicita la acción de reinicio o recarga adecuada.",
       inputSchema: {
         type: "object",
         properties: {

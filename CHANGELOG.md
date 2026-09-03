@@ -3,6 +3,26 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.9] - 2026-09-02 (Detección Dinámica de Clientes en UPD y Optimización de Tokens)
+
+### Añadido
+- **Detección Dinámica del Cliente Host en Actualizaciones (`upd`)**:
+  - Módulo `core/client-restart.mjs` que inspecciona el cliente MCP conectado, variables de entorno y ancestros de procesos.
+  - Genera mensajes personalizados y acciones exactas:
+    - **Google Antigravity**: `"Espera unos minutos y recarga la lista de MCP en antigravity."` (indicando el botón de recargar 🔄 en Installed MCP Servers).
+    - **Claude Desktop**: `"Reinicia Claude desktop para aplicar los cambios."`
+    - **Codex**: `"Reinicia Codex para aplicar los cambios."`
+    - **Cursor**: `"Recarga la ventana de Cursor (Ctrl+Shift+P > Developer: Reload Window) o reinicia Cursor para aplicar los cambios."`
+    - **Desconocido**: `"reinicia tu aplicación o entorno."`
+- **Pipeline de Actualización Completo con Compilación**:
+  - Descarga y verificación SHA-256 desde GitHub Releases.
+  - Backup preventivo del código anterior.
+  - Reemplazo atómico de código y archivos nuevos.
+  - Ejecución de `npm install --omit=dev --no-audit --no-fund` para compilar e instalar dependencias.
+  - Auto-diagnóstico de integridad post-actualización.
+- **Eficiencia de Tokens en `upd`**:
+  - Respuesta compacta y estructurada (~100 tokens), evitando el consumo excesivo de contexto en el LLM.
+
 ## [9.0.8] - 2026-09-02 (Integridad Estructural HTML, Detección UTF-16 y Alias str_replace)
 
 ### Añadido
