@@ -31,19 +31,28 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       };
     },
 
-    health_check: async () => {
+    health_check: async ({ expose_host_info = false } = {}) => {
       const { getToolchainSnapshot } = await import("../core/toolchain.mjs");
       const os = await import("node:os");
+      const crypto = await import("node:crypto");
       const snapshot = await getToolchainSnapshot();
       const { runHealthCheck } = await import("../core/health.mjs");
       const baseHealth = await runHealthCheck({ runtime, registry: runtime._registry, config: runtime.config });
 
-      return {
+      // Por defecto, se anonimiza el hostname y se omite workspaceRoot para no exponer
+      // datos del entorno del host al usar el MCP en modo de distribución pública.
+      // Pasar expose_host_info: true para ver los valores reales (solo para depuración local).
+      const rawHostname = os.hostname();
+      const hostnameDisplay = expose_host_info
+        ? rawHostname
+        : "host-" + crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8);
+
+      const result = {
         ok: true,
         platform: "win32",
         isWindowsOnly: true,
         osRelease: os.release(),
-        hostname: os.hostname(),
+        hostname: hostnameDisplay,
         shell: "powershell",
         powershellVersion: snapshot.binaries.powershell.version || "5.1",
         nodeVersion: snapshot.binaries.node.version || process.version,
@@ -51,12 +60,17 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         gitVersion: snapshot.binaries.git.version || "N/A",
         pythonVersion: snapshot.binaries.python.version || "N/A",
         effectivePath: snapshot.effectivePath,
-        workspaceRoot: runtime.root,
         securityMode: runtime.permissions?.currentLevel() || "NORMAL",
         toolchain: snapshot.binaries,
         diagnostics: baseHealth,
       };
+
+      // workspaceRoot solo se incluye si se pide explícitamente (contiene ruta con nombre de usuario)
+      if (expose_host_info) result.workspaceRoot = runtime.root;
+
+      return result;
     },
+
 
     benchmark: async ({ loops = 100 } = {}) => {
       const n = Math.min(Math.max(1, Number(loops) || 100), 1000);

@@ -156,16 +156,17 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      list_allowed_directories: async () => ({
-        ok: true,
-        directories: [
-          runtime.dirs.root,
-          runtime.dirs.home,
-          runtime.dirs.downloads,
-          runtime.dirs.documents,
-          runtime.dirs.storage,
-        ],
-      }),
+      list_allowed_directories: async () => {
+        // Se excluye el home completo (~) para no exponer el directorio raíz del usuario.
+        // Solo se listan las ubicaciones semánticas seguras que el MCP realmente usa.
+        const dirs = [
+          { path: runtime.dirs.root, label: "mcp_root", note: "Directorio de instalación del MCP" },
+          { path: runtime.dirs.documents, label: "documents", note: "Documentos del usuario" },
+          { path: runtime.dirs.downloads, label: "downloads", note: "Descargas del usuario" },
+          { path: runtime.dirs.storage, label: "storage", note: "Datos locales del MCP (AppData)" },
+        ].filter(d => d.path);
+        return { ok: true, count: dirs.length, directories: dirs };
+      },
 
       directory_tree: async ({ path: p = ".", depth = 2, maxEntries = 500 } = {}) => {
         const target = runtime.hp(p);

@@ -104,11 +104,19 @@ export function createShortcutsDomain({ runtime, path, fs, domain }) {
     if (!shortcut) return { ok: false, error: `Shortcut '${name}' no encontrado. Usa shortcuts:list para ver los disponibles.` };
     const startedAt = new Date().toISOString();
     const results = [];
+    // Claves de control del step que no son argumentos de la herramienta
+    const STEP_CONTROL_KEYS = new Set(["tool", "action", "args", "delayMs", "stopOnError"]);
+
     for (let i = 0; i < shortcut.steps.length; i++) {
       const step = shortcut.steps[i];
       const tool = interpolate(step.tool, variables);
       const action = interpolate(step.action, variables);
-      const args = interpolate(step.args || {}, variables);
+      // Fusionar step.args con cualquier propiedad plana del step (ej: { tool:"wait", seconds:5 })
+      const flatStepArgs = {};
+      for (const [k, v] of Object.entries(step)) {
+        if (!STEP_CONTROL_KEYS.has(k)) flatStepArgs[k] = v;
+      }
+      const args = interpolate({ ...flatStepArgs, ...(step.args || {}) }, variables);
       if (step.delayMs && Number(step.delayMs) > 0) await new Promise((r) => setTimeout(r, Number(step.delayMs)));
       try {
         const result = await runtime.router.execute({ tool, action, args });

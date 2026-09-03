@@ -3,6 +3,16 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.2] - 2026-09-02 (Bugfixes de Seguridad y Motor de Shortcuts)
+
+### Corregido
+- **Bug `AFX-FB-S36535` — `shortcuts.execute`: parámetros planos del step `wait` ignorados.**
+  El motor ahora fusiona las propiedades planas del step (ej: `{ tool: "wait", seconds: 5 }`) con `step.args`, excluyendo correctamente las claves de control (`tool`, `action`, `args`, `delayMs`, `stopOnError`). Antes, si `seconds` no estaba en `step.args`, el sleep se aplicaba con el valor por defecto de 1s.
+- **Bug `AFX-FB-6BEYX8` — `diagnostics.health_check` exponía hostname real y `workspaceRoot`.**
+  El hostname ahora se anonimiza por defecto con un hash SHA-256 truncado (8 chars). `workspaceRoot` solo se incluye si se pasa `expose_host_info: true`. Útil para distribución pública donde el host del MCP no debe ser conocido por el cliente.
+- **Bug `AFX-FB-6BEYX8` — `files.list_allowed_directories` incluía el directorio home completo (`~`).**
+  Se eliminó `runtime.dirs.home` de la lista de directorios expuestos. Ahora solo se listan las ubicaciones semánticas seguras (`mcp_root`, `documents`, `downloads`, `storage`) con su etiqueta y descripción.
+
 ## [9.0.1] - 2026-09-02 (Verified Auto-Update Release)
 
 ### Añadido
