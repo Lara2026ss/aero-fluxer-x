@@ -170,6 +170,48 @@ export class Router {
       tool = "diagnostics";
     }
 
+    // Soporte nativo para clean_ram / analyze_memory / terminate_process
+    if (["clean_ram", "optimize_ram", "clean_memory"].includes(tool.toLowerCase())) {
+      action = "clean_ram";
+      tool = "system";
+    }
+    if (["analyze_memory", "analyze_memory_usage"].includes(tool.toLowerCase())) {
+      action = "analyze_memory_usage";
+      tool = "system";
+    }
+    if (["terminate_process", "kill_process_by_name"].includes(tool.toLowerCase())) {
+      action = "terminate_process";
+      tool = "system";
+    }
+
+    // Soporte nativo para bcd_manager y manage_disks
+    if (["bcd_manager", "bcdedit", "bcd"].includes(tool.toLowerCase())) {
+      action = "bcd_manager";
+      tool = "system";
+    }
+    if (["manage_disks", "disk_manager", "disks"].includes(tool.toLowerCase())) {
+      action = "manage_disks";
+      tool = "system";
+    }
+
+    // Soporte nativo para admin_terminal y elevación de permisos
+    if (["admin_terminal", "terminal_admin", "run_admin_command", "run_as_admin"].includes(tool.toLowerCase())) {
+      action = "run_as_admin";
+      tool = "terminal";
+    }
+    if (["grant_elevation", "grant_admin_permission", "te_doy_permiso_total", "permiso_total"].includes(tool.toLowerCase())) {
+      action = "grant_elevation";
+      tool = "security";
+    }
+    if (["get_elevation_status", "elevation_status"].includes(tool.toLowerCase())) {
+      action = "get_elevation_status";
+      tool = "security";
+    }
+    if (["revoke_elevation"].includes(tool.toLowerCase())) {
+      action = "revoke_elevation";
+      tool = "security";
+    }
+
     if (!tool || !action) throw new Error("tool and action are required");
 
     if (action === "reload" || action === "reload_server") {

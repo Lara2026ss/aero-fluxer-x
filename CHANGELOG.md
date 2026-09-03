@@ -3,6 +3,23 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.1.0] - 2026-09-02 (Limpieza de RAM, Gestión de Discos/BCD, Terminal Admin y Concesión de Permisos Temporales)
+
+### Añadido
+- **Optimización y Diagnóstico Avanzado de Memoria RAM (`system.clean_ram`, `system.analyze_memory_usage`, `system.terminate_process`)**:
+  - `clean_ram`: Recorta de forma segura los working sets de procesos inactivos vía la API Win32 `EmptyWorkingSet`, liberando memoria RAM de inmediato sin cerrar programas ni causar inestabilidad.
+  - `analyze_memory_usage`: Diagnostica la presión de memoria RAM y clasifica procesos en categorías inteligentes (`games`, `browsers`, `ide_dev`, `background_apps`, `system_critical`), calculando el ahorro potencial de memoria recuperable.
+  - `terminate_process`: Cierra procesos no esenciales con protección estricta para procesos críticos del sistema operativo (`csrss`, `lsass`, `services`, `dwm`, `explorer`, `wininit`, etc.).
+- **Gestión de Discos y Almacén BCD de Windows (`system.bcd_manager`, `system.manage_disks`)**:
+  - `bcd_manager`: Enumera entradas del bootloader (`bcdedit /enum all`), crea copias de seguridad (`bcdedit /export`), monta la partición EFI oculta (ESP) en unidad `S:` (`mountvol S: /s`) para inspección o corrección y la desmonta limpiamente (`mountvol S: /d`).
+  - `manage_disks`: Lista detallada de volúmenes, discos físicos, etiquetas, sistemas de archivos, estado de salud y estilo de partición (GPT/MBR).
+- **Terminal Admin (`terminal.admin_terminal`, `terminal.run_as_admin`)**:
+  - Ejecución de comandos con privilegios elevados de administrador y captura de salida completa.
+- **Secuencia de Permisos Temporales ("Elevation Grant Timer") (`security.grant_elevation`, `security.get_elevation_status`, `security.revoke_elevation`)**:
+  - Concesión de permiso temporal de administración por defecto de 20 minutos ante la frase "te doy permiso total" o duración personalizada (ej. "1 hora").
+  - Contador regresivo en vivo en el MCP. Durante la vigencia del permiso, las herramientas administrativas se ejecutan automáticamente sin interrumpir al usuario.
+  - Consulta de tiempo restante formateado (`18m 42s`) y revocación inmediata en cualquier momento.
+
 ## [9.0.9] - 2026-09-02 (Detección Dinámica de Clientes en UPD y Optimización de Tokens)
 
 ### Añadido

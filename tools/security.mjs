@@ -175,11 +175,25 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, count: entries.length, entries };
     },
 
+    grant_elevation: async ({ durationMinutes = 20, reason = "Permiso total de administración" } = {}) => {
+      return runtime.permissions.grantElevation({ durationMinutes, reason });
+    },
+
+    get_elevation_status: async () => {
+      return runtime.permissions.getElevationStatus();
+    },
+
+    revoke_elevation: async () => {
+      return runtime.permissions.revokeElevation();
+    },
   };
 
   const permissions = {
     grant_permission: "admin",
     revoke_permission: "admin",
+    grant_elevation: "user",
+    get_elevation_status: "user",
+    revoke_elevation: "user",
     approve_request: "user",
     deny_request: "user",
     request_status: "user",

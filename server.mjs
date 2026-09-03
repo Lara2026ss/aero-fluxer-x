@@ -162,6 +162,59 @@ export async function startServer() {
           force: { type: "boolean", description: "Forzar actualización" },
         },
       },
+    },
+    {
+      name: "admin_terminal",
+      description: "Ejecuta comandos en terminal con privilegios de administrador. Requiere autorización previa o elevación activa ('te doy permiso total').",
+      inputSchema: {
+        type: "object",
+        properties: {
+          command: { type: "string", description: "Comando o script a ejecutar como administrador" },
+          cwd: { type: "string", description: "Directorio de trabajo opcional" },
+        },
+        required: ["command"],
+      },
+    },
+    {
+      name: "clean_ram",
+      description: "Optimiza y libera memoria RAM del sistema Windows recortando working sets de procesos inactivos de forma segura sin cerrar aplicaciones críticas.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
+      name: "analyze_memory",
+      description: "Analiza el consumo de memoria RAM en detalle, categorizando procesos (juegos, navegadores, IDEs, MCP, segundo plano) e identificando aplicaciones que consumen exceso de recursos.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
+      name: "bcd_manager",
+      description: "Gestiona discos y el almacén BCD (Boot Configuration Data) de Windows: enumera entradas, crea backups, monta la partición EFI del sistema (ESP) en S: o la desmonta.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: { type: "string", description: "Acción a ejecutar: status, backup, mount_esp, unmount_esp, delete_entry, set_timeout" },
+          guid: { type: "string", description: "GUID del bootloader entry para eliminar" },
+          timeout: { type: "number", description: "Timeout en segundos para el menú de arranque" },
+          driveLetter: { type: "string", description: "Letra de unidad para montar partición EFI (default: S)" },
+        },
+        required: ["action"],
+      },
+    },
+    {
+      name: "grant_elevation",
+      description: "Concede permisos elevados de administración temporalmente (por defecto 20 minutos con 'te doy permiso total' o 60 minutos con '1 hora') para ejecutar herramientas administrativas automáticamente.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          durationMinutes: { type: "number", description: "Minutos de duración del permiso (default: 20, o 60 para 1 hora)" },
+          reason: { type: "string", description: "Motivo del permiso" },
+        },
+      },
     }
   );
   const server = new Server(

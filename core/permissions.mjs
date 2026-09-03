@@ -125,6 +125,10 @@ export class PermissionEngine {
 
   // Returns the highest active permission level for the given scope.
   currentLevel(scope = "*") {
+    if (this.isElevationActive()) {
+      return "admin";
+    }
+
     const perms = this.active();
     if (!perms || perms.length === 0) return this.defaultLevel;
 
@@ -217,6 +221,17 @@ export class PermissionEngine {
     const tool = route?.tool;
     const action = route?.action;
 
+    // Si el usuario otorgó un permiso temporal de elevación ("te doy permiso total"), autorizar
+    if (this.isElevationActive()) {
+      this.logger?.info("permission_authorized_by_elevation_grant", {
+        tool,
+        action,
+        required: this.requiredFor(route, unit),
+        scope: this._elevationGrant?.scope,
+      });
+      return true;
+    }
+
     // Verificar modo de seguridad primero (antes de permisos de nivel)
     const modeCheck = this.checkSecurityMode(tool, action);
     if (modeCheck.blocked) {
@@ -286,5 +301,79 @@ export class PermissionEngine {
     this.cachedAt = 0;
     this.logger?.info("permission_revoked", { scope: scope ?? "*" });
     return { revoked: scope ?? "*" };
+  }
+
+  grantElevation({ durationMinutes = 20, reason = "Permiso total de administración" } = {}) {
+    const minutes = Math.max(1, Number(durationMinutes) || 20);
+    const now = Date.now();
+    const expiresAt = now + (minutes * 60 * 1000);
+    this._elevationGrant = {
+      active: true,
+      durationMinutes: minutes,
+      grantedAt: new Date(now).toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
+      expiresAtMs: expiresAt,
+      reason,
+      scope: "full_admin",
+    };
+
+    try {
+      this.grant({ level: "admin", scope: "*", minutes, reason });
+    } catch {}
+
+    this.logger?.info("elevation_granted", this._elevationGrant);
+    return {
+      ok: true,
+      elevation_active: true,
+      duration_minutes: minutes,
+      granted_at: this._elevationGrant.grantedAt,
+      expires_at: this._elevationGrant.expiresAt,
+      message: `Permiso total de administración activado por ${minutes} minutos. Las herramientas de administración se ejecutarán automáticamente durante este período.`,
+    };
+  }
+
+  isElevationActive() {
+    if (!this._elevationGrant || !this._elevationGrant.active) return false;
+    if (Date.now() > this._elevationGrant.expiresAtMs) {
+      this._elevationGrant.active = false;
+      return false;
+    }
+    return true;
+  }
+
+  getElevationStatus() {
+    if (!this.isElevationActive()) {
+      return {
+        elevation_active: false,
+        message: "No hay permisos elevados activos. Las herramientas de administración requieren autorización previa del usuario.",
+      };
+    }
+    const remainingMs = Math.max(0, this._elevationGrant.expiresAtMs - Date.now());
+    const remainingSeconds = Math.round(remainingMs / 1000);
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    return {
+      elevation_active: true,
+      scope: this._elevationGrant.scope,
+      granted_at: this._elevationGrant.grantedAt,
+      expires_at: this._elevationGrant.expiresAt,
+      remaining_seconds: remainingSeconds,
+      remaining_formatted: `${mins}m ${secs}s`,
+      reason: this._elevationGrant.reason,
+    };
+  }
+
+  revokeElevation() {
+    if (this._elevationGrant) {
+      this._elevationGrant.active = false;
+    }
+    try {
+      this.revoke({ scope: "*" });
+    } catch {}
+    return {
+      ok: true,
+      elevation_active: false,
+      message: "Permiso de administración revocado exitosamente.",
+    };
   }
 }

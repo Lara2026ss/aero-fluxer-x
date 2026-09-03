@@ -4,6 +4,31 @@
  */
 import { CURRENT_VERSION } from "../core/version.mjs";
 
+const SYSTEM_CRITICAL_PROCESSES = new Set([
+  "csrss", "lsass", "services", "smss", "wininit", "dwm", "explorer", "svchost",
+  "system", "idle", "registry", "fontdrvhost", "winlogon", "spoolsv", "sihost",
+  "taskhostw", "searchhost", "startmenuexperiencehost", "shellexperiencehost"
+]);
+
+function categorizeProcess(name) {
+  const lower = (name || "").toLowerCase();
+  if (SYSTEM_CRITICAL_PROCESSES.has(lower)) return { category: "system_critical", safeToClose: false };
+
+  const games = ["steam", "epicgameslauncher", "valorant", "leagueclient", "genshinimpact", "roblox", "robloxplayerbeta", "minecraft", "unity", "unreal", "r5apex", "fortnite", "overwatch", "riotclientux"];
+  if (games.some(g => lower.includes(g))) return { category: "games", safeToClose: true };
+
+  const browsers = ["chrome", "msedge", "brave", "firefox", "opera", "vivaldi", "arc"];
+  if (browsers.some(b => lower.includes(b))) return { category: "browsers", safeToClose: true };
+
+  const ideDev = ["code", "cursor", "antigravity", "node", "python", "git", "powershell", "cmd", "wt", "conhost"];
+  if (ideDev.some(d => lower.includes(d))) return { category: "ide_dev", safeToClose: false };
+
+  const bgApps = ["discord", "spotify", "onedrive", "dropbox", "slack", "teams", "telegram", "whatsapp", "armourycreate", "asussoftware"];
+  if (bgApps.some(a => lower.includes(a))) return { category: "background_apps", safeToClose: true };
+
+  return { category: "other", safeToClose: true };
+}
+
 export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchText, sendNativeNotification }) {
   return domain(
     "system",
@@ -525,6 +550,249 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
       reload_server: async () => runtime.control.reload(),
       shutdown_server: async () => runtime.control.shutdown(),
+
+      // ── Optimización y Diagnóstico de Memoria RAM ─────────────────────────────
+      clean_ram: async () => {
+        const totalMem = os.totalmem();
+        const freeMemBefore = os.freemem();
+        const beforeMB = (totalMem - freeMemBefore) / (1024 * 1024);
+
+        let trimmedCount = 0;
+        if (process.platform === "win32") {
+          const psScript = `
+$code = @'
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+public class RamOptimizer {
+    [DllImport("psapi.dll")]
+    public static extern int EmptyWorkingSet(IntPtr hwProc);
+    public static int Optimize() {
+        int count = 0;
+        foreach (Process p in Process.GetProcesses()) {
+            try {
+                if (!p.HasExited && p.Id > 4 && p.ProcessName != "System" && p.ProcessName != "Registry") {
+                    EmptyWorkingSet(p.Handle);
+                    count++;
+                }
+            } catch {}
+        }
+        return count;
+    }
+}
+'@
+Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
+[RamOptimizer]::Optimize()
+`;
+          const b64 = Buffer.from(psScript, "utf16le").toString("base64");
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+          trimmedCount = parseInt(res.stdout?.trim() || "0", 10) || 0;
+        }
+
+        if (global.gc) {
+          try { global.gc(); } catch {}
+        }
+
+        const freeMemAfter = os.freemem();
+        const afterMB = (totalMem - freeMemAfter) / (1024 * 1024);
+        const freedMB = Math.max(0, Number(((freeMemAfter - freeMemBefore) / (1024 * 1024)).toFixed(1)));
+
+        return {
+          ok: true,
+          status: "RAM optimizada con éxito",
+          freed_mb: freedMB,
+          processes_trimmed: trimmedCount,
+          memory_before: {
+            used_gb: Number((beforeMB / 1024).toFixed(2)),
+            free_gb: Number((freeMemBefore / (1024 ** 3)).toFixed(2)),
+            usage_percent: Number(((beforeMB / (totalMem / 1024 / 1024)) * 100).toFixed(1)),
+          },
+          memory_after: {
+            used_gb: Number((afterMB / 1024).toFixed(2)),
+            free_gb: Number((freeMemAfter / (1024 ** 3)).toFixed(2)),
+            usage_percent: Number(((afterMB / (totalMem / 1024 / 1024)) * 100).toFixed(1)),
+          },
+          recommendation: freedMB > 200
+            ? `Se liberaron ${freedMB}MB de memoria en ${trimmedCount} procesos. El sistema tiene ahora más margen de trabajo.`
+            : "La memoria se encuentra en un estado relativamente compacto.",
+        };
+      },
+
+      optimize_ram: async function() { return this.clean_ram(); },
+      clean_memory: async function() { return this.clean_ram(); },
+
+      analyze_memory_usage: async () => {
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const usagePercent = Number(((usedMem / totalMem) * 100).toFixed(1));
+
+        let topConsumers = [];
+        if (process.platform === "win32") {
+          try {
+            const ps = `Get-Process | Where-Object { $_.WorkingSet64 -gt 25MB } | Select-Object Id, ProcessName, WorkingSet64, Responding | Sort-Object -Descending WorkingSet64 | Select-Object -First 30 | ConvertTo-Json -Compress`;
+            const b64 = Buffer.from(ps, "utf16le").toString("base64");
+            const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+            if (res.stdout) {
+              const parsed = JSON.parse(res.stdout);
+              const list = Array.isArray(parsed) ? parsed : [parsed];
+              topConsumers = list.map((p) => {
+                const cat = categorizeProcess(p.ProcessName);
+                return {
+                  pid: p.Id,
+                  name: p.ProcessName,
+                  memory_mb: Math.round(p.WorkingSet64 / (1024 * 1024)),
+                  responding: p.Responding !== false,
+                  category: cat.category,
+                  safe_to_close: cat.safeToClose,
+                };
+              });
+            }
+          } catch {}
+        }
+
+        const reclaimableConsumers = topConsumers.filter((c) => c.safe_to_close);
+        const reclaimableMB = reclaimableConsumers.reduce((acc, c) => acc + c.memory_mb, 0);
+
+        return {
+          ok: true,
+          total_gb: Number((totalMem / (1024 ** 3)).toFixed(2)),
+          used_gb: Number((usedMem / (1024 ** 3)).toFixed(2)),
+          free_gb: Number((freeMem / (1024 ** 3)).toFixed(2)),
+          usage_percent: usagePercent,
+          is_high_memory_pressure: usagePercent > 85,
+          reclaimable_estimate_mb: reclaimableMB,
+          top_consumers: topConsumers,
+          recommendations: [
+            usagePercent > 85 ? `⚠️ RAM al ${usagePercent}% — se recomienda ejecutar clean_ram para optimizar la memoria.` : "Uso de RAM en niveles estables.",
+            reclaimableConsumers.length > 0 ? `Se detectaron ${reclaimableConsumers.length} aplicaciones no esenciales consumiendo ~${reclaimableMB}MB (ej. juegos o apps secundarias) que el usuario puede cerrar si no las está utilizando.` : null,
+          ].filter(Boolean),
+        };
+      },
+
+      analyze_memory: async function() { return this.analyze_memory_usage(); },
+
+      terminate_process: async ({ pid, name, force = false } = {}) => {
+        if (!pid && !name) {
+          return { ok: false, error: "Se requiere 'pid' o 'name' del proceso a terminar." };
+        }
+
+        const targetName = (name || "").toLowerCase();
+        if (SYSTEM_CRITICAL_PROCESSES.has(targetName)) {
+          return {
+            ok: false,
+            error: "PROTECTED_PROCESS",
+            message: `No se permite terminar el proceso crítico del sistema operativo: ${name}. Está protegido para evitar pantallazos azules o inestabilidad.`,
+          };
+        }
+
+        if (process.platform === "win32") {
+          const cmd = pid ? `Stop-Process -Id ${Number(pid)} -Force` : `Stop-Process -Name "${name}" -Force`;
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -Command "${cmd}"`);
+          return {
+            ok: res.ok,
+            pid,
+            name,
+            message: res.ok ? `Proceso ${name || pid} terminado exitosamente.` : `Error al terminar proceso: ${res.stderr || res.stdout}`,
+          };
+        }
+
+        return { ok: false, error: "Plataforma no soportada para terminate_process." };
+      },
+
+      kill_process_by_name: async function(args) { return this.terminate_process(args); },
+
+      // ── Gestión de Discos y Boot Configuration Data (bcdedit) ─────────────────
+      bcd_manager: async ({ action = "status", guid, timeout, driveLetter = "S" } = {}) => {
+        if (!runtime.permissions?.isElevationActive()) {
+          return {
+            ok: false,
+            requires_elevation: true,
+            error: "ELEVATION_REQUIRED",
+            message: "Las operaciones sobre discos y BCD (bcdedit) requieren permisos elevados de administrador. Solicita autorización al usuario (ej. 'te doy permiso total' para 20 minutos o 'permiso de 1 hora').",
+            prompt_to_user: "Esta operación sobre el gestor de arranque (BCD) y particiones EFI requiere permisos de administrador. ¿Deseas autorizar la ejecución?",
+          };
+        }
+
+        const validAction = action.toLowerCase();
+        switch (validAction) {
+          case "status":
+          case "enum": {
+            const res = await runtime.runElevated("bcdedit /enum all");
+            return { ok: res.ok, action: "enum", output: res.stdout || res.stderr };
+          }
+
+          case "backup": {
+            const backupPath = `C:\\Windows\\Temp\\bcd_backup_${Date.now()}.bcd`;
+            const res = await runtime.runElevated(`bcdedit /export "${backupPath}"`);
+            return { ok: res.ok, action: "backup", backup_path: backupPath, output: res.stdout || res.stderr };
+          }
+
+          case "mount_esp": {
+            const letter = (driveLetter || "S").toUpperCase().replace(":", "");
+            const res = await runtime.runElevated(`mountvol ${letter}: /s`);
+            return {
+              ok: res.ok,
+              action: "mount_esp",
+              drive_letter: `${letter}:`,
+              message: res.ok ? `Partición EFI del sistema montada en ${letter}: exitosamente.` : res.stderr,
+            };
+          }
+
+          case "unmount_esp": {
+            const letter = (driveLetter || "S").toUpperCase().replace(":", "");
+            const res = await runtime.runElevated(`mountvol ${letter}: /d`);
+            return {
+              ok: res.ok,
+              action: "unmount_esp",
+              drive_letter: `${letter}:`,
+              message: res.ok ? `Partición EFI en ${letter}: desmontada exitosamente.` : res.stderr,
+            };
+          }
+
+          case "set_timeout": {
+            const t = Math.max(0, Number(timeout) || 30);
+            const res = await runtime.runElevated(`bcdedit /timeout ${t}`);
+            return { ok: res.ok, action: "set_timeout", timeout: t, output: res.stdout || res.stderr };
+          }
+
+          case "delete_entry": {
+            if (!guid) return { ok: false, error: "El parámetro 'guid' del boot entry es requerido para eliminar." };
+            const normalizedGuid = guid.trim().toLowerCase();
+            if (normalizedGuid === "{current}" || normalizedGuid === "{bootmgr}" || normalizedGuid === "{default}") {
+              return { ok: false, error: "PROTECTED_ENTRY", message: "No se permite eliminar las entradas esenciales {current}, {default} o {bootmgr}." };
+            }
+            // Backup preventivo automático obligatorio
+            const backupPath = `C:\\Windows\\Temp\\bcd_pre_delete_${Date.now()}.bcd`;
+            await runtime.runElevated(`bcdedit /export "${backupPath}"`);
+            const res = await runtime.runElevated(`bcdedit /delete ${guid}`);
+            return { ok: res.ok, action: "delete_entry", guid, backup_path: backupPath, output: res.stdout || res.stderr };
+          }
+
+          default:
+            return { ok: false, error: `Acción no reconocida: ${action}. Acciones válidas: enum, status, backup, mount_esp, unmount_esp, delete_entry, set_timeout.` };
+        }
+      },
+
+      manage_disks: async () => {
+        try {
+          const ps = `
+@{
+  volumes = (Get-Volume | Select-Object DriveLetter, FileSystemLabel, FileSystem, SizeRemaining, Size, HealthStatus)
+  disks = (Get-Disk | Select-Object Number, FriendlyName, OperationalStatus, PartitionStyle, TotalSize)
+} | ConvertTo-Json -Compress -Depth 3
+`;
+          const b64 = Buffer.from(ps, "utf16le").toString("base64");
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+          if (res.stdout) {
+            const data = JSON.parse(res.stdout);
+            return { ok: true, ...data };
+          }
+          return { ok: false, error: res.stderr || "No se pudo obtener información de discos." };
+        } catch (err) {
+          return { ok: false, error: err.message };
+        }
+      },
     }
   );
 }

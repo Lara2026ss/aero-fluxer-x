@@ -489,12 +489,33 @@ export function createTerminalDomain({ runtime, path, fs, crypto, domain }) {
     // ── Ejecución Elevada ─────────────────────────────────────────────────────
     run_as_admin: async ({ command, cwd } = {}) => {
       if (!command) return { ok: false, error: "El parámetro 'command' es requerido." };
+      if (!runtime.permissions?.isElevationActive()) {
+        return {
+          ok: false,
+          requires_elevation: true,
+          error: "ELEVATION_REQUIRED",
+          message: "Esta acción en terminal requiere permisos elevados de administración. Solicita autorización al usuario (ej. 'te doy permiso total' para 20 minutos o 'permiso de 1 hora').",
+          prompt_to_user: "Esta operación requiere permisos elevados de administrador en la terminal. ¿Deseas autorizar la ejecución? (Diga 'te doy permiso total' para 20 minutos o especifica una duración).",
+        };
+      }
       try {
         const result = await runtime.runElevated(command, { cwd: cwd ? runtime.hp(cwd) : undefined });
         return { ok: true, elevated: true, stdout: result.stdout, stderr: result.stderr, exitCode: result.code };
       } catch (e) {
         return { ok: false, elevated: true, error: e.message };
       }
+    },
+
+    admin_terminal: async (args) => {
+      return actions.run_as_admin(args);
+    },
+
+    terminal_admin: async (args) => {
+      return actions.run_as_admin(args);
+    },
+
+    run_admin_command: async (args) => {
+      return actions.run_as_admin(args);
     },
   };
 
@@ -504,6 +525,9 @@ export function createTerminalDomain({ runtime, path, fs, crypto, domain }) {
     run_script: "poweruser",
     run_inline_script: "poweruser",
     run_as_admin: "admin",
+    admin_terminal: "admin",
+    terminal_admin: "admin",
+    run_admin_command: "admin",
     kill_process: "poweruser",
     kill_process_tree: "poweruser",
     kill_background_task: "poweruser",
