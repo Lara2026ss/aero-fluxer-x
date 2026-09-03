@@ -3,6 +3,12 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.4] - 2026-09-02 (Protección de Bases de Datos Huérfanas & Detección Explícita)
+
+### Corregido
+- **Bug `AFX-FB-F9SWJ8` — `database.execute_query` creaba silenciosamente archivos `.db` inexistentes.**
+  `execute_query` ahora reporta explícitamente `db_created: true` y una advertencia cuando crea una nueva base de datos SQLite en disco. Si la consulta sobre una base de datos inexistente falla, el archivo huérfano de 0 bytes se elimina automáticamente. Además, las herramientas de inspección (`describe_table`, `search_tables`, `explain_query`, `export_table`, `analyze_database`) rechazan bases de datos inexistentes sin crear archivos vacíos por error.
+
 ## [9.0.3] - 2026-09-02 (Avisos No-Intrusivos a la IA & Correcciones de Diagnóstico)
 
 ### Añadido

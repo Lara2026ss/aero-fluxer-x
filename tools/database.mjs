@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+
 let sqliteDbSync = null;
 try { sqliteDbSync = (await import("node:sqlite")).DatabaseSync; } catch {}
 
@@ -19,6 +21,7 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
       if (engine === "sqlite") {
         const isMemory = database === ":memory:" || database === "memory";
         const target = isMemory ? ":memory:" : runtime.hp(database);
+        const existedBefore = isMemory ? true : existsSync(target);
         if (!isMemory) await fs.mkdir(path.dirname(target), { recursive: true });
         if (sqliteDbSync) {
           let db;
@@ -28,13 +31,37 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
             let output;
             if (isSelect) { const stmt = db.prepare(query); output = JSON.stringify(stmt.all(), null, 2); }
             else { db.exec(query); output = "Query ejecutada exitosamente."; }
-            return { ok: true, output };
+            const resObj = { ok: true, output };
+            if (!isMemory) {
+              resObj.db_created = !existedBefore;
+              if (!existedBefore) {
+                resObj.warning = `La base de datos SQLite '${database}' no existía previamente y fue creada automáticamente en disco.`;
+              }
+            }
+            return resObj;
           } catch (err) {
+            try { db?.close(); db = null; } catch {}
+            // Si la base de datos no existía antes de la consulta y falló, limpiar el archivo huérfano de 0 bytes
+            if (!existedBefore && !isMemory) {
+              try {
+                if (existsSync(target)) {
+                  const st = await fs.stat(target);
+                  if (st.size === 0) await fs.unlink(target);
+                }
+              } catch {}
+            }
             return { ok: false, error: `SQLite error: ${err.message}` };
           } finally { try { db?.close(); } catch {} }
         }
         const res = await runtime.run(`sqlite3 ${runtime.shellQuote(target)} ${runtime.shellQuote(query)}`);
-        return { ok: res.ok, output: res.stdout || res.stderr };
+        const resObj = { ok: res.ok, output: res.stdout || res.stderr };
+        if (!isMemory && res.ok) {
+          resObj.db_created = !existedBefore;
+          if (!existedBefore) {
+            resObj.warning = `La base de datos SQLite '${database}' no existía previamente y fue creada automáticamente en disco.`;
+          }
+        }
+        return resObj;
       }
       if (engine === "postgres") {
         if (password) env.PGPASSWORD = password;
@@ -55,6 +82,9 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
       if (!database || !query) return { ok: false, error: "Los parámetros 'database' y 'query' son requeridos." };
       const isMemory = database === ":memory:" || database === "memory";
       const target = isMemory ? ":memory:" : runtime.hp(database);
+      if (!isMemory && !existsSync(target)) {
+        return { ok: false, error: `La base de datos SQLite '${database}' no existe en disco.` };
+      }
       if (sqliteDbSync) {
         let db;
         try {
@@ -74,6 +104,9 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
     export_table: async ({ database, table, format = "json", destination } = {}) => {
       if (!database || !table) return { ok: false, error: "Los parámetros 'database' y 'table' son requeridos." };
       const target = runtime.hp(database);
+      if (!existsSync(target)) {
+        return { ok: false, error: `La base de datos SQLite '${database}' no existe en disco.` };
+      }
       if (!sqliteDbSync) return { ok: false, error: "Exportación requiere módulo SQLite activo." };
       let db;
       try {
@@ -142,6 +175,7 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
     analyze_database: async ({ database } = {}) => {
       if (!database) return { ok: false, error: "El parámetro 'database' es requerido." };
       const target = runtime.hp(database);
+      if (!existsSync(target)) return { ok: false, error: `La base de datos SQLite '${database}' no existe en disco.` };
       try {
         const stat = await fs.stat(target).catch(() => null);
         if (sqliteDbSync) {
@@ -196,6 +230,9 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
       if (!database) return { ok: false, error: "El parámetro 'database' es requerido." };
       const isMemory = database === ":memory:" || database === "memory";
       const target = isMemory ? ":memory:" : runtime.hp(database);
+      if (!isMemory && !existsSync(target)) {
+        return { ok: false, error: `La base de datos SQLite '${database}' no existe en disco.` };
+      }
       if (sqliteDbSync) {
         let db;
         try {
@@ -216,6 +253,9 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
       if (!database || !table) return { ok: false, error: "Los parámetros 'database' y 'table' son requeridos." };
       const isMemory = database === ":memory:" || database === "memory";
       const target = isMemory ? ":memory:" : runtime.hp(database);
+      if (!isMemory && !existsSync(target)) {
+        return { ok: false, error: `La base de datos SQLite '${database}' no existe en disco.` };
+      }
       if (sqliteDbSync) {
         let db;
         try {
