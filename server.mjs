@@ -164,6 +164,14 @@ export async function startServer() {
       },
     },
     {
+      name: "upd_data",
+      description: "Comprueba internamente y con datos de disco si el servidor MCP instalado realmente se actualizó a la nueva versión o si aún está pendiente de reinicio. Cero simulación.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+    {
       name: "admin_terminal",
       description: "Ejecuta comandos en terminal con privilegios de administrador. Requiere autorización previa o elevación activa ('te doy permiso total').",
       inputSchema: {

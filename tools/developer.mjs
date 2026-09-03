@@ -2,6 +2,7 @@ import os from "node:os";
 import https from "node:https";
 import http from "node:http";
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import { getStorageStructure } from "../core/storage-paths.mjs";
 import { CURRENT_VERSION } from "../core/version.mjs";
 import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
@@ -936,6 +937,115 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         message: updateResult.rolledBack
           ? "La actualización falló y se restauró la versión anterior mediante rollback automático. Revisa updater.log."
           : `Fallo en la actualización: ${updateResult.error}`,
+      };
+    },
+
+    upd_data: async () => {
+      // 1. Leer en tiempo real desde disco la versión física actual en core/version.mjs y package.json
+      let diskVersion = null;
+      let packageVersion = null;
+      try {
+        const vPath = path.join(runtime.root, "core", "version.mjs");
+        if (existsSync(vPath)) {
+          const vContent = await fs.readFile(vPath, "utf8");
+          const m = vContent.match(/CURRENT_VERSION\s*=\s*["']([^"']+)["']/);
+          if (m) diskVersion = m[1];
+        }
+        const pkgPath = path.join(runtime.root, "package.json");
+        if (existsSync(pkgPath)) {
+          const pkgContent = await fs.readFile(pkgPath, "utf8");
+          const pkg = JSON.parse(pkgContent);
+          packageVersion = pkg.version;
+        }
+      } catch {}
+
+      // 2. Comprobar fecha de última modificación (mtime) de archivos clave
+      const fileModTimes = {};
+      const criticalFiles = ["server.mjs", "core/version.mjs", "core/updater.mjs", "tools/developer.mjs", "tools/system.mjs"];
+      for (const cf of criticalFiles) {
+        try {
+          const fullPath = path.join(runtime.root, cf);
+          if (existsSync(fullPath)) {
+            const st = await fs.stat(fullPath);
+            fileModTimes[cf] = {
+              modified_at: st.mtime.toISOString(),
+              size_bytes: st.size,
+            };
+          }
+        } catch {}
+      }
+
+      // 3. Inspeccionar el log real de actualizaciones (updater.log)
+      const storage = getStorageStructure(runtime.root);
+      let lastUpdaterLogs = [];
+      try {
+        if (existsSync(storage.updaterLog)) {
+          const rawLogs = await fs.readFile(storage.updaterLog, "utf8");
+          const lines = rawLogs.split(/\r?\n/).filter(Boolean);
+          lastUpdaterLogs = lines.slice(-5);
+        }
+      } catch {}
+
+      // 4. Inspeccionar backups existentes en disco
+      let latestBackup = null;
+      try {
+        if (existsSync(storage.backupsDir)) {
+          const bEntries = await fs.readdir(storage.backupsDir);
+          const backupFolders = [];
+          for (const be of bEntries) {
+            const bPath = path.join(storage.backupsDir, be);
+            const bStat = await fs.stat(bPath).catch(() => null);
+            if (bStat && bStat.isDirectory()) {
+              backupFolders.push({ id: be, path: bPath, created_at: bStat.birthtime?.toISOString() || bStat.mtime.toISOString() });
+            }
+          }
+          backupFolders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          latestBackup = backupFolders[0] || null;
+        }
+      } catch {}
+
+      // 5. Comparar con la versión remota disponible en GitHub
+      const remoteCheck = await checkForUpdates({ repoRoot: runtime.root }).catch(() => ({ ok: false }));
+      const latestRemote = remoteCheck?.latestVersion || null;
+
+      // 6. Dictamen de Integridad y Verificación Real (CERO simulación)
+      const runningVersion = CURRENT_VERSION;
+      const isDiskUpdated = diskVersion === latestRemote;
+      const isRunningUpdated = runningVersion === latestRemote;
+      const versionsMatch = diskVersion === runningVersion && runningVersion === packageVersion;
+
+      let verdict = "UNKNOWN";
+      let isGenuinelyUpdated = false;
+
+      if (isRunningUpdated && isDiskUpdated && versionsMatch) {
+        verdict = "GENUINE_UPDATE_VERIFIED";
+        isGenuinelyUpdated = true;
+      } else if (isDiskUpdated && !isRunningUpdated) {
+        verdict = "UPDATE_APPLIED_PENDING_RESTART";
+        isGenuinelyUpdated = false;
+      } else {
+        verdict = "NOT_LATEST_VERSION";
+        isGenuinelyUpdated = false;
+      }
+
+      return {
+        ok: true,
+        verdict,
+        is_genuinely_updated: isGenuinelyUpdated,
+        running_version: runningVersion,
+        disk_version: diskVersion,
+        package_version: packageVersion,
+        latest_remote_version: latestRemote,
+        is_disk_matching_remote: isDiskUpdated,
+        is_running_matching_disk: diskVersion === runningVersion,
+        files_verified: fileModTimes,
+        latest_backup: latestBackup,
+        recent_updater_events: lastUpdaterLogs,
+        status_message: isGenuinelyUpdated
+          ? `✅ Verificación exitosa: El MCP está ejecutando y tiene instalado en disco la versión más reciente (v${runningVersion}). Sin simulación.`
+          : verdict === "UPDATE_APPLIED_PENDING_RESTART"
+            ? `⚠️ Los archivos en disco fueron actualizados a v${diskVersion}, pero el proceso MCP en memoria aún corre v${runningVersion}. Reinicia tu cliente MCP para cargar la nueva versión.`
+            : `ℹ️ El MCP instalado actualmente está en v${runningVersion} (disco: v${diskVersion}, remoto: v${latestRemote}). Se requiere ejecutar 'upd' para actualizar.`
       };
     },
 

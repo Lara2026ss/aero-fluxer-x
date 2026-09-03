@@ -146,8 +146,8 @@ export class Router {
       args = { seconds: sec, ...args };
     }
 
-    // Soporte nativo para upd_check / upd_info / upd invocados directamente como tool
-    if (["upd", "upd_check", "upd_info"].includes(tool.toLowerCase())) {
+    // Soporte nativo para upd_check / upd_info / upd / upd_data invocados directamente como tool
+    if (["upd", "upd_check", "upd_info", "upd_data"].includes(tool.toLowerCase())) {
       action = tool.toLowerCase();
       tool = "developer";
     }

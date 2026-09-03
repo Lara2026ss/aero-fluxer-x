@@ -3,6 +3,16 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.1.1] - 2026-09-02 (Herramienta upd_data para Verificación Real y Anti-Simulación)
+
+### Añadido
+- **Herramienta `upd_data` (y `developer.upd_data`)**:
+  - Chequeo interno dedicado para verificar si el servidor MCP instalado realmente se actualizó a la nueva versión o si aún está pendiente de reinicio.
+  - Compara en tiempo real la versión en memoria (`running_version`), la versión física en archivo `core/version.mjs` (`disk_version`), la versión en `package.json` (`package_version`) y el release más reciente disponible en GitHub (`latest_remote_version`).
+  - Inspecciona marcas de tiempo de modificación (`mtime`) y tamaños en bytes de archivos críticos del motor (`server.mjs`, `core/version.mjs`, `core/updater.mjs`, etc.).
+  - Audita la existencia de copias de seguridad reales en `storage/backups` y los últimos eventos registrados en `updater.log`.
+  - Dictamina con veredictos estrictos: `GENUINE_UPDATE_VERIFIED`, `UPDATE_APPLIED_PENDING_RESTART` o `NOT_LATEST_VERSION`. Cero simulación.
+
 ## [9.1.0] - 2026-09-02 (Limpieza de RAM, Gestión de Discos/BCD, Terminal Admin y Concesión de Permisos Temporales)
 
 ### Añadido
