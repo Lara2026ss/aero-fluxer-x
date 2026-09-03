@@ -3,6 +3,12 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.1] - 2026-09-02 (Verified Auto-Update Release)
+
+### Añadido
+- **Parser Resiliente de JSON (`core/json-utils.mjs`)**: Soporte automático para clientes LLM (como Claude Desktop) con llaves duplicadas (`}}`/`}}}`) y argumentos envueltos en `data`/`args`.
+- **Verificación de Auto-Update desde GitHub**: Validación completa de extremo a extremo del flujo de actualización automatizada desde GitHub Releases con chequeo SHA-256.
+
 ## [9.0.0] - 2026-09-02 (Release Candidate — Public Distribution Ready)
 
 ### Añadido
