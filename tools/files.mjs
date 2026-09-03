@@ -63,6 +63,69 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     return false;
   }
 
+  function decodeTextBuffer(buffer, requestedEncoding = "utf8") {
+    if (!buffer || buffer.length === 0) {
+      return { text: "", encoding: "utf8" };
+    }
+
+    // 1. Detectar BOM
+    if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+      return {
+        text: buffer.subarray(2).toString("utf16le"),
+        encoding: "utf-16le",
+        hadBom: true,
+        autoDecoded: true,
+      };
+    }
+
+    if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+      const swapped = Buffer.from(buffer.subarray(2));
+      swapped.swap16();
+      return {
+        text: swapped.toString("utf16le"),
+        encoding: "utf-16be",
+        hadBom: true,
+        autoDecoded: true,
+      };
+    }
+
+    if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+      return {
+        text: buffer.subarray(3).toString("utf8"),
+        encoding: "utf-8",
+        hadBom: true,
+      };
+    }
+
+    // 2. Si el llamante solicitó explícitamente un encoding no estándar (ej: utf16le)
+    const normReq = String(requestedEncoding).toLowerCase().replace(/[-_]/g, "");
+    if (normReq === "utf16le" || normReq === "utf16") {
+      return { text: buffer.toString("utf16le"), encoding: "utf-16le" };
+    }
+
+    // 3. Intento estándar con UTF-8
+    const utf8Text = buffer.toString(requestedEncoding || "utf8");
+    if (!utf8Text.includes("\0")) {
+      return { text: utf8Text, encoding: requestedEncoding || "utf8" };
+    }
+
+    // 4. Si UTF-8 contiene bytes nulos pero parece UTF-16LE sin BOM (muy típico de Windows PowerShell 5.1):
+    try {
+      const utf16Text = buffer.toString("utf16le");
+      if (!utf16Text.includes("\0") && utf16Text.trim().length > 0) {
+        return {
+          text: utf16Text,
+          encoding: "utf-16le",
+          autoDecoded: true,
+          notice: "Archivo sin BOM detectado y decodificado automáticamente como UTF-16LE.",
+        };
+      }
+    } catch {}
+
+    // 5. Es verdaderamente binario
+    return { isBinary: true };
+  }
+
   function categorizeExtension(ext) {
     const e = ext.toLowerCase().replace(/^\./, "");
     const map = {
@@ -90,6 +153,76 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       return backupPath;
     } catch {
       return null;
+    }
+  }
+
+  async function performEditFile({ path: p, oldText, find, search, targetContent, newText, replace, replacement, replacementContent, replaceAll = false, isRegex = false, backup = false } = {}) {
+    const searchStr = oldText !== undefined ? oldText : (find !== undefined ? find : (search !== undefined ? search : targetContent));
+    const replaceStr = newText !== undefined ? newText : (replace !== undefined ? replace : (replacement !== undefined ? replacement : replacementContent));
+
+    if (!p || searchStr === undefined || replaceStr === undefined) {
+      return { ok: false, error: "Los parámetros 'path', 'oldText' (o 'find') y 'newText' (o 'replace') son requeridos." };
+    }
+    const target = runtime.hp(p);
+    try {
+      const current = await fs.readFile(target, "utf8");
+      let updated = current;
+      let occurrences = 0;
+
+      if (isRegex) {
+        const reg = new RegExp(String(searchStr), replaceAll ? "g" : "");
+        occurrences = (current.match(reg) || []).length;
+        if (occurrences === 0) return { ok: false, error: "El patrón regex no tuvo coincidencias." };
+        updated = current.replace(reg, String(replaceStr));
+      } else {
+        const targetSearch = String(searchStr);
+        const targetReplace = String(replaceStr);
+
+        // 1. Coincidencia directa
+        if (current.includes(targetSearch)) {
+          if (replaceAll) {
+            occurrences = current.split(targetSearch).length - 1;
+            updated = current.replaceAll(targetSearch, targetReplace);
+          } else {
+            occurrences = 1;
+            updated = current.replace(targetSearch, targetReplace);
+          }
+        } else {
+          // 2. Normalización de saltos de línea (CRLF <-> LF) para Windows
+          const usesCRLF = current.includes("\r\n");
+          const normalizedSearch = usesCRLF
+            ? targetSearch.replace(/(?<!\r)\n/g, "\r\n")
+            : targetSearch.replace(/\r\n/g, "\n");
+
+          if (current.includes(normalizedSearch)) {
+            const normalizedReplace = usesCRLF
+              ? targetReplace.replace(/(?<!\r)\n/g, "\r\n")
+              : targetReplace.replace(/\r\n/g, "\n");
+
+            if (replaceAll) {
+              occurrences = current.split(normalizedSearch).length - 1;
+              updated = current.replaceAll(normalizedSearch, normalizedReplace);
+            } else {
+              occurrences = 1;
+              updated = current.replace(normalizedSearch, normalizedReplace);
+            }
+          } else {
+            return {
+              ok: false,
+              error: "El texto especificado en 'oldText' no fue encontrado en el archivo.",
+              hint: "Verifica que el fragmento a reemplazar coincida con el contenido actual.",
+            };
+          }
+        }
+      }
+
+      let backupPath = null;
+      if (backup) backupPath = await createSafeBackup(target);
+
+      await fs.writeFile(target, updated, "utf8");
+      return { ok: true, path: target, edited: true, replacementsCount: occurrences, ...(backupPath ? { backupPath } : {}) };
+    } catch (e) {
+      return { ok: false, error: e.message };
     }
   }
 
@@ -399,19 +532,21 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
 
         try {
           const stat = await fs.stat(target);
-          const content = await fs.readFile(target, encoding);
-          if (content.includes("\0")) {
+          const rawBuffer = await fs.readFile(target);
+          const decoded = decodeTextBuffer(rawBuffer, encoding);
+          if (decoded.isBinary) {
             return {
               ok: false,
               isBinary: true,
-              error: `El archivo '${path.basename(target)}' contiene datos binarios. Usa 'files.read_binary_file' en su lugar.`,
+              error: `El archivo '${path.basename(target)}' contiene datos binarios no decodificables como texto (UTF-8/UTF-16). Usa 'files.read_binary_file' en su lugar.`,
               recommendedTool: "files.read_binary_file",
             };
           }
+          const content = decoded.text;
           let lines = content.split(/\r?\n/);
           const totalLines = lines.length;
           let truncated = false;
-          let warning;
+          let warning = decoded.notice || undefined;
 
           // 1. Soporte explícito de rango (startLine / endLine o range: [start, end])
           let reqStart = startLine !== undefined ? Number(startLine) : (Array.isArray(range) ? Number(range[0]) : undefined);
@@ -491,7 +626,12 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
         const target = runtime.hp(p);
         try {
-          const content = await fs.readFile(target, encoding);
+          const rawBuffer = await fs.readFile(target);
+          const decoded = decodeTextBuffer(rawBuffer, encoding);
+          if (decoded.isBinary) {
+            return { ok: false, error: `El archivo '${path.basename(target)}' contiene datos binarios no decodificables como texto.` };
+          }
+          const content = decoded.text;
           const lines = content.split(/\r?\n/);
           const totalLines = lines.length;
 
@@ -759,76 +899,10 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      edit_file: async ({ path: p, oldText, find, search, targetContent, newText, replace, replacement, replacementContent, replaceAll = false, isRegex = false, backup = false } = {}) => {
-        const searchStr = oldText !== undefined ? oldText : (find !== undefined ? find : (search !== undefined ? search : targetContent));
-        const replaceStr = newText !== undefined ? newText : (replace !== undefined ? replace : (replacement !== undefined ? replacement : replacementContent));
-
-        if (!p || searchStr === undefined || replaceStr === undefined) {
-          return { ok: false, error: "Los parámetros 'path', 'oldText' (o 'find') y 'newText' (o 'replace') son requeridos." };
-        }
-        const target = runtime.hp(p);
-        try {
-          const current = await fs.readFile(target, "utf8");
-          let updated = current;
-          let occurrences = 0;
-
-          if (isRegex) {
-            const reg = new RegExp(String(searchStr), replaceAll ? "g" : "");
-            occurrences = (current.match(reg) || []).length;
-            if (occurrences === 0) return { ok: false, error: "El patrón regex no tuvo coincidencias." };
-            updated = current.replace(reg, String(replaceStr));
-          } else {
-            const targetSearch = String(searchStr);
-            const targetReplace = String(replaceStr);
-
-            // 1. Coincidencia directa
-            if (current.includes(targetSearch)) {
-              if (replaceAll) {
-                occurrences = current.split(targetSearch).length - 1;
-                updated = current.replaceAll(targetSearch, targetReplace);
-              } else {
-                occurrences = 1;
-                updated = current.replace(targetSearch, targetReplace);
-              }
-            } else {
-              // 2. Normalización de saltos de línea (CRLF <-> LF) para Windows
-              const usesCRLF = current.includes("\r\n");
-              const normalizedSearch = usesCRLF
-                ? targetSearch.replace(/(?<!\r)\n/g, "\r\n")
-                : targetSearch.replace(/\r\n/g, "\n");
-
-              if (current.includes(normalizedSearch)) {
-                const normalizedReplace = usesCRLF
-                  ? targetReplace.replace(/(?<!\r)\n/g, "\r\n")
-                  : targetReplace.replace(/\r\n/g, "\n");
-
-                if (replaceAll) {
-                  occurrences = current.split(normalizedSearch).length - 1;
-                  updated = current.replaceAll(normalizedSearch, normalizedReplace);
-                } else {
-                  occurrences = 1;
-                  updated = current.replace(normalizedSearch, normalizedReplace);
-                }
-              } else {
-                return {
-                  ok: false,
-                  error: "El texto especificado en 'oldText' no fue encontrado en el archivo.",
-                  hint: "Verifica que el fragmento a reemplazar coincida con el contenido actual.",
-                };
-              }
-            }
-          }
-
-          let backupPath = null;
-          if (backup) backupPath = await createSafeBackup(target);
-
-          await fs.writeFile(target, updated, "utf8");
-          return { ok: true, path: target, edited: true, replacementsCount: occurrences, ...(backupPath ? { backupPath } : {}) };
-        } catch (e) {
-          return { ok: false, error: e.message };
-        }
-      },
-
+      edit_file: performEditFile,
+      str_replace: performEditFile,
+      replace_in_file: performEditFile,
+      replace_file_content: performEditFile,
 
       insert_lines: async ({ path: p, atLine, afterLine, afterPattern, lines, backup = false } = {}) => {
         if (!p || lines === undefined) return { ok: false, error: "Los parámetros 'path' y 'lines' son requeridos." };
@@ -1491,6 +1565,9 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       json_manager: "user",
       append_to_file: "user",
       edit_file: "user",
+      str_replace: "user",
+      replace_in_file: "user",
+      replace_file_content: "user",
       insert_lines: "user",
       delete_lines: "user",
       replace_lines: "user",

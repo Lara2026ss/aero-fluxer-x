@@ -3,6 +3,19 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.8] - 2026-09-02 (Integridad Estructural HTML, Detección UTF-16 y Alias str_replace)
+
+### Añadido
+- **Acción `diagnostics.verify_html_integrity` (y en `developer`)**:
+  - Verificación de balance de tags HTML con parser de pila de etiquetas para detectar tags sin cerrar o cierres desalineados con número de línea.
+  - Validación sintáctica mediante `node:vm` de bloques de JavaScript embebidos en etiquetas `<script>`.
+  - Conteo inteligente de selectores y clases CSS (`.rule-box`, `#id`, etc.).
+  - Detección de regresiones estructurales frente a baselines esperados o archivos previos (ej. alertas inmediatas si `.rule-box` desciende inesperadamente).
+- **Auto-detección y Normalización de Encodings en `files`**:
+  - `files.read_text_file` y `files.read_file_range` ahora detectan y decodifican automáticamente archivos en UTF-16LE / UTF-16BE (con y sin BOM de Windows PowerShell) y UTF-8 con BOM, eliminando falsos positivos de "archivo binario".
+- **Alias `files.str_replace`**:
+  - Añadido alias directo `str_replace`, `replace_in_file` y `replace_file_content` en el dominio `files` y en el Router principal para compatibilidad con las convenciones de Anthropic / Claude.
+
 ## [9.0.7] - 2026-09-02 (Gestión Completa de Skills: delete_skill y edit_skill)
 
 ### Añadido

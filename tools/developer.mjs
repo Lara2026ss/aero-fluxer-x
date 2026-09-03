@@ -1069,6 +1069,14 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         return { ok: false, error: err.message };
       }
     },
+
+    verify_html_integrity: async (args) => {
+      const diagDomain = runtime._registry?.resolve("diagnostics", "verify_html_integrity");
+      if (diagDomain?.handler) {
+        return diagDomain.handler(args);
+      }
+      return { ok: false, error: "Dominio diagnostics no disponible." };
+    },
   };
 
   return domain(
@@ -1082,6 +1090,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       validate_skill: "user",
       list_skills: "user",
       get_skill: "user",
+      verify_html_integrity: "user",
       detect_project: "user",
       inspect_project: "user",
       run_project_tests: "poweruser",

@@ -158,6 +158,18 @@ export class Router {
       tool = "developer";
     }
 
+    // Soporte nativo para str_replace / replace_in_file invocados directamente como tool
+    if (["str_replace", "replace_in_file", "replace_file_content"].includes(tool.toLowerCase())) {
+      action = tool.toLowerCase();
+      tool = "files";
+    }
+
+    // Soporte nativo para verify_html_integrity invocado directamente como tool
+    if (["verify_html_integrity", "html_integrity", "check_html"].includes(tool.toLowerCase())) {
+      action = "verify_html_integrity";
+      tool = "diagnostics";
+    }
+
     if (!tool || !action) throw new Error("tool and action are required");
 
     if (action === "reload" || action === "reload_server") {
