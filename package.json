@@ -1,6 +1,6 @@
 {
   "name": "aeron-fluxer-x",
-  "version": "9.0.4",
+  "version": "9.0.5",
   "description": "Aeron Fluxer X MCP v9.0 — Motor MCP de nueva generación para Windows 11 y multi-plataforma",
   "type": "module",
   "main": "server.js",

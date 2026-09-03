@@ -784,73 +784,42 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    get_update: async ({ apply = false, allowDowngrade = false } = {}) => {
+    get_update: async ({ allowDowngrade = false } = {}) => {
       const check = await checkForUpdates({ repoRoot: runtime.root, allowDowngrade });
-
-      // Paso 1 — Solo comprobación (apply === false o no hay update)
-      if (!apply || !check.updateAvailable) {
-        const info = {
-          ok: check.ok,
-          current_version: check.currentVersion,
-          latest_version: check.latestVersion,
-          update_available: check.updateAvailable,
-          source: check.releaseInfo?.source || "github_releases",
-          reason: check.eligibility?.reason || (check.updateAvailable ? "Nueva versión disponible." : "Ya está en la versión más reciente."),
-        };
-
-        if (check.releaseInfo?.releaseNotes) {
-          info.release_notes = check.releaseInfo.releaseNotes.slice(0, 600);
-        }
-        if (check.releaseInfo?.downloadUrl) {
-          info.download_url = check.releaseInfo.downloadUrl;
-        }
-
-        if (check.updateAvailable) {
-          info.warning = [
-            `⚠️  ACTUALIZACIÓN DISPONIBLE: v${check.currentVersion} → v${check.latestVersion}`,
-            `Para aplicar, llama a: get_update({ apply: true })`,
-            `IMPORTANTE: Aplicar la actualización REINICIARÁ el proceso MCP.`,
-            `Después del reinicio deberás REINICIAR CLAUDE DESKTOP (u otro cliente IA) para reconectar.`,
-          ].join("\n");
-        }
-
-        return info;
-      }
-
-      // Paso 2 — Ejecutar update completo (backup + descarga + verificación + reemplazo + reinicio)
-      const updateResult = await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
-
-      if (updateResult.ok) {
-        // El reinicio se produce dentro de executeAutoUpdate si restart_required = true
-        // Retornamos antes de que process.exit(0) ocurra
-        return {
-          ok: true,
-          applied: true,
-          previous_version: updateResult.previousVersion,
-          new_version: updateResult.newVersion,
-          backup_id: updateResult.backupId,
-          restart_required: true,
-          message: [
-            `🎉 AERON FLUXER X ACTUALIZADO A v${updateResult.newVersion}`,
-            `El proceso MCP se está reiniciando ahora.`,
-            `👉 REINICIA CLAUDE DESKTOP (o tu cliente IA) para reconectar al servidor actualizado.`,
-          ].join("\n"),
-        };
-      }
-
-      return {
-        ok: false,
-        applied: false,
-        error: updateResult.error,
-        rolled_back: updateResult.rolledBack,
-        message: updateResult.rolledBack
-          ? "La actualización falló. Se restauró la versión anterior automáticamente."
-          : "La actualización falló. El sistema puede estar en estado inconsistente. Revisa updater.log.",
+      const info = {
+        ok: check.ok,
+        current_version: check.currentVersion,
+        latest_version: check.latestVersion,
+        update_available: check.updateAvailable,
+        source: check.releaseInfo?.source || "github_releases",
+        reason: check.eligibility?.reason || (check.updateAvailable ? "Nueva versión disponible." : "Ya está en la versión más reciente."),
       };
+
+      if (check.releaseInfo?.releaseNotes) {
+        info.release_notes = check.releaseInfo.releaseNotes.slice(0, 600);
+      }
+      if (check.releaseInfo?.downloadUrl) {
+        info.download_url = check.releaseInfo.downloadUrl;
+      }
+
+      if (check.updateAvailable) {
+        info.instructions = [
+          `💡 ACTUALIZACIÓN DISPONIBLE: v${check.currentVersion} → v${check.latestVersion}`,
+          `Las actualizaciones se aplican de forma manual para garantizar que nunca se desconecte la sesión de Claude Desktop ni se interrumpan tareas en curso.`,
+          `Para actualizar de forma segura cuando no estés usando el MCP, abre una terminal y ejecuta:`,
+          `npm run update:apply`,
+        ].join("\n");
+      }
+
+      return info;
     },
 
-    update: async ({ allowDowngrade = false } = {}) => {
-      return await executeAutoUpdate({ repoRoot: runtime.root, allowDowngrade });
+    update: async () => {
+      return {
+        ok: false,
+        manual_update_required: true,
+        message: "Las actualizaciones automáticas en caliente están desactivadas para evitar desconectar Claude Desktop. Para actualizar manualmente cuando lo desees, ejecuta en tu terminal: npm run update:apply",
+      };
     },
 
     list_feedbacks: async ({ type, severity, status, limit = 50 } = {}) => {

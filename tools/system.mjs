@@ -529,8 +529,12 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         return checkForUpdates({ repoRoot: runtime.dirs.root, allowDowngrade, allowPrerelease });
       },
 
-      apply_update: async ({ force = false, targetVersion, downloadUrl, expectedSha256 } = {}) => {
-        return executeAutoUpdate({ repoRoot: runtime.dirs.root, force, targetVersion, downloadUrl, expectedSha256 });
+      apply_update: async () => {
+        return {
+          ok: false,
+          manual_update_required: true,
+          message: "Las actualizaciones automáticas en caliente están desactivadas para evitar desconectar Claude Desktop. Para actualizar manualmente cuando lo desees, ejecuta en tu terminal: npm run update:apply",
+        };
       },
 
       rollback_update: async ({ backupId } = {}) => {

@@ -3,6 +3,14 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.5] - 2026-09-02 (Eliminación de Auto-Update y Transición a Actualización Manual)
+
+### Cambiado
+- **Eliminación definitiva de actualización automática en caliente**: Se eliminó cualquier reinicio de procesos (`process.exit(0)`, llamadas a child_process y hooks en server.mjs) desde el interior del servidor MCP. Claude Desktop nunca más se desconectará de forma inesperada mientras trabaja.
+- **Actualización 100% Manual por el Usuario**:
+  - `developer.get_update` y `system.check_for_updates` ahora son herramientas estrictamente informativas que reportan si existe una nueva versión y detallan las notas de la versión.
+  - Las actualizaciones se aplican manualmente desde la terminal mediante: `npm run update:apply`.
+
 ## [9.0.4] - 2026-09-02 (Protección de Bases de Datos Huérfanas & Detección Explícita)
 
 ### Corregido
