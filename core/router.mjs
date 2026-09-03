@@ -152,6 +152,12 @@ export class Router {
       tool = "developer";
     }
 
+    // Soporte nativo para skills invocados directamente como tool
+    if (["create_skill", "edit_skill", "delete_skill", "get_skill", "list_skills", "validate_skill"].includes(tool.toLowerCase())) {
+      action = tool.toLowerCase();
+      tool = "developer";
+    }
+
     if (!tool || !action) throw new Error("tool and action are required");
 
     if (action === "reload" || action === "reload_server") {

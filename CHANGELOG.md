@@ -3,6 +3,13 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.0.7] - 2026-09-02 (Gestión Completa de Skills: delete_skill y edit_skill)
+
+### Añadido
+- **Acción `developer.delete_skill`**: Permite eliminar skills creadas o de terceros tanto por nombre (resolución global) como por ruta directa. Incluye guardias de seguridad para prevenir la eliminación accidental de directorios raíz.
+- **Acción `developer.edit_skill`**: Permite editar o mejorar skills existentes preservando sus metadatos y actualizando sus instrucciones o recursos.
+- **Ruteo Directo**: El router ahora permite invocar `delete_skill`, `edit_skill`, `create_skill`, `get_skill`, `list_skills` y `validate_skill` directamente como herramientas.
+
 ## [9.0.6] - 2026-09-02 (Simplificación de Herramientas de Actualización: upd_check, upd_info, upd)
 
 ### Cambiado

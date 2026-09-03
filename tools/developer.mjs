@@ -500,6 +500,106 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
     },
 
+    delete_skill: async ({ name, path: p } = {}) => {
+      if (!name && !p) {
+        return { ok: false, error: "Se requiere el parámetro 'name' o 'path' para eliminar una skill." };
+      }
+
+      let targetDir = null;
+      let targetFile = null;
+      let skillName = name || "";
+
+      if (p) {
+        const resolved = runtime.hp(p);
+        const stat = await fs.stat(resolved).catch(() => null);
+        if (!stat) {
+          return { ok: false, error: `La ruta especificada '${p}' no existe.` };
+        }
+        if (stat.isDirectory()) {
+          targetDir = resolved;
+          targetFile = path.join(resolved, "SKILL.md");
+        } else {
+          targetFile = resolved;
+          targetDir = path.dirname(resolved);
+        }
+      } else if (name) {
+        const listRes = await actions.list_skills({ searchGlobal: true });
+        const match = listRes.skills?.find((s) => s.name.toLowerCase() === String(name).toLowerCase().trim());
+        if (match) {
+          targetFile = match.file;
+          targetDir = match.directory;
+          skillName = match.name;
+        }
+      }
+
+      if (!targetDir && !targetFile) {
+        return { ok: false, error: `No se encontró ninguna skill con el nombre '${name}'.` };
+      }
+
+      // Evitar borrar directorios raíz o críticos por error
+      const normalizedDir = path.resolve(targetDir).toLowerCase();
+      const forbiddenRoots = [
+        path.resolve(process.env.USERPROFILE || process.env.HOME || "C:\\").toLowerCase(),
+        path.resolve("C:\\").toLowerCase(),
+        path.resolve("C:\\Windows").toLowerCase(),
+        path.resolve(runtime.root || process.cwd()).toLowerCase(),
+      ];
+      if (forbiddenRoots.includes(normalizedDir)) {
+        return { ok: false, error: `Operación bloqueada por seguridad: no se puede eliminar un directorio raíz (${targetDir}).` };
+      }
+
+      try {
+        const hasSkillMd = await fs.access(path.join(targetDir, "SKILL.md")).then(() => true).catch(() => false);
+        if (hasSkillMd) {
+          await fs.rm(targetDir, { recursive: true, force: true });
+        } else if (targetFile) {
+          await fs.unlink(targetFile);
+        }
+
+        return {
+          ok: true,
+          deleted: true,
+          name: skillName || path.basename(targetDir),
+          directory: targetDir,
+          message: `Skill '${skillName || path.basename(targetDir)}' eliminada exitosamente.`,
+        };
+      } catch (err) {
+        return { ok: false, error: `Error al eliminar la skill: ${err.message}` };
+      }
+    },
+
+    edit_skill: async ({ name, path: p, description, instructions, rules, examples, references, scripts } = {}) => {
+      let targetFile = null;
+      let existingSkill = null;
+      if (name || p) {
+        const getRes = await actions.get_skill({ name, path: p });
+        if (getRes.ok) {
+          existingSkill = getRes;
+          targetFile = getRes.file;
+        }
+      }
+
+      const finalName = name || existingSkill?.metadata?.name;
+      const finalDesc = description !== undefined ? description : existingSkill?.metadata?.description;
+      const finalInstructions = instructions !== undefined ? instructions : existingSkill?.instructions;
+
+      if (!finalName || !finalDesc) {
+        return { ok: false, error: "No se encontró la skill a editar o faltan 'name'/'description'." };
+      }
+
+      return actions.create_skill({
+        name: finalName,
+        description: finalDesc,
+        instructions: finalInstructions,
+        path: p || targetFile || existingSkill?.directory,
+        rules,
+        examples,
+        references,
+        scripts,
+        overwrite: true,
+      });
+    },
+
     submit_feedback: async (rawInput = {}) => {
       // Normalización defensiva: soporta clientes MCP (como Claude Desktop) con JSON stringificado, anidado o con data/args
       const input = unwrapArgs(rawInput);
@@ -977,6 +1077,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     actions,
     {
       create_skill: "user",
+      edit_skill: "user",
+      delete_skill: "user",
       validate_skill: "user",
       list_skills: "user",
       get_skill: "user",
