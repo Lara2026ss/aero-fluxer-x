@@ -1,7 +1,7 @@
 {
   "name": "packages",
-  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones y argumentos (usar en args): add_repository { manager, url, name } | check_manager { manager } | install_package { manager, name } | list_installed { manager } | list_repositories {} | package_info { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search_package { manager, query } | update_package { manager, name }",
-  "inputSchema": {
+  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones y argumentos (usar en args): add_repository { manager, url, name } | check_manager { manager } | info { manager, name } | install { manager, name } | install_package { manager, name } | list { manager } | list_installed { manager } | list_installed_packages { manager } | list_packages { manager } | list_repositories {} | package_info { manager, name } | remove { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search { manager, query } | search_package { manager, query } | uninstall { manager, name } | update { manager, name } | update_package { manager, name } | upgrade { manager, name }",
+  "parameters": {
     "type": "object",
     "properties": {
       "action": {
@@ -9,14 +9,24 @@
         "enum": [
           "add_repository",
           "check_manager",
+          "info",
+          "install",
           "install_package",
+          "list",
           "list_installed",
+          "list_installed_packages",
+          "list_packages",
           "list_repositories",
           "package_info",
+          "remove",
           "remove_package",
           "remove_repository",
+          "search",
           "search_package",
-          "update_package"
+          "uninstall",
+          "update",
+          "update_package",
+          "upgrade"
         ],
         "description": "Acción a ejecutar en el dominio packages"
       },
@@ -27,7 +37,6 @@
     },
     "required": [
       "action"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

@@ -1,0 +1,25 @@
+{
+  "name": "guide",
+  "description": "Documentación oficial interna, reglas y mejores prácticas para IAs que operan este MCP.\nAcciones y argumentos (usar en args): best_practices {} | permissions_info { level, durationMinutes } | tool_usage { tool_name }",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "best_practices",
+          "permissions_info",
+          "tool_usage"
+        ],
+        "description": "Acción a ejecutar en el dominio guide"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}

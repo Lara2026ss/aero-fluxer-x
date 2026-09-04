@@ -1,27 +1,34 @@
 {
   "name": "developer",
-  "description": "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.\nAcciones y argumentos (usar en args): check_update { repoRoot } | create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite } | detect_project { path } | diagnose_service { path, serviceId } | feedback_guide {} | get_skill { name, path } | inspect_project { path } | list_skills { path, searchGlobal } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | submit_feedback { type, title, description, steps_to_reproduce, expected_behavior, actual_behavior, severity, screenshot, attach_logs, tool } | update { allowDowngrade } | update_info { repoRoot } | validate_skill { path }",
-  "inputSchema": {
+  "description": "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.\nAcciones y argumentos (usar en args): create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite } | delete_feedback { id } | delete_skill { name, path } | detect_project { path } | diagnose_service { path, serviceId } | edit_skill { name, path, description, instructions, rules, examples, references, scripts } | feedback_guide {} | get_skill { name, path } | inspect_project { path } | list_feedbacks { type, severity, status, limit } | list_skills { path, searchGlobal } | read_feedback { id } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | submit_feedback { status, data } | upd { force } | upd_check { repoRoot } | upd_data { id, path, created_at } | upd_info { version } | validate_skill { path } | verify_html_integrity {}",
+  "parameters": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
-          "check_update",
           "create_skill",
+          "delete_feedback",
+          "delete_skill",
           "detect_project",
           "diagnose_service",
+          "edit_skill",
           "feedback_guide",
           "get_skill",
           "inspect_project",
+          "list_feedbacks",
           "list_skills",
+          "read_feedback",
           "refresh_service_state",
           "run_project_build",
           "run_project_tests",
           "submit_feedback",
-          "update",
-          "update_info",
-          "validate_skill"
+          "upd",
+          "upd_check",
+          "upd_data",
+          "upd_info",
+          "validate_skill",
+          "verify_html_integrity"
         ],
         "description": "Acción a ejecutar en el dominio developer"
       },
@@ -32,7 +39,6 @@
     },
     "required": [
       "action"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

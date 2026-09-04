@@ -1,7 +1,7 @@
 {
   "name": "database",
-  "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).\nAcciones y argumentos (usar en args): analyze_database { database } | backup_database { database, destination } | create_database { database } | delete_database { database } | describe_table { database, table } | execute_query { engine, database, query, user, password, host } | execute_script { engine, database, scriptFile } | explain_query { database, query } | export_table { database, table, format, destination } | import_table { database, table, data, source } | restore_database { database, source } | search_tables { database }",
-  "inputSchema": {
+  "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).\nAcciones y argumentos (usar en args): analyze_database { database } | backup_database { database, destination } | create_database { database } | delete_database { database } | describe { database, table } | describe_table { database, table } | execute_query { engine, database, query, user, password, host } | execute_script { engine, database, scriptFile } | explain_query { database, query } | export_table { database, table, format, destination } | import_table { database, table, data, source } | list_tables { database } | query { engine, database, query, user, password, host } | restore_database { database, source } | schema { database, table } | script { engine, database, scriptFile } | search_tables { database } | show_tables { database } | tables { database }",
+  "parameters": {
     "type": "object",
     "properties": {
       "action": {
@@ -11,14 +11,21 @@
           "backup_database",
           "create_database",
           "delete_database",
+          "describe",
           "describe_table",
           "execute_query",
           "execute_script",
           "explain_query",
           "export_table",
           "import_table",
+          "list_tables",
+          "query",
           "restore_database",
-          "search_tables"
+          "schema",
+          "script",
+          "search_tables",
+          "show_tables",
+          "tables"
         ],
         "description": "Acción a ejecutar en el dominio database"
       },
@@ -29,7 +36,6 @@
     },
     "required": [
       "action"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

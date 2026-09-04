@@ -1,17 +1,19 @@
 {
   "name": "diagnostics",
-  "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación.\nAcciones y argumentos (usar en args): benchmark { loops } | health_check { runtime, registry, config } | resolve_toolchain { forceRefresh } | self_test { name, value, status } | system_diagnose { level, type, message }",
-  "inputSchema": {
+  "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación.\nAcciones y argumentos (usar en args): benchmark { loops } | compact_status { compact } | health_check { expose_host_info, compact } | resolve_toolchain { forceRefresh } | self_test { name, value, status } | system_diagnose { level, type, message } | verify_html_integrity { path, content, counts, selectors, baselineCounts }",
+  "parameters": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
           "benchmark",
+          "compact_status",
           "health_check",
           "resolve_toolchain",
           "self_test",
-          "system_diagnose"
+          "system_diagnose",
+          "verify_html_integrity"
         ],
         "description": "Acción a ejecutar en el dominio diagnostics"
       },
@@ -22,7 +24,6 @@
     },
     "required": [
       "action"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

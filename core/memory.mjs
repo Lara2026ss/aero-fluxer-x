@@ -50,6 +50,13 @@ export class MemoryStore {
           principal TEXT,
           workflow_id TEXT UNIQUE
         );
+      `);
+
+      // Migración segura para bases de datos existentes de versiones previas
+      try { this.db.exec("ALTER TABLE permissions ADD COLUMN principal TEXT;"); } catch {}
+      try { this.db.exec("ALTER TABLE permissions ADD COLUMN workflow_id TEXT;"); } catch {}
+
+      this.db.exec(`
 
         CREATE TABLE IF NOT EXISTS successful_routes (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

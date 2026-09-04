@@ -1,15 +1,19 @@
 {
   "name": "system",
-  "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.\nAcciones y argumentos (usar en args): apply_update { force, targetVersion, downloadUrl, expectedSha256 } | check_for_updates { allowDowngrade, allowPrerelease } | dns_lookup { domain, rrtype } | get_battery_info {} | get_clipboard {} | get_cpu_info {} | get_defender_status {} | get_disk_info {} | get_env { name } | get_env_vars { scope, filter } | get_folder_size { path } | get_gpu_info {} | get_hardware_info {} | get_kernel_info {} | get_local_ip {} | get_open_ports {} | get_performance_stats {} | get_processes { limit } | get_public_ip {} | get_ram_info {} | get_resource_usage { ok, memory, uptime } | get_sensors {} | get_storage_info {} | get_system_info { ok, platform, isWindowsOnly, arch, release, hostname, nodeVersion } | get_system_load {} | get_system_snapshot {} | get_temperature {} | get_wifi_networks {} | get_wifi_profile {} | get_windows_update_status {} | list_backups {} | list_env { filter } | list_scheduled_tasks { filter } | manage_services { service, action } | manage_startup {} | ping { host, count } | read_registry { key, value } | reload_server {} | remove_env_var { name, scope } | rollback_update { backupId } | run_scheduled_task { name } | send_notification { title, message } | set_clipboard { text } | set_env { name, value } | set_env_var { name, value, scope } | set_performance_mode {} | set_power_profile { profile } | shutdown_server {} | sleep { seconds, ms } | test_port { host, port, timeoutMs } | wait { seconds, ms } | write_registry { key, name, data, type }",
-  "inputSchema": {
+  "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.\nAcciones y argumentos (usar en args): analyze_memory {} | analyze_memory_usage {} | bcd_manager { action, guid, timeout, driveLetter } | clean_memory {} | clean_ram {} | dns_lookup { domain, rrtype } | free_ram {} | get_battery_info {} | get_clipboard {} | get_cpu_info {} | get_defender_status {} | get_disk_info {} | get_env { name } | get_env_vars { scope, filter } | get_folder_size { path } | get_gpu_info {} | get_hardware_info {} | get_info {} | get_kernel_info {} | get_local_ip {} | get_open_ports {} | get_optimization_status {} | get_performance_stats {} | get_performance_summary {} | get_processes { limit, compact } | get_public_ip {} | get_ram_info {} | get_resource_usage { ok, memory, uptime } | get_sensors {} | get_storage_info {} | get_system_info {} | get_system_load {} | get_system_snapshot {} | get_temperature {} | get_wifi_networks {} | get_wifi_profile {} | get_windows_update_status {} | info {} | kill_process_by_name {} | list_env { filter } | list_scheduled_tasks { filter } | manage_disks {} | manage_services { service, action } | manage_startup {} | optimize_gpu_memory {} | optimize_ram {} | optimize_windows {} | ping { host, count } | read_registry { key, value } | reload_server {} | remove_env_var { name, scope } | revert_windows_optimization {} | run_scheduled_task { name } | send_notification { title, message } | set_clipboard { text } | set_env { name, value } | set_env_var { name, value, scope } | set_performance_mode {} | set_power_profile { profile } | shutdown_server {} | sleep {} | snapshot {} | system_info {} | terminate_process { pid, name, force } | test_port { host, port, timeoutMs } | wait { seconds, ms, force } | wait_status {} | write_registry { key, name, data, type }",
+  "parameters": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
-          "apply_update",
-          "check_for_updates",
+          "analyze_memory",
+          "analyze_memory_usage",
+          "bcd_manager",
+          "clean_memory",
+          "clean_ram",
           "dns_lookup",
+          "free_ram",
           "get_battery_info",
           "get_clipboard",
           "get_cpu_info",
@@ -20,10 +24,13 @@
           "get_folder_size",
           "get_gpu_info",
           "get_hardware_info",
+          "get_info",
           "get_kernel_info",
           "get_local_ip",
           "get_open_ports",
+          "get_optimization_status",
           "get_performance_stats",
+          "get_performance_summary",
           "get_processes",
           "get_public_ip",
           "get_ram_info",
@@ -37,16 +44,21 @@
           "get_wifi_networks",
           "get_wifi_profile",
           "get_windows_update_status",
-          "list_backups",
+          "info",
+          "kill_process_by_name",
           "list_env",
           "list_scheduled_tasks",
+          "manage_disks",
           "manage_services",
           "manage_startup",
+          "optimize_gpu_memory",
+          "optimize_ram",
+          "optimize_windows",
           "ping",
           "read_registry",
           "reload_server",
           "remove_env_var",
-          "rollback_update",
+          "revert_windows_optimization",
           "run_scheduled_task",
           "send_notification",
           "set_clipboard",
@@ -56,8 +68,12 @@
           "set_power_profile",
           "shutdown_server",
           "sleep",
+          "snapshot",
+          "system_info",
+          "terminate_process",
           "test_port",
           "wait",
+          "wait_status",
           "write_registry"
         ],
         "description": "Acción a ejecutar en el dominio system"
@@ -69,7 +85,6 @@
     },
     "required": [
       "action"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

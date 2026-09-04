@@ -1,7 +1,7 @@
 {
   "name": "security",
-  "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId } | audit_log { limit, tool, action, result } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | grant_permission { scope, role, level, args } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | permissions_active {} | request_status { requestId } | revoke_permission { scope } | scan_file { path } | set_security_mode { mode } | verify_hash { text, hash, algorithm }",
-  "inputSchema": {
+  "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId } | audit_log { limit, tool, action, result } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_elevation_status {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | get_workflow { principal } | grant_elevation { durationMinutes, reason } | grant_permission { scope, role, level, minutes, args } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | permissions_active {} | request_status { requestId } | revoke_elevation {} | revoke_permission { scope } | revoke_workflow { principal } | scan_file { path } | set_security_mode { mode } | start_workflow { level, durationMinutes, reason, principal } | verify_hash { text, hash, algorithm }",
+  "parameters": {
     "type": "object",
     "properties": {
       "action": {
@@ -17,16 +17,22 @@
           "encrypt_text",
           "generate_token",
           "generate_uuid",
+          "get_elevation_status",
           "get_security_mode",
+          "get_workflow",
+          "grant_elevation",
           "grant_permission",
           "hash_file",
           "hash_text",
           "health",
           "permissions_active",
           "request_status",
+          "revoke_elevation",
           "revoke_permission",
+          "revoke_workflow",
           "scan_file",
           "set_security_mode",
+          "start_workflow",
           "verify_hash"
         ],
         "description": "Acción a ejecutar en el dominio security"
@@ -38,7 +44,6 @@
     },
     "required": [
       "action"
-    ],
-    "additionalProperties": false
+    ]
   }
 }

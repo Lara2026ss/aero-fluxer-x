@@ -43,5 +43,17 @@
     "security"
   ],
   "author": "mau",
+  "contributors": [
+    {
+      "name": "Lara",
+      "email": "mauriciosalu2gg@gmail.com",
+      "url": "https://github.com/Lara2026ss"
+    },
+    {
+      "name": "Antigravity AI (Google DeepMind)",
+      "email": "antigravity-deepmind@google.com",
+      "url": "https://deepmind.google"
+    }
+  ],
   "license": "MIT"
 }

@@ -1,0 +1,33 @@
+{
+  "name": "upd",
+  "description": "Centro unificado de actualización de Fluxer X. Ejecuta subherramientas mediante 'action': 'check', 'info', 'apply', 'status'.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "check",
+          "info",
+          "apply",
+          "update",
+          "data",
+          "status"
+        ],
+        "description": "Subherramienta de actualización"
+      },
+      "version": {
+        "type": "string"
+      },
+      "force": {
+        "type": "boolean"
+      },
+      "args": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "action"
+    ]
+  }
+}
