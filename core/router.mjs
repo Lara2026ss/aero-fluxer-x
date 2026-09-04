@@ -259,6 +259,8 @@ export class Router {
         list_files: "list_directory",
         get_metadata: "get_file_info",
         get_info: "get_file_info",
+        patch_file: "patch_file",
+        surgical_edit: "surgical_edit",
       },
       packages: {
         list_installed_packages: "list_installed",
@@ -291,6 +293,10 @@ export class Router {
         execute_shortcut: "execute",
         delete_shortcut: "delete",
         get_shortcut: "get",
+        backup_shortcuts: "backup_shortcuts",
+        restore_shortcuts: "restore_shortcuts",
+        export_shortcuts: "export_shortcuts",
+        import_shortcuts: "import_shortcuts",
       },
       terminal: {
         execute_command: "run_command",
@@ -306,6 +312,10 @@ export class Router {
         ram: "analyze_memory_usage",
         memory: "analyze_memory_usage",
         free_ram: "clean_ram",
+        optimize_windows: "optimize_windows",
+        revert_windows_optimization: "revert_windows_optimization",
+        get_optimization_status: "get_optimization_status",
+        optimize_gpu_memory: "optimize_gpu_memory",
       },
       diagnostics: {
         health: "health_check",
@@ -330,6 +340,11 @@ export class Router {
         check_update: "upd_check",
         update_info: "upd_info",
         update_status: "upd_data",
+        upd_check: "upd_check",
+        upd_info: "upd_info",
+        upd_data: "upd_data",
+        upd_apply: "upd_apply",
+        upd_rollback: "upd_rollback",
       },
     };
 

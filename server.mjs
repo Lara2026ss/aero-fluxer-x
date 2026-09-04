@@ -33,12 +33,17 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
 
 
 function mcpText(value) {
+  let text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  const MAX_LENGTH = 64 * 1024; // 64KB limit
+  if (text.length > MAX_LENGTH) {
+    const originalLength = text.length;
+    text = text.substring(0, MAX_LENGTH) + `\n\n...[TRUNCATED_BY_FLUXER_X] Output exceeded 64KB (was ${originalLength} chars). Use pagination or specific queries to see more.`;
+  }
   return {
     content: [
       {
         type: "text",
-        text:
-          typeof value === "string" ? value : JSON.stringify(value, null, 2),
+        text,
       },
     ],
   };
