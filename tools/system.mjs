@@ -568,105 +568,48 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         return actions.wait(args);
       },
 
-      wait: async ({ seconds = 1, ms, background = false, force = false } = {}) => {
+      wait: async ({ seconds = 1, ms, force = false } = {}) => {
         const requestedMs = Number(ms) || Math.max(0, Number(seconds) * 1000);
         const requestedSeconds = Math.round(requestedMs / 1000);
 
-        // 1. Soporte en segundo plano (asíncrono) para esperas largas sin bloquear el transporte MCP
-        if (background) {
-          const waitId = `wait_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-          const startTime = Date.now();
-          const targetTime = startTime + requestedMs;
+        // Protección contra Timeouts de Clientes MCP (Claude Desktop corta a los ~4 min / 240s)
+        // La espera es SIEMPRE síncrona en tiempo real para que la IA mantenga el hilo de ejecución activo.
+        const CLIENT_SAFE_MAX_SECONDS = 180; // 180 segundos (3 minutos)
+        const CLIENT_SAFE_MAX_MS = CLIENT_SAFE_MAX_SECONDS * 1000;
 
-          if (!runtime._backgroundWaits) runtime._backgroundWaits = new Map();
-          const timerEntry = {
-            id: waitId,
-            requestedMs,
-            requestedSeconds,
-            startedAt: new Date(startTime).toISOString(),
-            targetAt: new Date(targetTime).toISOString(),
-            status: "running",
-            completed: false,
-          };
-
-          const timerHandle = setTimeout(() => {
-            timerEntry.status = "completed";
-            timerEntry.completed = true;
-            timerEntry.completedAt = new Date().toISOString();
-          }, requestedMs);
-
-          timerEntry.timerHandle = timerHandle;
-          runtime._backgroundWaits.set(waitId, timerEntry);
-
-          return {
-            ok: true,
-            background: true,
-            waitId,
-            requestedSeconds,
-            startedAt: timerEntry.startedAt,
-            targetAt: timerEntry.targetAt,
-            message: `Temporizador iniciado en segundo plano (${requestedSeconds}s). Consulta el estado en cualquier momento con 'system.wait_status'.`
-          };
-        }
-
-        // 2. Protección contra Timeouts de Clientes MCP (Claude Desktop, etc. cortan a los ~4 min / 240s)
-        const CLIENT_SAFE_MAX_MS = 180000; // 180 segundos (3 minutos)
         if (requestedMs > CLIENT_SAFE_MAX_MS && !force) {
           await new Promise((r) => setTimeout(r, CLIENT_SAFE_MAX_MS));
-          const waitedSeconds = Math.round(CLIENT_SAFE_MAX_MS / 1000);
-          const remainingSeconds = Math.max(0, requestedSeconds - waitedSeconds);
+          const remainingSeconds = requestedSeconds - CLIENT_SAFE_MAX_SECONDS;
 
           return {
             ok: true,
-            waitedMs: CLIENT_SAFE_MAX_MS,
-            waitedSeconds,
+            waitedSeconds: CLIENT_SAFE_MAX_SECONDS,
             requestedSeconds,
             remainingSeconds,
-            capped: true,
-            reason: "CLIENT_TIMEOUT_PROTECTION",
-            warning: `Los clientes MCP (ej. Claude Desktop) imponen un timeout estricto de cliente (~4 min) y cortan la llamada si tarda más. Para proteger la sesión y evitar falsos errores de 'servidor caído', la espera síncrona se limitó de forma segura a ${waitedSeconds}s. Puedes invocar wait nuevamente para los ${remainingSeconds}s restantes, o pasar 'background: true' para temporizadores en segundo plano.`,
+            completed: false,
+            continue_wait: true,
+            message: `Espera síncrona de ${CLIENT_SAFE_MAX_SECONDS}s completada. Tramo seguro ejecutado para prevenir corte de conexión por timeout de cliente (~4 min).`,
+            instruction_for_ai: `DEBES INVOCAR INMEDIATAMENTE de nuevo 'system.wait({ seconds: ${remainingSeconds} })' para completar el tiempo solicitado restante y luego continuar con tu plan.`,
           };
         }
 
+        // Espera síncrona completa
         await new Promise((r) => setTimeout(r, requestedMs));
-        return { ok: true, waitedMs: requestedMs, waitedSeconds: requestedSeconds };
-      },
-
-      wait_status: async ({ waitId } = {}) => {
-        if (!waitId) {
-          const all = runtime._backgroundWaits ? Array.from(runtime._backgroundWaits.values()).map(w => ({
-            id: w.id,
-            requestedSeconds: w.requestedSeconds,
-            status: w.status,
-            completed: w.completed,
-            startedAt: w.startedAt,
-            targetAt: w.targetAt,
-            completedAt: w.completedAt || null
-          })) : [];
-          return { ok: true, count: all.length, waits: all };
-        }
-
-        const entry = runtime._backgroundWaits?.get(String(waitId).trim());
-        if (!entry) {
-          return { ok: false, error: "NOT_FOUND", message: `No se encontró ningún temporizador con ID '${waitId}'.` };
-        }
-
-        const now = Date.now();
-        const start = new Date(entry.startedAt).getTime();
-        const elapsedSeconds = Math.min(entry.requestedSeconds, Math.round((now - start) / 1000));
-        const remainingSeconds = Math.max(0, entry.requestedSeconds - elapsedSeconds);
-
         return {
           ok: true,
-          waitId: entry.id,
-          status: entry.status,
-          completed: entry.completed,
-          requestedSeconds: entry.requestedSeconds,
-          elapsedSeconds,
-          remainingSeconds,
-          startedAt: entry.startedAt,
-          targetAt: entry.targetAt,
-          completedAt: entry.completedAt || null,
+          waitedSeconds: requestedSeconds,
+          requestedSeconds,
+          remainingSeconds: 0,
+          completed: true,
+          message: `Espera síncrona de ${requestedSeconds}s completada exitosamente. Continúa con tu trabajo.`,
+        };
+      },
+
+      wait_status: async () => {
+        return {
+          ok: true,
+          status: "completed",
+          message: "Los temporizadores en Fluxer X son 100% síncronos en tiempo real para mantener activa la sesión de la IA. Invoca 'system.wait' directamente con los segundos deseados.",
         };
       },
 

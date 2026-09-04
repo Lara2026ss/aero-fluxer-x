@@ -2,6 +2,17 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+## [9.2.6-2] - 2026-09-04 (Hotfix: Temporizadores 100% Síncronos y Chunking Activo sin Segundo Plano)
+
+### Corregido
+- **Eliminación de Temporizadores en Segundo Plano (`background: true`)**:
+  - Los temporizadores en segundo plano hacían que la IA generara una respuesta inmediata y finalizara su turno sin esperar, deteniendo el consumo de tokens y dejando el flujo inconcluso.
+  - La herramienta `system.wait` y `system.sleep` vuelve a operar de forma **100% síncrona en tiempo real**, manteniendo la sesión y el hilo de la IA activos hasta que el tiempo concluya.
+- **Protección Inteligente de Timeout con Instrucción para la IA**:
+  - Para duraciones superiores a 180s (3 minutos, para no chocar contra el límite de cliente de 4 minutos de Claude Desktop), el servidor espera los 180s síncronamente y retorna una instrucción directa:
+    `"instruction_for_ai": "DEBES INVOCAR INMEDIATAMENTE de nuevo 'system.wait({ seconds: X })' para completar el tiempo solicitado..."`
+  - Esto garantiza que la IA continúe ejecutando automáticamente el tiempo restante en tramos seguros sin desconexiones y sin detenerse.
+
 ## [9.2.6-1] - 2026-09-04 (Hotfix: Resolución de Feedback AFX-FB-DQRTDT y Temporizadores en Segundo Plano)
 
 ### Corregido

@@ -204,11 +204,11 @@ async function packageRelease() {
       sha256,
     },
     changelog: [
-      "v9.2.6-1 Hotfix — Resolución de Feedback AFX-FB-DQRTDT & Background Timers",
-      "Protección contra timeout de clientes MCP (Claude Desktop timeout ~4m) en system.wait y system.sleep",
-      "Soporte de temporizadores asíncronos en segundo plano (background: true) con system.wait_status",
-      "Modo compacto de bajo consumo de tokens en files y system",
-      "Motor de versiones SemVer con soporte de hotfixes (-1, -2)",
+      "v9.2.6-2 Hotfix — Temporizadores 100% Síncronos y Chunking Activo",
+      "Eliminación de temporizadores en segundo plano para que la IA mantenga activa la sesión de tokens",
+      "Espera síncrona en tiempo real con instrucción inteligente ante tramos largos (>180s)",
+      "Nivel por defecto 'user' con menor privilegio y elevación temporal de 5 min",
+      "Sistema de gestión y limpieza de feedbacks en Firebase Realtime Database",
     ],
     integrity_verification: {
       algorithm: "SHA-256",
