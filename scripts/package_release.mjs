@@ -204,11 +204,11 @@ async function packageRelease() {
       sha256,
     },
     changelog: [
-      "v9.2.6 Release — General Upgrade & Compact Mode",
-      "Actualizado motor de versiones y hotfixes",
-      "Se ha implementado el modo compacto (compact: true) en herramientas de alto output (archivos y sistema)",
-      "Reducción significativa del consumo de tokens en operaciones de listado y lectura",
-      "Instalador Zero-Friction y soporte de auto-configuración seguros",
+      "v9.2.6-1 Hotfix — Resolución de Feedback AFX-FB-DQRTDT & Background Timers",
+      "Protección contra timeout de clientes MCP (Claude Desktop timeout ~4m) en system.wait y system.sleep",
+      "Soporte de temporizadores asíncronos en segundo plano (background: true) con system.wait_status",
+      "Modo compacto de bajo consumo de tokens en files y system",
+      "Motor de versiones SemVer con soporte de hotfixes (-1, -2)",
     ],
     integrity_verification: {
       algorithm: "SHA-256",

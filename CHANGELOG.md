@@ -2,6 +2,24 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+## [9.2.6-1] - 2026-09-04 (Hotfix: Resolución de Feedback AFX-FB-DQRTDT y Temporizadores en Segundo Plano)
+
+### Corregido
+- **Protección contra Timeout de Clientes MCP en `system.wait` y `system.sleep`**:
+  - Resuelto reporte **AFX-FB-DQRTDT**: Clientes MCP como Claude Desktop tienen un timeout estricto e inmutable del lado cliente (~4 minutos / 240s) que cortaba llamadas prolongadas de espera (ej. 420s).
+  - La función ahora detecta automáticamente esperas superiores a 180s y acota de forma segura la espera síncrona a 180s con metadatos estructurados (`waitedSeconds`, `remainingSeconds`, `capped: true`, advertencia explicativa) impidiendo que el cliente corte la conexión.
+- **Soporte de Temporizadores en Segundo Plano (`background: true`)**:
+  - Añadido el parámetro `background: true` a `system.wait` y `system.sleep` para duraciones prolongadas sin bloquear el canal JSON-RPC.
+  - Nueva subherramienta `system.wait_status` para consultar el progreso y estado de temporizadores en ejecución en segundo plano.
+
+## [9.2.6] - 2026-09-04 (General Upgrade: Modo Compacto y Soporte de Hotfixes)
+
+### Añadido
+- **Modo Compacto de Bajo Consumo (`compact: true`)**:
+  - Reducción drástica del consumo de tokens en `files.list_directory`, `files.list_directory_with_sizes`, `files.read_text_file` y `system.get_processes`.
+- **Motor de Versiones y Detección de Hotfixes**:
+  - Soporte para etiquetas con guion (`-1`, `-2`, `-hotfix`) reconociéndolas como versiones más recientes y evitando falsos "downgrades".
+
 ## [9.2.5] - 2026-09-04 (Instalador Zero-Friction Standalone, Empaquetado Ligero y Publicación en GitHub Releases)
 
 ### Añadido

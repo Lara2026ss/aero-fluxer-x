@@ -147,7 +147,7 @@ function getActionHarness(domain, action) {
     if (["clean_ram", "clean_memory", "free_ram", "optimize_ram"].includes(action)) {
       return { category: "SENSITIVE", risk: "MEDIO", args: {} };
     }
-    if (["sleep", "wait"].includes(action)) {
+    if (["sleep", "wait", "wait_status"].includes(action)) {
       return { category: "CONTROL", risk: "BAJO", args: { seconds: 0.05 } };
     }
     if (["set_clipboard"].includes(action)) {

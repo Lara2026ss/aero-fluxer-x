@@ -212,6 +212,10 @@ export class Router {
       action = "clean_ram";
       tool = "system";
     }
+    if (["wait_status", "check_wait", "get_wait_status"].includes(tool.toLowerCase())) {
+      action = "wait_status";
+      tool = "system";
+    }
     if (["analyze_memory", "analyze_memory_usage"].includes(tool.toLowerCase())) {
       action = "analyze_memory_usage";
       tool = "system";

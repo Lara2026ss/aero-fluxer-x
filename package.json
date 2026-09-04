@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "9.2.6",
-  "description": "Fluxer X MCP v9.2.6 — Motor MCP modular de alto rendimiento para Windows 11",
+  "version": "9.2.6-1",
+  "description": "Fluxer X MCP v9.2.6-1 Hotfix — Motor MCP modular de alto rendimiento para Windows 11",
   "type": "module",
   "main": "server.js",
   "bin": {
