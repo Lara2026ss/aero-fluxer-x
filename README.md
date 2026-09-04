@@ -267,7 +267,7 @@ aero-fluxer-x/
 ## 👥 Equipo y Contribuidores
 
 - **Lara ([@Lara2026ss](https://github.com/Lara2026ss))** — Creadora, Arquitecta Principal y Líder de Desarrollo de Fluxer X.
-- **Antigravity ([Google DeepMind](https://deepmind.google/))** — Pair Programming, Arquitectura del Permission Engine (Project Z), Diagnósticos, Optimización de Contexto y Auditorías Forenses.
+- **Agy-Leo ([@Agy-Leo](https://github.com/Agy-Leo))** — Co-desarrollador de IA (Antigravity), Arquitectura de Permisos (Project Z), Diagnósticos, Optimización de Contexto y Auditorías Forenses.
 
 ---
 
