@@ -185,6 +185,17 @@ El sistema clasifica el estado de cada subsistema en:
 
 ---
 
+## 🛡️ Modelo de Seguridad y Permisos (Menor Privilegio por Defecto)
+
+Fluxer X opera bajo el principio de **Seguridad por Defecto**:
+
+1. **Nivel Base (`user`)**: Por defecto, cualquier cliente conectado (Claude Desktop, Antigravity, etc.) opera con permisos normales `user`. Operaciones seguras (lectura de archivos, diagnóstico de sistema, consultas de base de datos) funcionan sin interrupción.
+2. **Acciones de Alto Privilegio (`poweruser`)**: Tareas potencialmente destructivas (ejecución de comandos en consola `terminal.run_command`, eliminación masiva de archivos o instalación de paquetes) requieren confirmación.
+3. **Elevación Temporal (5 Minutos)**: Cuando la IA necesita ejecutar una tarea de rango alto, solicitará autorización al usuario. Al ser aceptada, la IA invoca `security.grant_permission({ role: "poweruser", minutes: 5 })`. Los permisos elevados expiran automáticamente tras 5 minutos sin dejar privilegios abiertos.
+4. **Cero Polémica / Configuración Personalizable**: El nivel por defecto y las duraciones pueden configurarse en `aeron.config.json` (`security.defaultLevel` y `security.elevationDurationMinutes`) o mediante la variable de entorno `FLUXER_DEFAULT_LEVEL`.
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```

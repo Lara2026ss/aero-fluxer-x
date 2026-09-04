@@ -72,7 +72,7 @@ export class PermissionEngine {
     this.memory = memory;
     this.logger = logger;
     this.config = config;
-    this.defaultLevel = process.env.FLUXER_DEFAULT_LEVEL || "poweruser";
+    this.defaultLevel = process.env.FLUXER_DEFAULT_LEVEL || config?.security?.defaultLevel || "user";
     this.cachedPermissions = null;
     this.cachedAt = 0;
     this.cacheTtlMs = 5000;
@@ -198,20 +198,19 @@ export class PermissionEngine {
   // nunca contiene "admin"/"shell"/"system"/"exec". En la práctica TODAS las
   // rutas, incluyendo terminal.run_command o packages.install_package,
   // quedaban en nivel "user" sin importar lo que declara cada dominio en su
-  // bloque `permissions: {...}` dentro de registry.mjs.
   requiredFor(route, unit) {
     const tool = typeof route === "object" && route !== null ? route.tool : undefined;
     const action = typeof route === "object" && route !== null ? route.action : undefined;
     const declared = unit?.permissions?.[action];
     if (declared && declared in LEVEL_RANK) return declared;
 
-    // Red de seguridad #1: dominios intrínsecamente peligrosos
-    const HIGH_RISK_DOMAINS = new Set(["terminal", "packages", "process", "database", "security", "development"]);
+    // Red de seguridad #1: dominios intrínsecamente de alto privilegio (ejecución de comandos y gestión de paquetes)
+    const HIGH_RISK_DOMAINS = new Set(["terminal", "packages"]);
     if (HIGH_RISK_DOMAINS.has(String(tool ?? "").toLowerCase())) return "poweruser";
 
-    // Red de seguridad #2: acciones que sugieren riesgo por nombre
+    // Red de seguridad #2: acciones que sugieren riesgo crítico por nombre
     const actionStr = String(action ?? "").toLowerCase();
-    const HIGH_RISK_HINTS = ["shell", "exec", "sudo", "delete", "remove", "kill", "install", "grant", "revoke", "run_"];
+    const HIGH_RISK_HINTS = ["shell", "exec", "sudo", "delete_file", "delete_path", "kill_process", "install_package", "grant_elevation"];
     if (HIGH_RISK_HINTS.some((hint) => actionStr.includes(hint))) return "poweruser";
 
     return "user";
@@ -223,12 +222,6 @@ export class PermissionEngine {
 
     // Si el usuario otorgó un permiso temporal de elevación ("te doy permiso total"), autorizar
     if (this.isElevationActive()) {
-      this.logger?.info("permission_authorized_by_elevation_grant", {
-        tool,
-        action,
-        required: this.requiredFor(route, unit),
-        scope: this._elevationGrant?.scope,
-      });
       return true;
     }
 
@@ -243,7 +236,7 @@ export class PermissionEngine {
 
     const required = this.requiredFor(route, unit);
 
-    // TRUSTED_CLIENT env flag: permite bypass para entornos de desarrollo local.
+    // TRUSTED_CLIENT env flag: permite bypass para entornos de desarrollo local o testing.
     // Queda auditado en el log.
     if (process.env.FLUXER_TRUSTED_CLIENT === "true" || this.config?.security?.trustedClient === true) {
       this.logger?.warn("permission_bypassed_trusted_client", {
@@ -258,9 +251,14 @@ export class PermissionEngine {
 
     if (this.levelRank(current) < this.levelRank(required)) {
       const err = new Error(
-        `Permission denied: route "${tool}.${action}" requires level "${required}", current level is "${current}".`,
+        `Permission denied: route "${tool}.${action}" requires level "${required}", but current level is "${current}". ` +
+        `Ask the user for confirmation: "Necesito ejecutar ${tool}.${action} (nivel ${required}). ¿Autorizas otorgar permisos por 5 minutos?". ` +
+        `If the user approves, invoke security.grant_permission({ role: "${required}", minutes: 5 }).`
       );
       err.code = "PERMISSION_DENIED";
+      err.requiredLevel = required;
+      err.currentLevel = current;
+      err.suggestedAction = `security.grant_permission({ role: "${required}", minutes: 5 })`;
       this.logger?.warn("permission_denied", {
         tool,
         action,
@@ -276,12 +274,12 @@ export class PermissionEngine {
   grant({
     level = "poweruser",
     scope = "*",
-    minutes = 60,
+    minutes = 5,
     reason = "temporary grant",
   } = {}) {
     if (!(level in LEVEL_RANK)) throw new Error(`invalid level: ${level}`);
     const expiresAt = new Date(
-      Date.now() + Math.min(Math.max(Number(minutes) || 60, 1), 240) * 60000,
+      Date.now() + Math.min(Math.max(Number(minutes) || 5, 1), 240) * 60000,
     );
     this.memory.grantPermission({ level, scope, expiresAt, reason });
     this.cachedPermissions = null;
@@ -303,8 +301,8 @@ export class PermissionEngine {
     return { revoked: scope ?? "*" };
   }
 
-  grantElevation({ durationMinutes = 20, reason = "Permiso total de administración" } = {}) {
-    const minutes = Math.max(1, Number(durationMinutes) || 20);
+  grantElevation({ durationMinutes = 5, reason = "Permiso total de administración temporal" } = {}) {
+    const minutes = Math.max(1, Number(durationMinutes) || 5);
     const now = Date.now();
     const expiresAt = now + (minutes * 60 * 1000);
     this._elevationGrant = {

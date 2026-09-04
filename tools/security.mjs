@@ -100,9 +100,9 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, activeLevel: runtime.permissions?.currentLevel() || "user" };
     },
 
-    grant_permission: async ({ scope = "*", role = "poweruser", level, ...args } = {}) => {
+    grant_permission: async ({ scope = "*", role = "poweruser", level, minutes = 5, ...args } = {}) => {
       try {
-        return runtime.permissions.grant({ scope, level: level || role, ...args });
+        return runtime.permissions.grant({ scope, level: level || role, minutes, ...args });
       } catch (e) {
         return { ok: false, error: e.message };
       }

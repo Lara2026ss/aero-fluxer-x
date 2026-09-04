@@ -12,8 +12,10 @@
   },
   "security": {
     "mode": "NORMAL",
+    "defaultLevel": "user",
     "trustedClient": false,
-    "confirmDangerousActions": true
+    "confirmDangerousActions": true,
+    "elevationDurationMinutes": 5
   },
   "logging": {
     "level": "info",
