@@ -122,9 +122,15 @@ export class Router {
     // Normalización de args: soporta serialización en JSON string o anidación excesiva de clientes MCP (Claude Desktop)
     args = unwrapArgs(args);
 
-    // Normalización inteligente de rutas (soporta fluxer:files.write_file, files.write_file, sleep/wait, etc.)
-    tool = tool.replace(/^(fluxer|mcp)[_:]/i, "").trim();
-    action = action.replace(/^(fluxer|mcp)[_:]/i, "").trim();
+    // Normalización inteligente de rutas y prefijos de clientes MCP (ej: "Aeron Fluxer X:upd_info", "fluxer:files.write_file", etc.)
+    tool = tool
+      .replace(/^aeron[_\s-]?fluxer[_\s-]?x[:_\s-]*/i, "")
+      .replace(/^(fluxer|mcp)[:_\s-]*/i, "")
+      .trim();
+    action = action
+      .replace(/^aeron[_\s-]?fluxer[_\s-]?x[:_\s-]*/i, "")
+      .replace(/^(fluxer|mcp)[:_\s-]*/i, "")
+      .trim();
 
     if (tool.includes(".")) {
       const parts = tool.split(".");
@@ -136,6 +142,23 @@ export class Router {
       const parts = action.split(".");
       if (!tool || tool === parts[0]) tool = parts[0];
       action = parts[1];
+    }
+
+    // Si action no vino explícitamente, extraer de args si existe
+    if (!action && args && typeof args === "object") {
+      if (args.action) {
+        action = String(args.action);
+        delete args.action;
+      } else if (args.subaction) {
+        action = String(args.subaction);
+        delete args.subaction;
+      } else if (args.subcommand) {
+        action = String(args.subcommand);
+        delete args.subcommand;
+      } else if (args.subtool) {
+        action = String(args.subtool);
+        delete args.subtool;
+      }
     }
 
     // Soporte nativo para sleep / wait (ej: tool: "sleep", action: "5")
@@ -284,9 +307,85 @@ export class Router {
         memory: "analyze_memory_usage",
         free_ram: "clean_ram",
       },
+      diagnostics: {
+        health: "health_check",
+        check: "health_check",
+        status: "health_check",
+        doctor: "health_check",
+      },
+      network: {
+        ping: "test_connection",
+        test: "test_connection",
+        check: "test_connection",
+      },
+      security: {
+        status: "get_elevation_status",
+        elevation: "get_elevation_status",
+        grant: "grant_elevation",
+        revoke: "revoke_elevation",
+      },
+      developer: {
+        detect: "detect_project",
+        skills: "list_skills",
+        check_update: "upd_check",
+        update_info: "upd_info",
+        update_status: "upd_data",
+      },
     };
 
-    const toolLower = tool.toLowerCase();
+    const registeredDomains = this.registry.moduleNames();
+    let toolLower = tool.toLowerCase();
+
+    // Si action no vino, comprobar si tool en realidad es el nombre de una acción o alias
+    if (!action) {
+      // 1. Buscar en aliases de dominios
+      for (const [dom, aliases] of Object.entries(DOMAIN_ACTION_ALIASES)) {
+        if (aliases[toolLower]) {
+          action = aliases[toolLower];
+          tool = dom;
+          toolLower = dom;
+          break;
+        }
+      }
+      // 2. Buscar si tool coincide con alguna acción registrada directamente
+      if (!action) {
+        for (const dom of registeredDomains) {
+          if (this.registry.actionsFor(dom).includes(toolLower)) {
+            action = toolLower;
+            tool = dom;
+            toolLower = dom;
+            break;
+          }
+        }
+      }
+      // 3. Si tool es un dominio registrado pero action falta, aplicar default inteligente según args
+      if (!action && registeredDomains.includes(toolLower)) {
+        if (toolLower === "files") {
+          if (args.path && args.content !== undefined) action = "write_file";
+          else if (args.path) action = "read_text_file";
+          else action = "list_directory";
+        } else if (toolLower === "terminal") {
+          action = "run_command";
+        } else if (toolLower === "system") {
+          action = "get_system_snapshot";
+        } else if (toolLower === "database") {
+          action = args.query ? "execute_query" : "search_tables";
+        } else if (toolLower === "packages") {
+          action = "list_installed";
+        } else if (toolLower === "shortcuts") {
+          action = "list";
+        } else if (toolLower === "security") {
+          action = "get_elevation_status";
+        } else if (toolLower === "network") {
+          action = "test_connection";
+        } else if (toolLower === "diagnostics") {
+          action = "health_check";
+        } else if (toolLower === "developer") {
+          action = "detect_project";
+        }
+      }
+    }
+
     const actionLower = action.toLowerCase();
     if (DOMAIN_ACTION_ALIASES[toolLower]?.[actionLower]) {
       action = DOMAIN_ACTION_ALIASES[toolLower][actionLower];

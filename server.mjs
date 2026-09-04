@@ -181,7 +181,7 @@ export async function startServer() {
   // Herramienta unificada de actualización (11ª herramienta visible en el MCP)
   tools.push({
     name: "upd",
-    description: "Centro unificado de actualización de Aeron Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Checa en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión detalladas (usa el parámetro 'version' para una versión específica, ej: '9.1.2').\n- 'apply' (o 'update'): Descarga y aplica la actualización automáticamente desde GitHub.\n- 'data' (o 'status'): Auditoría forense interna en disco para verificar si el servidor realmente se actualizó (sin simulación).",
+    description: "Centro unificado de actualización de Aeron Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Checa en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión detalladas (usa el parámetro 'version' para una versión específica, ej: '9.1.2').\n- 'apply' (o 'update'): Descarga y aplica la actualización bajo demanda desde GitHub (activado únicamente por orden de la IA/usuario).\n- 'data' (o 'status'): Auditoría forense interna en disco para verificar si el servidor realmente se actualizó (sin simulación).",
     inputSchema: {
       type: "object",
       properties: {
@@ -220,7 +220,15 @@ export async function startServer() {
         const parsed = parseResilientJson(rawArgs);
         if (parsed && typeof parsed === "object") rawArgs = parsed;
       }
-      const action = rawArgs.action;
+
+      // Normalizar nombre de herramienta limpiando prefijos de clientes MCP
+      let toolName = String(req.params.name || "").trim();
+      toolName = toolName
+        .replace(/^aeron[_\s-]?fluxer[_\s-]?x[:_\s-]*/i, "")
+        .replace(/^(fluxer|mcp)[:_\s-]*/i, "")
+        .trim();
+
+      let action = rawArgs.action;
       let args = rawArgs.args;
 
       if (!args || typeof args !== "object") {
@@ -233,8 +241,25 @@ export async function startServer() {
 
       args = unwrapArgs(args);
 
+      // Si action no vino a nivel superior, buscar en args
+      if (!action && args && typeof args === "object") {
+        if (args.action) {
+          action = args.action;
+          delete args.action;
+        } else if (args.subaction) {
+          action = args.subaction;
+          delete args.subaction;
+        } else if (args.subcommand) {
+          action = args.subcommand;
+          delete args.subcommand;
+        } else if (args.subtool) {
+          action = args.subtool;
+          delete args.subtool;
+        }
+      }
+
       const response = await router.execute({
-        tool: req.params.name,
+        tool: toolName,
         action,
         args,
       });

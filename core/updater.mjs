@@ -449,7 +449,7 @@ export async function executeAutoUpdate(options = {}) {
   const storage = getStorageStructure(repoRoot);
   const updateStartTime = Date.now();
 
-  await logUpdaterMessage(repoRoot, "info", "══════════ INICIANDO PROCESO DE ACTUALIZACIÓN AUTOMÁTICA ══════════");
+  await logUpdaterMessage(repoRoot, "info", "══════════ INICIANDO ACTUALIZACIÓN SOLICITADA POR HERRAMIENTA MCP (upd) ══════════");
 
   // 1. Comprobación preliminar si no se pasaron datos directos
   let targetVersion = options.targetVersion;

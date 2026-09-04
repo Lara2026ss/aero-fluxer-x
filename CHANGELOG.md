@@ -3,6 +3,21 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.1.5] - 2026-09-04 (Clarificación de Actualización Manual por Herramienta, Resiliencia de Prefijos y Resolución Automática de Acciones)
+
+### Mejorado
+- **Clarificación de Actualización Bajo Demanda (Cero Watchers / Cero Polling Automático)**:
+  - Se confirmó y clarificó que no existe ningún watcher, daemon, bucle cron o proceso de fondo ejecutando chequeos o actualizaciones automáticas. La actualización es estrictamente manual y bajo demanda, accionable únicamente cuando el usuario o la IA invoca explícitamente la herramienta MCP `upd` (`action: "apply"` / `action: "update"`).
+  - El registro de auditoría en `updater.log` y los textos informativos clarifican que el proceso es iniciado por solicitud de la herramienta MCP `upd`.
+- **Limpieza de Prefijos de Servidor en Invocación de Herramientas (`server.mjs` y `core/router.mjs`)**:
+  - Soporte universal para clientes MCP (como Claude Desktop) que anteponen el nombre del servidor al llamar herramientas (ej: `"Aeron Fluxer X:upd_info"`, `"Aeron Fluxer X:terminal"` o `"aeron_fluxer_x:..."`), normalizando el nombre para enrutamiento transparente sin errores de "herramienta no disponible".
+- **Inferencia y Resolución Inteligente de Subherramientas (`core/router.mjs`)**:
+  - Si un cliente invoca una subherramienta directamente como nombre de herramienta (ej: `tool: "run_command"`, `tool: "read_file"`, `tool: "clean_ram"`, `tool: "upd_info"`), el router detecta automáticamente el dominio correspondiente y mapea la llamada.
+  - Si el cliente envía `action` dentro del objeto `args` (ej: `{ args: { action: "info" } }`), el router lo extrae y despacha automáticamente.
+  - Si se invoca un dominio sin especificar `action`, el router aplica defaults inteligentes contextuales según los parámetros suministrados (ej: `files` con `path` infiere `read_text_file`, `terminal` con `command` infiere `run_command`).
+- **Enriquecimiento de Alias Globales (`diagnostics`, `network`, `security`, `developer`)**:
+  - Mayor cobertura de alias intuitivos para llamadas directas de cualquier modelo de lenguaje.
+
 ## [9.1.4] - 2026-09-04 (Optimización de Schemas para Claude Desktop, Detección de Subherramientas y Caché Anti-Rate-Limit)
 
 ### Añadido
