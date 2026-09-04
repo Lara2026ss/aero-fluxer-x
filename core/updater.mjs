@@ -207,10 +207,24 @@ export async function checkForUpdates(options = {}) {
       };
     }
   } else {
-    // Consulta directa al repositorio público oficial de GitHub
-    await logUpdaterMessage(repoRoot, "info", `Consultando último release en GitHub: ${defaultGithubReleaseUrl}...`);
+    // Consulta directa al repositorio público oficial de GitHub (inspeccionando releases recientes y hotfixes)
+    await logUpdaterMessage(repoRoot, "info", `Consultando releases en GitHub...`);
     try {
-      const ghRelease = await fetchJson(defaultGithubReleaseUrl);
+      let ghRelease = null;
+      try {
+        const allReleases = await fetchJson("https://api.github.com/repos/Lara2026ss/aero-fluxer-x/releases?per_page=5");
+        if (Array.isArray(allReleases) && allReleases.length > 0) {
+          allReleases.sort((a, b) => compareSemVer(b.tag_name || "0.0.0", a.tag_name || "0.0.0"));
+          ghRelease = allReleases[0];
+        }
+      } catch {
+        ghRelease = null;
+      }
+
+      if (!ghRelease) {
+        ghRelease = await fetchJson(defaultGithubReleaseUrl);
+      }
+
       latestVersion = (ghRelease.tag_name || "").replace(/^v/, "").trim();
       releaseNotes = ghRelease.body || ghRelease.name || "";
       

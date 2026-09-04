@@ -228,7 +228,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
 
   const actions = {
       // ── 1. Navegación & Búsqueda ───────────────────────────────────────────
-      list_directory: async ({ path: p = ".", limit = 100, sortBy = "name", recursive = false } = {}) => {
+      list_directory: async ({ path: p = ".", limit = 100, sortBy = "name", recursive = false, compact = false } = {}) => {
         const target = runtime.hp(p);
         try {
           const entries = await fs.readdir(target, { withFileTypes: true, recursive: Boolean(recursive) });
@@ -244,13 +244,17 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           if (sortBy === "name") mapped.sort((a, b) => a.name.localeCompare(b.name));
           else if (sortBy === "type") mapped.sort((a, b) => (b.isDirectory ? 1 : 0) - (a.isDirectory ? 1 : 0));
 
-          return { ok: true, path: target, total: entries.length, count: Math.min(mapped.length, n), entries: mapped.slice(0, n) };
+          const sliced = mapped.slice(0, n);
+          if (compact) {
+            return { ok: true, path: target, total: entries.length, count: sliced.length, entries: sliced.map(e => (e.isDirectory ? e.name + "/" : e.name)) };
+          }
+          return { ok: true, path: target, total: entries.length, count: sliced.length, entries: sliced };
         } catch (e) {
           return { ok: false, error: e.message };
         }
       },
 
-      list_directory_with_sizes: async ({ path: p = ".", limit = 100, sortBy = "size" } = {}) => {
+      list_directory_with_sizes: async ({ path: p = ".", limit = 100, sortBy = "size", compact = false } = {}) => {
         const target = runtime.hp(p);
         try {
           const entries = await fs.readdir(target, { withFileTypes: true });
@@ -280,7 +284,11 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           else if (sortBy === "date") mapped.sort((a, b) => (b.modifiedAt || "").localeCompare(a.modifiedAt || ""));
           else mapped.sort((a, b) => a.name.localeCompare(b.name));
 
-          return { ok: true, path: target, total: entries.length, count: Math.min(mapped.length, n), entries: mapped.slice(0, n) };
+          const sliced = mapped.slice(0, n);
+          if (compact) {
+            return { ok: true, path: target, total: entries.length, count: sliced.length, entries: sliced.map(e => `${e.isDirectory ? e.name + "/" : e.name} (${e.sizeFormatted})`) };
+          }
+          return { ok: true, path: target, total: entries.length, count: sliced.length, entries: sliced };
         } catch (e) {
           return { ok: false, error: e.message };
         }
@@ -302,6 +310,57 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           ...(hasBuiltin ? [{ path: builtinSkills, label: "skills_builtin", domain: "developer", note: "Habilidades predeterminadas de Antigravity" }] : [])
         ].filter(d => d.path);
         return { ok: true, count: dirs.length, directories: dirs };
+      },
+
+      validate_path: async ({ path: p } = {}) => {
+        if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+        const target = runtime.hp(p);
+        const homeDir = runtime.dirs?.home || runtime.home;
+        const allowedDirs = [
+          runtime.dirs.root,
+          runtime.dirs.documents,
+          runtime.dirs.downloads,
+          runtime.dirs.storage,
+          runtime.dirs.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"),
+          runtime.dirs.skills || path.join(homeDir, ".gemini", "skills"),
+        ].filter(Boolean).map(d => path.resolve(d).toLowerCase());
+
+        const normTarget = path.resolve(target).toLowerCase();
+        const matched = allowedDirs.find(ad => normTarget === ad || normTarget.startsWith(ad + path.sep));
+        const exists = await fs.access(target).then(() => true).catch(() => false);
+
+        return {
+          ok: true,
+          path: target,
+          isAllowed: Boolean(matched),
+          exists,
+          matchedAllowedDirectory: matched || null,
+        };
+      },
+
+      compare_files: async ({ fileA, fileB, maxDiffLines = 50 } = {}) => {
+        if (!fileA || !fileB) return { ok: false, error: "Se requieren 'fileA' y 'fileB' para comparar archivos." };
+        const targetA = runtime.hp(fileA);
+        const targetB = runtime.hp(fileB);
+        try {
+          const [contentA, contentB] = await Promise.all([
+            fs.readFile(targetA, "utf8"),
+            fs.readFile(targetB, "utf8"),
+          ]);
+          const identical = contentA === contentB;
+          const diff = !identical ? generateSimpleDiff(contentA, contentB).slice(0, Number(maxDiffLines) || 50) : [];
+          return {
+            ok: true,
+            identical,
+            fileA: targetA,
+            fileB: targetB,
+            sizeA: Buffer.byteLength(contentA),
+            sizeB: Buffer.byteLength(contentB),
+            diff,
+          };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
       },
 
       directory_tree: async ({ path: p = ".", depth = 2, maxEntries = 500 } = {}) => {
@@ -509,7 +568,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       },
 
       // ── 3. Lectura Paginada & Multi-Formato ──────────────────────────────────
-      read_text_file: async ({ path: p, head, tail, maxLines, page, linesPerPage = 100, startLine, endLine, range, encoding = "utf8", includeLineNumbers = false } = {}) => {
+      read_text_file: async ({ path: p, head, tail, maxLines, page, linesPerPage = 100, startLine, endLine, range, encoding = "utf8", includeLineNumbers = false, compact = false } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
         const target = runtime.hp(p);
         const ext = path.extname(target).toLowerCase();
@@ -560,7 +619,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
             const raw2 = reqEnd !== undefined ? Math.max(1, reqEnd) : raw1 + 99;
             const start = Math.max(1, Math.min(raw1, raw2));
             const end = Math.min(totalLines, Math.max(raw1, raw2));
-            const sliced = lines.slice(start - 1, end);
+            let sliced = lines.slice(start - 1, end);
+            if (compact) sliced = sliced.filter(l => l.trim() !== "");
             return {
               ok: true,
               path: target,
@@ -579,7 +639,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
             const pg = Math.max(1, Number(page) || 1);
             const totalPages = Math.max(1, Math.ceil(totalLines / lpp));
             const start = (pg - 1) * lpp;
-            const sliced = lines.slice(start, start + lpp);
+            let sliced = lines.slice(start, start + lpp);
+            if (compact) sliced = sliced.filter(l => l.trim() !== "");
             return {
               ok: true,
               path: target,
@@ -611,6 +672,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
             warning = `Archivo grande (${(stat.size / 1024).toFixed(1)} KB, ${totalLines} líneas). Se retornaron las primeras 500 líneas. Usa 'files.read_file_range' o los parámetros 'startLine'/'endLine' o 'page' con 'linesPerPage' para explorar el resto.`;
           }
 
+          if (compact) lines = lines.filter(l => l.trim() !== "");
+
           return {
             ok: true,
             path: target,
@@ -625,7 +688,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      read_file_range: async ({ path: p, startLine = 1, endLine = 100, range, encoding = "utf8", includeLineNumbers = false } = {}) => {
+      read_file_range: async ({ path: p, startLine = 1, endLine = 100, range, encoding = "utf8", includeLineNumbers = false, compact = false } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
         const target = runtime.hp(p);
         try {
@@ -645,7 +708,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           const raw2 = Math.max(1, eLine);
           const start = Math.min(raw1, raw2);
           const end = Math.min(totalLines, Math.max(raw1, raw2));
-          const sliced = lines.slice(start - 1, end);
+          let sliced = lines.slice(start - 1, end);
+          if (compact) sliced = sliced.filter(l => l.trim() !== "");
           const formatted = includeLineNumbers
             ? sliced.map((l, i) => `${start + i}: ${l}`).join("\n")
             : sliced.join("\n");

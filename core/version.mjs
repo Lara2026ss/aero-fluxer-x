@@ -5,7 +5,7 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "9.2.5-1";
+export const CURRENT_VERSION = "9.2.6";
 export const APP_NAME = "fluxer-x";
 export const BRAND_NAME = "Fluxer X";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
@@ -13,10 +13,10 @@ export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 
 /**
  * Parsea una cadena de versión SemVer.
- * Acepta formatos como: "9.0.0", "v9.0.0", "v9.1.2-beta.1"
+ * Acepta formatos como: "9.0.0", "v9.0.0", "9.2.5-1", "v9.1.2-hotfix.1", "v9.1.2-beta.1"
  *
  * @param {string} ver Cadena de versión
- * @returns {{ major: number, minor: number, patch: number, prerelease: string|null, raw: string } | null}
+ * @returns {{ major: number, minor: number, patch: number, prerelease: string|null, hotfix: string|null, isHotfix: boolean, hotfixNum: number, raw: string } | null}
  */
 export function parseSemVer(ver) {
   if (!ver || typeof ver !== "string") return null;
@@ -24,17 +24,38 @@ export function parseSemVer(ver) {
   const match = clean.match(/^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?$/);
   if (!match) return null;
 
+  const rawSuffix = match[4] || null;
+  let isHotfix = false;
+  let hotfixNum = 0;
+
+  if (rawSuffix) {
+    // Si el sufijo es numérico puro (ej: "-1", "-2", "-3") o contiene hotfix/patch/rev/fix
+    if (/^\d+$/.test(rawSuffix)) {
+      isHotfix = true;
+      hotfixNum = parseInt(rawSuffix, 10);
+    } else {
+      const hMatch = rawSuffix.match(/^(?:hotfix|patch|rev|fix)[.-]?(\d+)?$/i);
+      if (hMatch) {
+        isHotfix = true;
+        hotfixNum = hMatch[1] ? parseInt(hMatch[1], 10) : 1;
+      }
+    }
+  }
+
   return {
     major: parseInt(match[1], 10),
     minor: parseInt(match[2], 10),
     patch: parseInt(match[3], 10),
-    prerelease: match[4] || null,
+    prerelease: isHotfix ? null : rawSuffix,
+    hotfix: isHotfix ? rawSuffix : null,
+    isHotfix,
+    hotfixNum,
     raw: ver.trim(),
   };
 }
 
 /**
- * Compara dos versiones SemVer.
+ * Compara dos versiones SemVer teniendo en cuenta números de hotfix (-1, -2, etc.).
  * @param {string} v1 Primera versión
  * @param {string} v2 Segunda versión
  * @returns {number} 1 si v1 > v2, -1 si v1 < v2, 0 si son iguales
@@ -51,7 +72,20 @@ export function compareSemVer(v1, v2) {
   if (p1.minor !== p2.minor) return p1.minor > p2.minor ? 1 : -1;
   if (p1.patch !== p2.patch) return p1.patch > p2.patch ? 1 : -1;
 
-  // Prerelease handling: una versión sin prerelease es mayor que una con prerelease
+  // Manejo de Hotfixes: un hotfix (ej: "9.2.5-1") es posterior y mayor a la versión base ("9.2.5")
+  if (p1.isHotfix && !p2.isHotfix && !p2.prerelease) {
+    return 1;
+  }
+  if (!p1.isHotfix && !p1.prerelease && p2.isHotfix) {
+    return -1;
+  }
+  if (p1.isHotfix && p2.isHotfix) {
+    if (p1.hotfixNum !== p2.hotfixNum) {
+      return p1.hotfixNum > p2.hotfixNum ? 1 : -1;
+    }
+  }
+
+  // Prerelease handling tradicional (alpha, beta, rc): una versión sin prerelease es mayor que una con prerelease
   if (p1.prerelease && !p2.prerelease) return -1;
   if (!p1.prerelease && p2.prerelease) return 1;
   if (p1.prerelease && p2.prerelease) {
@@ -65,7 +99,7 @@ export function compareSemVer(v1, v2) {
  * Determina el tipo de diferencia entre dos versiones.
  * @param {string} current Versión base
  * @param {string} candidate Versión a comparar
- * @returns {'major' | 'minor' | 'patch' | 'prerelease' | 'downgrade' | 'none' | 'invalid'}
+ * @returns {'major' | 'minor' | 'patch' | 'hotfix' | 'prerelease' | 'downgrade' | 'none' | 'invalid'}
  */
 export function getDiffType(current, candidate) {
   const c = parseSemVer(current);
@@ -79,6 +113,7 @@ export function getDiffType(current, candidate) {
   if (n.major > c.major) return "major";
   if (n.minor > c.minor) return "minor";
   if (n.patch > c.patch) return "patch";
+  if (n.isHotfix) return "hotfix";
   if (n.prerelease) return "prerelease";
   return "patch";
 }
@@ -143,7 +178,7 @@ export function checkUpdateEligibility(current, candidate, options = {}) {
     }
   }
 
-  if (n.prerelease && !allowPrerelease) {
+  if (n.prerelease && !n.isHotfix && !allowPrerelease) {
     return {
       eligible: false,
       diffType,
@@ -155,7 +190,6 @@ export function checkUpdateEligibility(current, candidate, options = {}) {
   }
 
   const isMajor = diffType === "major";
-  // En SemVer, un cambio mayor indica posibles breaking changes pero es actualizable con advertencia
   return {
     eligible: true,
     diffType,

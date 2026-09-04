@@ -204,13 +204,11 @@ async function packageRelease() {
       sha256,
     },
     changelog: [
-      "v9.2.5 Release — Zero-Friction Standalone Installer & Engine Distribution",
-      "Instalación con 1 solo clic: descargar Install-FluxerX.bat y ejecutar",
-      "Auto-descarga e instalación del motor completo en %LOCALAPPDATA%\\FluxerX\\engine",
-      "100% de subherramientas verificadas: 265 PASS, 0 WARN, 0 FAIL",
-      "Bootstrap ultrarrápido (< 5ms) y memoria en reposo óptima (< 60MB RSS)",
-      "Auto-configuración atómica para Claude Desktop, Antigravity y Codex con backup y rollback",
-      "Actualizador seguro con validación conjunta y staging aislado",
+      "v9.2.6 Release — General Upgrade & Compact Mode",
+      "Actualizado motor de versiones y hotfixes",
+      "Se ha implementado el modo compacto (compact: true) en herramientas de alto output (archivos y sistema)",
+      "Reducción significativa del consumo de tokens en operaciones de listado y lectura",
+      "Instalador Zero-Friction y soporte de auto-configuración seguros",
     ],
     integrity_verification: {
       algorithm: "SHA-256",

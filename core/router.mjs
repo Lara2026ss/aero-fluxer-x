@@ -261,6 +261,9 @@ export class Router {
         get_info: "get_file_info",
         patch_file: "patch_file",
         surgical_edit: "surgical_edit",
+        diff: "compare_files",
+        compare: "compare_files",
+        check_path: "validate_path",
       },
       packages: {
         list_installed_packages: "list_installed",
@@ -316,6 +319,8 @@ export class Router {
         revert_windows_optimization: "revert_windows_optimization",
         get_optimization_status: "get_optimization_status",
         optimize_gpu_memory: "optimize_gpu_memory",
+        performance: "get_performance_summary",
+        performance_summary: "get_performance_summary",
       },
       diagnostics: {
         health: "health_check",

@@ -79,6 +79,24 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         };
       },
 
+      get_performance_summary: async () => {
+        const cpus = os.cpus();
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const uptimeSeconds = Math.round(os.uptime());
+        return {
+          ok: true,
+          status: "OPTIMAL",
+          cpuLoad: os.loadavg(),
+          cpuCores: cpus.length,
+          memoryUsagePercent: Math.round((usedMem / totalMem) * 100),
+          freeMemMB: Math.round(freeMem / (1024 * 1024)),
+          totalMemMB: Math.round(totalMem / (1024 * 1024)),
+          uptimeHours: Number((uptimeSeconds / 3600).toFixed(1)),
+        };
+      },
+
       get_gpu_info: async () => {
         try {
           const cmd = "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | Format-List";
@@ -181,11 +199,17 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         }
       },
 
-      get_processes: async ({ limit = 30 } = {}) => {
+      get_processes: async ({ limit = 30, compact = false } = {}) => {
         try {
           const n = Math.min(Number(limit) || 30, 100);
-          const cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,WorkingSet | Format-Table`;
+          let cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,WorkingSet | Format-Table`;
+          if (compact) {
+            cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,@{N='MemMB';E={[Math]::Round($_.WorkingSet/1MB,1)}} | ConvertTo-Json -Compress`;
+          }
           const res = await runtime.run(cmd);
+          if (compact && res.ok && res.stdout) {
+            try { return { ok: true, count: n, processes: JSON.parse(res.stdout) }; } catch { }
+          }
           return { ok: res.ok || Boolean(res.stdout), output: res.stdout || res.stderr };
         } catch (e) {
           return { ok: false, error: e.message };
