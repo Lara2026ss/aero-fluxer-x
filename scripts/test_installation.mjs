@@ -70,8 +70,8 @@ async function runInstallationTest() {
     console.log(`  Ejecutando comando: ${psCmd}`);
     const { stdout, stderr } = await execAsync(psCmd);
     
-    if (stdout.includes("COMPLETADA CON ÉXITO") || stdout.includes("verificado y operativo")) {
-      console.log(`  ${GREEN}✓ Install-FluxerX.ps1 ejecutó exitosamente.${RESET}`);
+    if (stdout.includes("COMPLETADA CON EXITO") || stdout.includes("COMPLETADA CON ÉXITO") || stdout.includes("verificado y operativo") || stdout.includes("operativo y funcional")) {
+      console.log(`  ${GREEN}✓ Install-FluxerX.ps1 ejecutó exitosamente en sandbox.${RESET}`);
       results.installer_ps1 = true;
     } else {
       console.log(`  ${YELLOW}⚠ Salida de instalador:${RESET}\n${stdout}`);

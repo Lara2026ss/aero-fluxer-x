@@ -2,15 +2,16 @@
 
 Fluxer X soporta una integración transparente (Zero-Friction) con múltiples clientes de Inteligencia Artificial que soportan el protocolo MCP (Model Context Protocol).
 
-Si utilizaste el instalador `Install-FluxerX.bat`, **todos tus clientes locales fueron configurados automáticamente**.
+Si utilizaste el instalador `Install-FluxerX.bat`, **todos tus clientes locales fueron detectados y configurados automáticamente**.
 
 Si necesitas configurar un cliente de forma manual, utiliza las siguientes instrucciones.
 
 ## Requisitos Previos
 
 - **Node.js**: v18.0 o superior (`node -v`)
-- **Directorio del motor**: Localiza dónde se encuentra tu instalación de Fluxer X. Si usaste el instalador automático, el motor está en:
-  `%LOCALAPPDATA%\FluxerX\engine` o `%USERPROFILE%\AppData\Local\FluxerX\engine`.
+- **Directorio del motor**: Localiza dónde se encuentra tu instalación de Fluxer X. El instalador oficial extrae y prepara el motor en la carpeta de Documentos:
+  `%USERPROFILE%\Documents\Fluxer X` (o tu carpeta del repositorio local).
+  Entrypoint principal: `server.js` (o `server.mjs`).
 
 ---
 
@@ -28,7 +29,7 @@ Antigravity es un entorno de codificación local de Google que soporta MCP nativ
     "Fluxer_X": {
       "command": "node",
       "args": [
-        "C:\\Users\\TU_USUARIO\\AppData\\Local\\FluxerX\\engine\\server.mjs"
+        "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
       ]
     }
   }
@@ -53,7 +54,7 @@ Claude Desktop para Windows soporta herramientas locales vía MCP.
     "Fluxer_X": {
       "command": "node",
       "args": [
-        "C:\\Users\\TU_USUARIO\\AppData\\Local\\FluxerX\\engine\\server.mjs"
+        "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
       ]
     }
   }
@@ -78,12 +79,37 @@ Codex soporta integración local de herramientas.
     "Fluxer_X": {
       "command": "node",
       "args": [
-        "C:\\Users\\TU_USUARIO\\AppData\\Local\\FluxerX\\engine\\server.mjs"
+        "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
       ]
     }
   }
 }
 ```
+
+---
+
+## 4. Cursor
+
+Cursor soporta servidores MCP para enriquecer sus modelos y agentes en tiempo real.
+
+1. Abre el archivo de configuración global de MCP en Cursor:
+   `%USERPROFILE%\.cursor\mcp.json`
+2. Añade o combina la entrada de Fluxer X:
+
+```json
+{
+  "mcpServers": {
+    "Fluxer_X": {
+      "command": "node",
+      "args": [
+        "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
+      ]
+    }
+  }
+}
+```
+
+3. Reinicia Cursor o recarga la ventana (`Ctrl + Shift + P` -> *Developer: Reload Window*).
 
 ---
 
