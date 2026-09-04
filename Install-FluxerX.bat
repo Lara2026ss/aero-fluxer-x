@@ -16,9 +16,9 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-:: 2. Ejecutar el instalador PowerShell usando Scope Process
-:: (Principio de menor privilegio: no altera la ExecutionPolicy global ni requiere permisos de Administrador)
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -Scope Process -File "%~dp0Install-FluxerX.ps1" %*
+:: 2. Ejecutar el instalador PowerShell usando política de proceso aislada
+:: (Principio de menor privilegio: RemoteSigned acotado a este proceso, sin alterar directivas globales ni requerir UAC)
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "%~dp0Install-FluxerX.ps1" %*
 
 set EXIT_CODE=%ERRORLEVEL%
 if %EXIT_CODE% NEQ 0 (

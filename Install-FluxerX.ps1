@@ -10,7 +10,9 @@
 [CmdletBinding()]
 param(
     [switch]$SkipClientConfig,
-    [string]$CustomAppDir
+    [string]$CustomAppDir,
+    [string]$TargetVersion = "9.2.5",
+    [string]$DownloadUrl
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,22 +55,59 @@ Write-Host "  ✓ Node.js runtime disponible: $nodeVerStr" -ForegroundColor Gree
 # 3. Preparación de Directorio de la Aplicación y Datos Locales
 Write-Host "`n[3/6] Aprovisionando estructura de almacenamiento local..." -ForegroundColor Yellow
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$appDir = if ($CustomAppDir) { $CustomAppDir } else { $scriptDir }
 
 $localAppData = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { Join-Path $env:USERPROFILE "AppData\Local" }
 $fluxerDataDir = Join-Path $localAppData "FluxerX"
+$fluxerEngineDir = Join-Path $fluxerDataDir "engine"
 $fluxerConfigDir = Join-Path $fluxerDataDir "config"
 $fluxerStateDir = Join-Path $fluxerDataDir "state"
 $fluxerLogsDir = Join-Path $fluxerDataDir "logs"
 $fluxerShortcutsDir = Join-Path $fluxerDataDir "shortcuts"
+$fluxerCacheDir = Join-Path $fluxerDataDir "cache"
 
-$dirs = @($fluxerDataDir, $fluxerConfigDir, $fluxerStateDir, $fluxerLogsDir, $fluxerShortcutsDir)
+$dirs = @($fluxerDataDir, $fluxerEngineDir, $fluxerConfigDir, $fluxerStateDir, $fluxerLogsDir, $fluxerShortcutsDir, $fluxerCacheDir)
 foreach ($d in $dirs) {
     if (-not (Test-Path $d)) {
         New-Item -ItemType Directory -Path $d -Force | Out-Null
     }
 }
 Write-Host "  ✓ Directorio de datos de usuario: $fluxerDataDir" -ForegroundColor Green
+
+# Determinar si el instalador está junto al código fuente o si debe descargar el motor
+$hasLocalEngine = (Test-Path (Join-Path $scriptDir "package.json")) -and ((Test-Path (Join-Path $scriptDir "server.js")) -or (Test-Path (Join-Path $scriptDir "server.mjs")))
+
+if ($CustomAppDir) {
+    $appDir = $CustomAppDir
+    Write-Host "  ✓ Directorio personalizado de aplicación: $appDir" -ForegroundColor Green
+} elseif ($hasLocalEngine) {
+    $appDir = $scriptDir
+    Write-Host "  ✓ Motor local detectado en el paquete actual: $appDir" -ForegroundColor Green
+} else {
+    # Modo Zero-Friction Standalone: Descargar motor certificado desde GitHub Releases
+    $appDir = $fluxerEngineDir
+    Write-Host "  ➜ Modo Standalone (Instalación Rápida):" -ForegroundColor Cyan
+    Write-Host "    Obteniendo motor Fluxer X v$TargetVersion desde GitHub Releases..." -ForegroundColor Cyan
+
+    $url = if ($DownloadUrl) { $DownloadUrl } else {
+        "https://github.com/Lara2026ss/aero-fluxer-x/releases/download/v$TargetVersion/fluxer-x-v$TargetVersion.zip"
+    }
+
+    $tempZip = Join-Path $fluxerCacheDir "fluxer-x-v$TargetVersion.zip"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+        Write-Host "    Descargando: $url..." -ForegroundColor DarkGray
+        Invoke-WebRequest -Uri $url -OutFile $tempZip -UseBasicParsing
+        Write-Host "    ✓ Paquete descargado con éxito." -ForegroundColor Green
+        
+        Write-Host "    Descomprimiendo en: $fluxerEngineDir..." -ForegroundColor Cyan
+        Expand-Archive -Path $tempZip -DestinationPath $fluxerEngineDir -Force
+        Remove-Item -Path $tempZip -Force -ErrorAction SilentlyContinue
+        Write-Host "    ✓ Motor instalado y preparado en el perfil de usuario." -ForegroundColor Green
+    } catch {
+        Write-Error "Error al descargar el motor desde GitHub: $_.`nAsegúrese de contar con conexión a internet o coloque el paquete completo en la carpeta del script."
+        exit 1
+    }
+}
 
 # 4. Instalación de dependencias si node_modules no existe
 Write-Host "`n[4/6] Verificando dependencias del paquete..." -ForegroundColor Yellow
@@ -91,7 +130,7 @@ if (-not (Test-Path $serverJs)) {
     $serverJs = Join-Path $appDir "server.mjs"
 }
 
-$bootstrapCheckScript = @"
+$bootstrapCheckScript = @'
 import('./core/runtime.mjs').then(async ({ createRuntime }) => {
   const runtime = await createRuntime({ root: process.cwd() });
   console.log('BOOTSTRAP_HOST:' + runtime.displayHostname);
@@ -99,16 +138,16 @@ import('./core/runtime.mjs').then(async ({ createRuntime }) => {
   console.log('BOOTSTRAP_READY:' + runtime.isReady);
   process.exit(0);
 }).catch(e => { console.error(e); process.exit(1); });
-"@
+'@
 
 Push-Location $appDir
 try {
     $bootstrapOutput = & node --input-type=module -e $bootstrapCheckScript
     $hostMatch = ($bootstrapOutput | Select-String "BOOTSTRAP_HOST:(.+)").Matches.Groups[1].Value
     $idMatch = ($bootstrapOutput | Select-String "BOOTSTRAP_ID:(.+)").Matches.Groups[1].Value
-    Write-Host "  ✓ Host detectado: $hostMatch" -ForegroundColor Green
-    Write-Host "  ✓ Host ID local (estable, no invasivo): $idMatch" -ForegroundColor Green
-    Write-Host "  ✓ Estado persistido en: $fluxerStateDir\state.json" -ForegroundColor Green
+    Write-Host "  [OK] Host detectado: $hostMatch" -ForegroundColor Green
+    Write-Host "  [OK] Host ID local (estable, no invasivo): $idMatch" -ForegroundColor Green
+    Write-Host "  [OK] Estado persistido en: $fluxerStateDir\state.json" -ForegroundColor Green
 } catch {
     Write-Error "Error ejecutando el bootstrap inicial: $_"
     exit 1
@@ -130,7 +169,7 @@ if (-not $SkipClientConfig) {
 
         $configDir = Split-Path $ConfigPath -Parent
         if (-not (Test-Path $configDir)) {
-            Write-Host "  - $ClientName: No detectado (directorio no existe)." -ForegroundColor DarkGray
+            Write-Host "  - ${ClientName}: No detectado (directorio no existe)." -ForegroundColor DarkGray
             return
         }
 
@@ -190,14 +229,14 @@ if (-not $SkipClientConfig) {
 
             # 4. Escritura atómica UTF-8
             [System.IO.File]::WriteAllText($ConfigPath, $jsonString, [System.Text.Encoding]::UTF8)
-            Write-Host "  ✓ $ClientName: Configurado exitosamente ($ServerKey)" -ForegroundColor Green
-            Write-Host "    Backup seguro creado en: $backupPath" -ForegroundColor DarkGray
+            Write-Host "  [OK] ${ClientName}: Configurado exitosamente ($ServerKey)" -ForegroundColor Green
+            Write-Host "       Backup seguro creado en: $backupPath" -ForegroundColor DarkGray
         } catch {
-            Write-Warning "Fallo al actualizar $ClientName. Restaurando backup..."
+            Write-Warning "Fallo al actualizar ${ClientName}. Restaurando backup..."
             if (Test-Path $backupPath) {
                 Copy-Item -Path $backupPath -Destination $ConfigPath -Force
             }
-            Write-Error "No se pudo actualizar la configuración de $ClientName: $_"
+            Write-Error "No se pudo actualizar la configuración de ${ClientName}: $_"
         }
     }
 

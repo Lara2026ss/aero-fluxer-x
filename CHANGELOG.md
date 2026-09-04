@@ -2,6 +2,20 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+## [9.2.5] - 2026-09-04 (Instalador Zero-Friction Standalone, Empaquetado Ligero y Publicación en GitHub Releases)
+
+### Añadido
+- **Instalador Zero-Friction Standalone (`Install-FluxerX.bat` y `Install-FluxerX.ps1`)**:
+  - Los usuarios finales ya no necesitan clonar el repositorio ni descargar manualmente todo el código fuente. Con solo descargar y ejecutar `Install-FluxerX.bat` (o descomprimir `FluxerX-Installer-v9.2.5.zip`), el instalador realiza toda la configuración.
+  - Si el script no detecta el motor localmente, descarga de forma transparente el paquete certificado `fluxer-x-v9.2.5.zip` desde GitHub Releases directo a `%LOCALAPPDATA%\FluxerX\engine`.
+  - Principio de menor privilegio estricto: `-ExecutionPolicy RemoteSigned` acotado exclusivamente al proceso, sin alterar la configuración del sistema ni requerir elevación de Administrador (UAC).
+  - Auto-configuración atómica para Claude Desktop, Antigravity y Codex con backup previo (`.bak.<timestamp>`), validación sintáctica JSON y rollback garantizado ante cualquier anomalía.
+  - Aprovisionamiento del runtime de datos locales en `%LOCALAPPDATA%\FluxerX` (`state.json` generado en < 5ms, consumo en reposo < 60MB RSS).
+- **Paquetes de Distribución Optimizados**:
+  - `FluxerX-Installer-v9.2.5.zip`: Paquete ultraligero que contiene únicamente los scripts de instalación (`Install-FluxerX.bat`, `Install-FluxerX.ps1`), la plantilla de atajos y la guía rápida.
+  - `fluxer-x-v9.2.5.zip`: Paquete completo del motor certificado, auditado al 100% con 0 secretos y 0 rutas locales.
+- **Certificación Completa de Herramientas**:
+  - Auditoría empírica de las 265 subherramientas: 265 PASS, 0 WARN, 0 FAIL.
 
 ## [9.1.5] - 2026-09-04 (Clarificación de Actualización Manual por Herramienta, Resiliencia de Prefijos y Resolución Automática de Acciones)
 

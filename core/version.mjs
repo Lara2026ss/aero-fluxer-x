@@ -5,7 +5,7 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "9.2.0";
+export const CURRENT_VERSION = "9.2.5";
 export const APP_NAME = "fluxer-x";
 export const BRAND_NAME = "Fluxer X";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";

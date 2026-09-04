@@ -21,6 +21,7 @@ const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const candidateZips = [
+  path.join(ROOT, "dist", "fluxer-x-v9.2.5.zip"),
   path.join(ROOT, "dist", "fluxer-x-v9.2.0.zip"),
   path.join(ROOT, "dist", "aeron-fluxer-x-v9.2.0.zip"),
   path.join(ROOT, "dist", "aeron-fluxer-x-v9.0.0.zip"),

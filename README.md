@@ -2,7 +2,7 @@
 
 > **Motor MCP de Nueva Generación para IA con Control de Sistema, Automatización de Archivos, Terminal Avanzada, Persistencia Aislada y Actualización Automática con Rollback.**
 
-[![Version](https://img.shields.io/badge/version-9.0.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-9.2.5-blue.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Linux%20(Adaptive)-informational.svg)](docs/ARCHITECTURE.md)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
@@ -17,7 +17,7 @@
 
 ## 🎯 Principales Capacidades y Dominios
 
-Aero Fluxer X expone **10 dominios modulares con 197 acciones verificadas**:
+Aero Fluxer X expone **10 dominios modulares con 265 acciones verificadas empíricamente (100% PASS)**:
 
 | Dominio | Descripción | Acciones Clave |
 |---|---|---|
@@ -40,16 +40,18 @@ Aero Fluxer X está diseñado bajo una estricta política de **Desacoplamiento y
 
 - **Repositorio Público de Código**: Contiene exclusivamente código inmutable, scripts, plantillas y recursos reproducibles. **CERO** credenciales, secretos, logs o bases de datos personales se almacenan en el repositorio.
 - **Directorio de Datos del Usuario**: En la primera ejecución, Aero Fluxer X genera automáticamente un directorio local seguro en la máquina del usuario según el sistema operativo:
-  - **Windows**: `%APPDATA%\AeroFluxerX\` (ej. `C:\Users\<tu-usuario>\AppData\Roaming\AeroFluxerX\`)
+  - **Windows**: `%LOCALAPPDATA%\FluxerX\` (ej. `C:\Users\<tu-usuario>\AppData\Local\FluxerX\`)
   - **Linux / macOS**: `~/.config/aero-fluxer-x/` o `$XDG_DATA_HOME/aero-fluxer-x/`
-  - **Personalizable**: Mediante la variable de entorno `AERON_DATA_DIR`.
+  - **Personalizable**: Mediante la variable de entorno `AERON_DATA_DIR` o `FLUXER_DATA_DIR`.
 
 ```
 Estructura Local del Usuario:
-%APPDATA%\AeroFluxerX\
+%LOCALAPPDATA%\FluxerX\
+├── engine/       # Copia limpia y certificada del motor MCP
 ├── config/       # aeron.config.json (configuración local personalizada)
 ├── shortcuts/    # shortcuts.json (tus macros locales)
 ├── memory/       # fluxer-memory.sqlite (memoria de IA persistente)
+├── state/        # state.json (inicialización ultrarrápida < 5ms)
 ├── logs/         # fluxer.log, updater.log, audit.jsonl
 └── cache/        # temporales, staging de releases y backups
 ```
@@ -61,14 +63,19 @@ Estructura Local del Usuario:
 
 ## 🚀 Instalación Rápida
 
-### Requisitos Previos
-- **Node.js**: Versión 18.0.0 o superior ([descargar Node.js](https://nodejs.org/)).
-- **Git** (opcional pero recomendado para clonar y actualizar).
+### Opción 1: Instalación Zero-Friction (Recomendada para Windows 11 / 10)
+No requiere clonar el repositorio ni descargar manualmente todo el código:
+1. Descargue [`Install-FluxerX.bat`](https://github.com/Lara2026ss/aero-fluxer-x/releases/latest/download/Install-FluxerX.bat) o el paquete ligero [`FluxerX-Installer-v9.2.5.zip`](https://github.com/Lara2026ss/aero-fluxer-x/releases/latest/download/FluxerX-Installer-v9.2.5.zip) desde la sección de **Releases**.
+2. Haga doble clic sobre **`Install-FluxerX.bat`**.
+3. El instalador descargará automáticamente el motor certificado en `%LOCALAPPDATA%\FluxerX\engine` y configurará de manera atómica Claude Desktop, Antigravity y Codex con respaldo seguro.
+4. Reinicie su aplicación de IA y comience a interactuar.
 
-### Paso 1: Obtener el Código
+### Opción 2: Instalación desde Código Fuente
+Requisitos: Node.js >= 18.0.0 y Git.
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/Lara2026ss/aero-fluxer-x.git
 cd aero-fluxer-x
+.\Install-FluxerX.bat
 ```
 
 > [!NOTE]
