@@ -761,8 +761,16 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       },
 
       // ── 4. Escritura Atómica, Backups & Modificación Quirúrgica ────────────
-      write_file: async ({ path: p, content = "", overwrite = true, backup = false, encoding = "utf8" } = {}) => {
+      write_file: async ({ path: p, content = "", overwrite = true, backup = false, encoding = "utf8", mode, patch } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+        if (mode === "patch" || patch) {
+          const searchBlock = patch?.searchBlock || patch?.find || patch?.search;
+          const replaceBlock = patch?.replaceBlock || patch?.replace || patch?.replacement || content;
+          return actions.patch_file({ path: p, searchBlock, replaceBlock, backup });
+        }
+        if (mode === "append") {
+          return actions.append_to_file({ path: p, content, addNewline: true });
+        }
         const target = runtime.hp(p);
         try {
           await fs.mkdir(path.dirname(target), { recursive: true });
@@ -900,6 +908,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       str_replace: performEditFile,
       replace_in_file: performEditFile,
       replace_file_content: performEditFile,
+      surgical_edit: performEditFile,
 
       insert_lines: async ({ path: p, atLine, afterLine, afterPattern, lines, backup = false } = {}) => {
         if (!p || lines === undefined) return { ok: false, error: "Los parámetros 'path' y 'lines' son requeridos." };
