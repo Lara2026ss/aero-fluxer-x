@@ -204,10 +204,12 @@ async function packageRelease() {
       sha256,
     },
     changelog: [
-      "v9.2.6-2 Hotfix — Temporizadores 100% Síncronos y Chunking Activo",
-      "Eliminación de temporizadores en segundo plano para que la IA mantenga activa la sesión de tokens",
-      "Espera síncrona en tiempo real con instrucción inteligente ante tramos largos (>180s)",
-      "Nivel por defecto 'user' con menor privilegio y elevación temporal de 5 min",
+      "v10.0.0 Project Z — Permission Engine, Workflows y Arquitectura Centralizada",
+      "Nuevo modelo de estado Workflow para elevación temporal de permisos (5 min por defecto)",
+      "Persistencia SQLite de workflows tolerante a reinicios del sistema",
+      "Nuevo rol de máxima autoridad funcional: admintotaluser",
+      "Nuevo dominio guide (Domain #12) con manuales y reglas internas para IAs",
+      "Modos compact: true optimizados preservando sangría estricta de código y mapeo de líneas",
       "Sistema de gestión y limpieza de feedbacks en Firebase Realtime Database",
     ],
     integrity_verification: {
