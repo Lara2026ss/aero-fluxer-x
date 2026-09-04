@@ -135,96 +135,26 @@ export async function startServer() {
     return toolSchema(name, description, registry.actionsFor(name));
   });
 
-  // Exponer también las 3 tool calls de actualización solicitadas
-  tools.push(
-    {
-      name: "upd_check",
-      description: "Checa en el repositorio de GitHub si hay una nueva versión o actualización disponible para Aeron Fluxer X.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "upd_info",
-      description: "Checa el repositorio de GitHub y obtiene información detallada de lo que se actualizó (Release Notes y Changelog).",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "upd",
-      description: "Actualiza el servidor MCP Aeron Fluxer X remotamente desde GitHub (descarga archivos, instala dependencias y los reemplaza). Detecta dinámicamente el entorno host (Claude Desktop, Antigravity, Codex, Cursor) y solicita la acción de reinicio o recarga adecuada.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          force: { type: "boolean", description: "Forzar actualización" },
+  // Herramienta unificada de actualización (11ª herramienta visible en el MCP)
+  tools.push({
+    name: "upd",
+    description: "Centro unificado de actualización de Aeron Fluxer X. Subherramientas disponibles en 'action':\n- 'check': Checa en el repositorio de GitHub si hay nueva versión disponible.\n- 'info': Obtiene información detallada, changelog y notas de versión del último release.\n- 'apply' (o 'update'): Descarga y aplica la actualización automáticamente desde GitHub.\n- 'data' (o 'status'): Chequeo interno dedicado para verificar si el servidor instalado en disco realmente se actualizó (sin simulación).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["check", "info", "apply", "update", "data", "status"],
+          description: "Subherramienta de actualización a ejecutar: 'check', 'info', 'apply' / 'update', o 'data' / 'status'.",
+        },
+        force: {
+          type: "boolean",
+          description: "Forzar actualización si ya está al día (solo para 'apply')",
         },
       },
+      required: ["action"],
     },
-    {
-      name: "upd_data",
-      description: "Comprueba internamente y con datos de disco si el servidor MCP instalado realmente se actualizó a la nueva versión o si aún está pendiente de reinicio. Cero simulación.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "admin_terminal",
-      description: "Ejecuta comandos en terminal con privilegios de administrador. Requiere autorización previa o elevación activa ('te doy permiso total').",
-      inputSchema: {
-        type: "object",
-        properties: {
-          command: { type: "string", description: "Comando o script a ejecutar como administrador" },
-          cwd: { type: "string", description: "Directorio de trabajo opcional" },
-        },
-        required: ["command"],
-      },
-    },
-    {
-      name: "clean_ram",
-      description: "Optimiza y libera memoria RAM del sistema Windows recortando working sets de procesos inactivos de forma segura sin cerrar aplicaciones críticas.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "analyze_memory",
-      description: "Analiza el consumo de memoria RAM en detalle, categorizando procesos (juegos, navegadores, IDEs, MCP, segundo plano) e identificando aplicaciones que consumen exceso de recursos.",
-      inputSchema: {
-        type: "object",
-        properties: {},
-      },
-    },
-    {
-      name: "bcd_manager",
-      description: "Gestiona discos y el almacén BCD (Boot Configuration Data) de Windows: enumera entradas, crea backups, monta la partición EFI del sistema (ESP) en S: o la desmonta.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          action: { type: "string", description: "Acción a ejecutar: status, backup, mount_esp, unmount_esp, delete_entry, set_timeout" },
-          guid: { type: "string", description: "GUID del bootloader entry para eliminar" },
-          timeout: { type: "number", description: "Timeout en segundos para el menú de arranque" },
-          driveLetter: { type: "string", description: "Letra de unidad para montar partición EFI (default: S)" },
-        },
-        required: ["action"],
-      },
-    },
-    {
-      name: "grant_elevation",
-      description: "Concede permisos elevados de administración temporalmente (por defecto 20 minutos con 'te doy permiso total' o 60 minutos con '1 hora') para ejecutar herramientas administrativas automáticamente.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          durationMinutes: { type: "number", description: "Minutos de duración del permiso (default: 20, o 60 para 1 hora)" },
-          reason: { type: "string", description: "Motivo del permiso" },
-        },
-      },
-    }
-  );
+  });
   const server = new Server(
     { name: SERVER_NAME, version: VERSION },
     { capabilities: { tools: {} } },

@@ -3,6 +3,31 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.1.2] - 2026-09-03 (Consolidación de 11 Herramientas Visibles y Corrección de UPD)
+
+### Modificado
+- **Consolidación de 11 Herramientas Visibles en el Servidor MCP**:
+  - Se eliminaron las 8 herramientas individuales adicionales expuestas a nivel raíz, reduciendo el catálogo de 19 a **exactamente 11 herramientas visibles** en clientes como Claude Desktop:
+    1. `files`
+    2. `system` (incluye subacciones: `clean_ram`, `analyze_memory`, `bcd_manager`, `manage_disks`, `terminate_process`)
+    3. `terminal` (incluye subacciones: `run_as_admin`, `admin_terminal`, `run_command`, etc.)
+    4. `packages`
+    5. `database`
+    6. `security` (incluye subacciones: `grant_elevation`, `get_elevation_status`, `revoke_elevation`)
+    7. `shortcuts`
+    8. `network`
+    9. `diagnostics`
+    10. `developer`
+    11. `upd` (centro unificado de actualizaciones)
+- **Corrección y Optimización en la Herramienta Unificada `upd`**:
+  - Soporte completo de subherramientas mediante el parámetro `action`:
+    - `check`: Chequeo de nuevas versiones en GitHub.
+    - `info`: Consulta de changelog y release notes.
+    - `apply` / `update`: Descarga, compilación y aplicación de la actualización.
+    - `data` / `status`: Auditoría forense interna en disco sin simulación.
+  - Corregido error en `router.mjs` que sobrescribía la acción requerida forzando una actualización y desconexión prematura.
+  - Ajustado tiempo de desconexión post-actualización a 2.5s para garantizar el transporte y entrega exitosa de la respuesta JSON-RPC a Claude Desktop antes del cierre.
+
 ## [9.1.1] - 2026-09-02 (Herramienta upd_data para Verificación Real y Anti-Simulación)
 
 ### Añadido

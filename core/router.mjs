@@ -146,8 +146,22 @@ export class Router {
       args = { seconds: sec, ...args };
     }
 
-    // Soporte nativo para upd_check / upd_info / upd / upd_data invocados directamente como tool
-    if (["upd", "upd_check", "upd_info", "upd_data"].includes(tool.toLowerCase())) {
+    // Soporte unificado para la herramienta "upd" y sus subherramientas
+    if (tool.toLowerCase() === "upd") {
+      tool = "developer";
+      const requestedAction = String(action || args.action || "").toLowerCase().trim();
+      if (requestedAction === "check" || requestedAction === "upd_check") {
+        action = "upd_check";
+      } else if (requestedAction === "info" || requestedAction === "upd_info") {
+        action = "upd_info";
+      } else if (requestedAction === "data" || requestedAction === "status" || requestedAction === "upd_data") {
+        action = "upd_data";
+      } else if (requestedAction === "apply" || requestedAction === "update" || requestedAction === "upd" || !requestedAction) {
+        action = "upd";
+      } else {
+        action = "upd";
+      }
+    } else if (["upd_check", "upd_info", "upd_data"].includes(tool.toLowerCase())) {
       action = tool.toLowerCase();
       tool = "developer";
     }

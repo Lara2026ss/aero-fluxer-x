@@ -910,11 +910,12 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         const restartNotice = getClientRestartNotice(runtime);
 
-        // Desconectar el servidor MCP limpiamente después de enviar la respuesta
-        // para que la aplicación host y el usuario reciban la confirmación.
+        // Desconectar el servidor MCP limpiamente tras permitir el flush completo del JSON-RPC
         setTimeout(() => {
-          process.exit(0);
-        }, 1000);
+          try {
+            process.exit(0);
+          } catch {}
+        }, 2500);
 
         return {
           ok: true,
