@@ -519,8 +519,18 @@ export function createTerminalDomain({ runtime, path, fs, crypto, domain }) {
     },
   };
 
+  // Alias intuitivos para llamadas de LLMs
+  actions.execute_command = actions.run_command;
+  actions.exec = actions.run_command;
+  actions.command = actions.run_command;
+  actions.execute = actions.run_command;
+
   const permissions = {
     run_command: "poweruser",
+    execute_command: "poweruser",
+    exec: "poweruser",
+    command: "poweruser",
+    execute: "poweruser",
     run_background: "poweruser",
     run_script: "poweruser",
     run_inline_script: "poweruser",

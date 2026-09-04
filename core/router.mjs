@@ -226,6 +226,72 @@ export class Router {
       tool = "security";
     }
 
+    // Mapeo exhaustivo de alias para compatibilidad total con llamadas de LLMs
+    const DOMAIN_ACTION_ALIASES = {
+      files: {
+        read_file: "read_text_file",
+        create_file: "write_file",
+        delete_file: "delete_path",
+        delete: "delete_path",
+        list_files: "list_directory",
+        get_metadata: "get_file_info",
+        get_info: "get_file_info",
+      },
+      packages: {
+        list_installed_packages: "list_installed",
+        list_packages: "list_installed",
+        list: "list_installed",
+        search: "search_package",
+        info: "package_info",
+        install: "install_package",
+        remove: "remove_package",
+        uninstall: "remove_package",
+        update: "update_package",
+        upgrade: "update_package",
+      },
+      database: {
+        list_tables: "search_tables",
+        show_tables: "search_tables",
+        tables: "search_tables",
+        query: "execute_query",
+        schema: "describe_table",
+        describe: "describe_table",
+        script: "execute_script",
+      },
+      shortcuts: {
+        list_shortcuts: "list",
+        list_all: "list",
+        create_shortcut: "create",
+        add_shortcut: "create",
+        run: "execute",
+        run_shortcut: "execute",
+        execute_shortcut: "execute",
+        delete_shortcut: "delete",
+        get_shortcut: "get",
+      },
+      terminal: {
+        execute_command: "run_command",
+        exec: "run_command",
+        command: "run_command",
+        execute: "run_command",
+      },
+      system: {
+        get_info: "get_system_snapshot",
+        info: "get_system_snapshot",
+        system_info: "get_system_snapshot",
+        snapshot: "get_system_snapshot",
+        ram: "analyze_memory_usage",
+        memory: "analyze_memory_usage",
+        free_ram: "clean_ram",
+      },
+    };
+
+    const toolLower = tool.toLowerCase();
+    const actionLower = action.toLowerCase();
+    if (DOMAIN_ACTION_ALIASES[toolLower]?.[actionLower]) {
+      action = DOMAIN_ACTION_ALIASES[toolLower][actionLower];
+    }
+
     if (!tool || !action) throw new Error("tool and action are required");
 
     if (action === "reload" || action === "reload_server") {

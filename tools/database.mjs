@@ -331,5 +331,14 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
     }
   };
 
+  // Alias intuitivos para llamadas de LLMs
+  actions.list_tables = actions.search_tables;
+  actions.show_tables = actions.search_tables;
+  actions.tables = actions.search_tables;
+  actions.query = actions.execute_query;
+  actions.schema = actions.describe_table;
+  actions.describe = actions.describe_table;
+  actions.script = actions.execute_script;
+
   return domain("database", "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).", actions, {});
 }

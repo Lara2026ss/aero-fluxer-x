@@ -210,13 +210,13 @@ export function createShortcutsDomain({ runtime, path, fs, domain }) {
   };
 
   const actions = {
-    create: createAction, save: createAction,
+    create: createAction, save: createAction, create_shortcut: createAction, add_shortcut: createAction,
     update: updateAction, edit: updateAction,
     rename: renameAction,
-    execute: executeAction, run: executeAction,
-    list: listAction,
-    get: getAction, inspect: getAction,
-    delete: deleteAction, remove: deleteAction,
+    execute: executeAction, run: executeAction, run_shortcut: executeAction, execute_shortcut: executeAction,
+    list: listAction, list_shortcuts: listAction, list_all: listAction,
+    get: getAction, inspect: getAction, get_shortcut: getAction,
+    delete: deleteAction, remove: deleteAction, delete_shortcut: deleteAction,
     clear_all: async () => { const count = runtime._shortcuts.size; runtime._shortcuts.clear(); runtime._shortcutHistory.clear(); await persist(); return { ok: true, deletedAll: true, countCleared: count }; },
     history: historyAction,
     export_shortcuts: exportAction,

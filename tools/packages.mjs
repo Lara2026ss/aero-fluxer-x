@@ -200,10 +200,27 @@ export function createPackagesDomain({ runtime, domain, parsePkgLines: externalP
     }
   };
 
+  // Alias intuitivos para llamadas de LLMs
+  actions.list_installed_packages = actions.list_installed;
+  actions.list_packages = actions.list_installed;
+  actions.list = actions.list_installed;
+  actions.search = actions.search_package;
+  actions.info = actions.package_info;
+  actions.install = actions.install_package;
+  actions.remove = actions.remove_package;
+  actions.uninstall = actions.remove_package;
+  actions.update = actions.update_package;
+  actions.upgrade = actions.update_package;
+
   const permissions = {
     install_package: "admin",
+    install: "admin",
     remove_package: "admin",
-    update_package: "admin"
+    remove: "admin",
+    uninstall: "admin",
+    update_package: "admin",
+    update: "admin",
+    upgrade: "admin"
   };
 
   return domain("packages", "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).", actions, permissions);

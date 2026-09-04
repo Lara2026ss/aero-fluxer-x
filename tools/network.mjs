@@ -31,11 +31,11 @@ export function createNetworkDomain({ runtime, dns, net, domain }) {
         });
         socket.on("timeout", () => {
           socket.destroy();
-          resolve({ ok: false, host, port: Number(port), reachable: false, error: "Connection timed out" });
+          resolve({ ok: true, host, port: Number(port), reachable: false, error: "Connection timed out" });
         });
         socket.on("error", (err) => {
           socket.destroy();
-          resolve({ ok: false, host, port: Number(port), reachable: false, error: err.message });
+          resolve({ ok: true, host, port: Number(port), reachable: false, error: err.message });
         });
         socket.connect(Number(port), host);
       });

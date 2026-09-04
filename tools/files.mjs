@@ -226,10 +226,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     }
   }
 
-  return domain(
-    "files",
-    "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
-    {
+  const actions = {
       // ── 1. Navegación & Búsqueda ───────────────────────────────────────────
       list_directory: async ({ path: p = ".", limit = 100, sortBy = "name", recursive = false } = {}) => {
         const target = runtime.hp(p);
@@ -1557,33 +1554,50 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           accessible: true,
         };
       },
-    },
-    {
-      delete_path: "poweruser",
-      write_file: "user",
-      write_json: "user",
-      json_manager: "user",
-      append_to_file: "user",
-      edit_file: "user",
-      str_replace: "user",
-      replace_in_file: "user",
-      replace_file_content: "user",
-      insert_lines: "user",
-      delete_lines: "user",
-      replace_lines: "user",
-      patch_file: "user",
-      write_csv: "user",
-      move_file: "user",
-      copy_file: "user",
-      batch_copy: "user",
-      batch_move: "user",
-      batch_delete: "poweruser",
-      compress_path: "user",
-      extract_archive: "user",
-      batch_rename: "poweruser",
-      find_and_replace_in_files: "poweruser",
-      set_attributes: "poweruser",
-      create_document: "user",
-    }
-  );
-}
+    };
+
+    // Alias intuitivos para llamadas de LLMs
+    actions.read_file = actions.read_text_file;
+    actions.create_file = actions.write_file;
+    actions.delete_file = actions.delete_path;
+    actions.delete = actions.delete_path;
+    actions.list_files = actions.list_directory;
+    actions.get_metadata = actions.get_file_info;
+    actions.get_info = actions.get_file_info;
+
+    return domain(
+      "files",
+      "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
+      actions,
+      {
+        delete_path: "poweruser",
+        delete_file: "poweruser",
+        delete: "poweruser",
+        write_file: "user",
+        create_file: "user",
+        write_json: "user",
+        json_manager: "user",
+        append_to_file: "user",
+        edit_file: "user",
+        str_replace: "user",
+        replace_in_file: "user",
+        replace_file_content: "user",
+        insert_lines: "user",
+        delete_lines: "user",
+        replace_lines: "user",
+        patch_file: "user",
+        write_csv: "user",
+        move_file: "user",
+        copy_file: "user",
+        batch_copy: "user",
+        batch_move: "user",
+        batch_delete: "poweruser",
+        compress_path: "user",
+        extract_archive: "user",
+        batch_rename: "poweruser",
+        find_and_replace_in_files: "poweruser",
+        set_attributes: "poweruser",
+        create_document: "user",
+      }
+    );
+  }

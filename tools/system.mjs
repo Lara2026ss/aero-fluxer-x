@@ -30,10 +30,7 @@ function categorizeProcess(name) {
 }
 
 export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchText, sendNativeNotification }) {
-  return domain(
-    "system",
-    "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.",
-    {
+  const actions = {
       // ── Hardware / OS ────────────────────────────────────────────────────────
       get_cpu_info: async () => {
         const cpus = os.cpus();
@@ -618,8 +615,8 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         };
       },
 
-      optimize_ram: async function() { return this.clean_ram(); },
-      clean_memory: async function() { return this.clean_ram(); },
+      optimize_ram: async () => actions.clean_ram(),
+      clean_memory: async () => actions.clean_ram(),
 
       analyze_memory_usage: async () => {
         const totalMem = os.totalmem();
@@ -670,7 +667,7 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         };
       },
 
-      analyze_memory: async function() { return this.analyze_memory_usage(); },
+      analyze_memory: async () => actions.analyze_memory_usage(),
 
       terminate_process: async ({ pid, name, force = false } = {}) => {
         if (!pid && !name) {
@@ -700,7 +697,7 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         return { ok: false, error: "Plataforma no soportada para terminate_process." };
       },
 
-      kill_process_by_name: async function(args) { return this.terminate_process(args); },
+      kill_process_by_name: async (args) => actions.terminate_process(args),
 
       // ── Gestión de Discos y Boot Configuration Data (bcdedit) ─────────────────
       bcd_manager: async ({ action = "status", guid, timeout, driveLetter = "S" } = {}) => {
@@ -793,6 +790,18 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
           return { ok: false, error: err.message };
         }
       },
-    }
+  };
+
+  // Alias intuitivos para llamadas de LLMs
+  actions.get_info = actions.get_system_snapshot;
+  actions.info = actions.get_system_snapshot;
+  actions.system_info = actions.get_system_snapshot;
+  actions.snapshot = actions.get_system_snapshot;
+  actions.free_ram = actions.clean_ram;
+
+  return domain(
+    "system",
+    "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.",
+    actions
   );
 }

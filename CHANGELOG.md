@@ -3,6 +3,40 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.1.3] - 2026-09-04 (Corrección de Rutas Intuitivas, Fallback de Changelog y Diagnóstico Exhaustivo)
+
+### Corregido
+- **Mapeo de Alias de Rutas Intuitivas para Modelos de IA**:
+  - En `core/router.mjs` y en los 10 dominios modulares se implementó soporte exhaustivo y directo para alias frecuentes llamados por LLMs (Claude, GPT, Gemini), evitando errores de tipo `unknown route`:
+    - `packages.list_installed_packages` / `list_packages` / `list` → `packages.list_installed`
+    - `packages.search` → `packages.search_package`
+    - `packages.info` → `packages.package_info`
+    - `packages.install` → `packages.install_package`
+    - `packages.remove` / `uninstall` → `packages.remove_package`
+    - `packages.update` / `upgrade` → `packages.update_package`
+    - `database.list_tables` / `show_tables` / `tables` → `database.search_tables`
+    - `database.query` → `database.execute_query`
+    - `database.schema` / `describe` → `database.describe_table`
+    - `database.script` → `database.execute_script`
+    - `shortcuts.list_shortcuts` / `list_all` → `shortcuts.list`
+    - `shortcuts.create_shortcut` / `add_shortcut` → `shortcuts.create`
+    - `shortcuts.run` / `run_shortcut` / `execute_shortcut` → `shortcuts.execute`
+    - `shortcuts.delete_shortcut` → `shortcuts.delete`
+    - `shortcuts.get_shortcut` → `shortcuts.get`
+    - `terminal.execute_command` / `exec` / `command` / `execute` → `terminal.run_command`
+    - `files.read_file` → `files.read_text_file`
+    - `files.create_file` → `files.write_file`
+    - `files.delete_file` / `delete` → `files.delete_path`
+    - `files.list_files` → `files.list_directory`
+    - `files.get_metadata` / `get_info` → `files.get_file_info`
+    - `system.get_info` / `info` / `system_info` / `snapshot` → `system.get_system_snapshot`
+- **Fallback Automático de Changelog en `upd_info`**:
+  - `upd_info` (y `upd` con `action: "info"`) ahora lee directamente de `CHANGELOG.md` en disco para extraer y devolver las notas de la versión instalada o solicitada (`version`), garantizando que llamadas como "que hay de 9.1.2" en Claude Desktop reciban el changelog completo sin depender de latencia de red en GitHub API.
+- **Normalización de Diagnóstico de Red (`network.test_connection`)**:
+  - `test_connection` ahora retorna `{ ok: true, reachable: false, error: ... }` cuando un puerto está cerrado o inalcanzable, indicando que la prueba de diagnóstico se ejecutó con éxito y reportando limpiamente el estado sin lanzar excepciones no manejadas.
+- **Corrección de Contexto en `tools/system.mjs`**:
+  - Los alias internos `optimize_ram`, `clean_memory`, `kill_process_by_name` y `analyze_memory` ahora invocan directamente las funciones correspondientes del objeto `actions` sin recurrir a `this`, evitando fallos `TypeError: this.<action> is not a function`.
+
 ## [9.1.2] - 2026-09-03 (Consolidación de 11 Herramientas Visibles y Corrección de UPD)
 
 ### Modificado

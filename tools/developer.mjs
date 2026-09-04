@@ -881,15 +881,37 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    upd_info: async () => {
+    upd_info: async ({ version } = {}) => {
       const check = await checkForUpdates({ repoRoot: runtime.root });
+      let localChangelog = "";
+      try {
+        const clPath = path.join(runtime.root, "CHANGELOG.md");
+        if (existsSync(clPath)) {
+          const fullText = await fs.readFile(clPath, "utf8");
+          const targetVer = version || (check.updateAvailable ? check.latestVersion : check.currentVersion);
+          const regex = new RegExp(`##\\s*\\[${String(targetVer).replace(/\./g, "\\.")}\\][\\s\\S]*?(?=\\n##\\s*\\[|$)`, "i");
+          const match = fullText.match(regex);
+          if (match) {
+            localChangelog = match[0].trim();
+          } else {
+            const firstMatch = fullText.match(/##\s*\[[^\]]+\][\s\S]*?(?=\n##\s*\[|$)/);
+            if (firstMatch) localChangelog = firstMatch[0].trim();
+          }
+        }
+      } catch {}
+
+      const releaseNotes = (check.releaseInfo?.releaseNotes && check.releaseInfo.releaseNotes !== "Sin notas de versión disponibles.")
+        ? check.releaseInfo.releaseNotes
+        : (localChangelog || "Sin notas de versión disponibles.");
+
       return {
         ok: check.ok,
         current_version: check.currentVersion,
         latest_version: check.latestVersion,
         update_available: check.updateAvailable,
         release_tag: check.releaseInfo?.tag || `v${check.latestVersion}`,
-        release_notes: check.releaseInfo?.releaseNotes || "Sin notas de versión disponibles.",
+        release_notes: releaseNotes,
+        changelog: localChangelog || undefined,
         download_url: check.releaseInfo?.downloadUrl || null,
         source: check.releaseInfo?.source || "github_releases",
       };
