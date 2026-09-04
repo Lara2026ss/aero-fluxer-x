@@ -3,6 +3,17 @@
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [9.1.4] - 2026-09-04 (Optimización de Schemas para Claude Desktop, Detección de Subherramientas y Caché Anti-Rate-Limit)
+
+### Añadido
+- **Caché en Memoria Anti-Rate-Limit para GitHub API (`core/updater.mjs`)**:
+  - `checkForUpdates` incorpora un sistema de caché en memoria de 60 segundos (TTL). Consultas consecutivas o baterías de pruebas concurrentes ya no disparan ráfagas de peticiones HTTP a la API de GitHub ni saturan el log `updater.log`, previniendo de forma absoluta el rate-limiting (límite de 60 req/h para clientes sin autenticar).
+- **Enriquecimiento de Schemas MCP para Detección de Subherramientas en Clientes Desktop (`server.mjs`)**:
+  - Los 10 dominios modulares y la herramienta `upd` declaran explícitamente en `inputSchema.properties` los argumentos universales más comunes (`path`, `command`, `query`, `name`, `content`, `database`, `version`, `host`, `port`, `force`, `args`).
+  - Habilitado `additionalProperties: true` en todas las herramientas del servidor, permitiendo que Claude Desktop, Codex y otros clientes pasen argumentos planos sin que los validadores de esquema del cliente los rechacen.
+  - La descripción de cada herramienta incluye instrucciones detalladas y ejemplos claros para que los modelos de lenguaje invoquen subherramientas con total naturalidad.
+  - En la herramienta `upd` se declara formalmente la propiedad `version` para facilitar consultas inmediatas sobre cualquier release histórico o actual.
+
 ## [9.1.3] - 2026-09-04 (Corrección de Rutas Intuitivas, Fallback de Changelog y Diagnóstico Exhaustivo)
 
 ### Corregido

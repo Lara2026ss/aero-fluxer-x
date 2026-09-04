@@ -47,15 +47,58 @@ function mcpText(value) {
 function toolSchema(name, description, actions) {
   return {
     name,
-    description,
+    description: `Dominio modular '${name}'. Ejecuta subherramientas especificando 'action'.\nPuedes enviar los argumentos de la subherramienta directamente como propiedades raíz (ej: { action: '...', path: '...' }) o agrupados en 'args': { ... }.\n${description}`,
     inputSchema: {
       type: "object",
       properties: {
-        action: { type: "string", enum: actions },
-        args: { type: "object" },
+        action: {
+          type: "string",
+          enum: actions,
+          description: `Nombre de la subherramienta a ejecutar en el dominio '${name}'. Opciones: ${actions.slice(0, 15).join(', ')}...`,
+        },
+        path: {
+          type: "string",
+          description: "Ruta de archivo o carpeta (para files, developer, database).",
+        },
+        command: {
+          type: "string",
+          description: "Comando a ejecutar en terminal o powershell.",
+        },
+        query: {
+          type: "string",
+          description: "Texto o consulta SQL/paquete a buscar o ejecutar.",
+        },
+        name: {
+          type: "string",
+          description: "Nombre del paquete, shortcut, variable, servicio o proceso.",
+        },
+        content: {
+          type: "string",
+          description: "Contenido de texto o datos para escribir, editar o guardar.",
+        },
+        database: {
+          type: "string",
+          description: "Base de datos a consultar (ej: ':memory:' o ruta a archivo SQLite).",
+        },
+        version: {
+          type: "string",
+          description: "Versión específica a consultar o verificar.",
+        },
+        host: {
+          type: "string",
+          description: "Host o dirección IP para diagnóstico de red.",
+        },
+        port: {
+          type: "number",
+          description: "Puerto de red a comprobar o conectar.",
+        },
+        args: {
+          type: "object",
+          description: "Objeto opcional con argumentos específicos de la subherramienta.",
+        },
       },
       required: ["action"],
-      additionalProperties: false,
+      additionalProperties: true,
     },
   };
 }
@@ -138,21 +181,30 @@ export async function startServer() {
   // Herramienta unificada de actualización (11ª herramienta visible en el MCP)
   tools.push({
     name: "upd",
-    description: "Centro unificado de actualización de Aeron Fluxer X. Subherramientas disponibles en 'action':\n- 'check': Checa en el repositorio de GitHub si hay nueva versión disponible.\n- 'info': Obtiene información detallada, changelog y notas de versión del último release.\n- 'apply' (o 'update'): Descarga y aplica la actualización automáticamente desde GitHub.\n- 'data' (o 'status'): Chequeo interno dedicado para verificar si el servidor instalado en disco realmente se actualizó (sin simulación).",
+    description: "Centro unificado de actualización de Aeron Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Checa en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión detalladas (usa el parámetro 'version' para una versión específica, ej: '9.1.2').\n- 'apply' (o 'update'): Descarga y aplica la actualización automáticamente desde GitHub.\n- 'data' (o 'status'): Auditoría forense interna en disco para verificar si el servidor realmente se actualizó (sin simulación).",
     inputSchema: {
       type: "object",
       properties: {
         action: {
           type: "string",
           enum: ["check", "info", "apply", "update", "data", "status"],
-          description: "Subherramienta de actualización a ejecutar: 'check', 'info', 'apply' / 'update', o 'data' / 'status'.",
+          description: "Subherramienta de actualización: 'check', 'info', 'apply', o 'data'.",
+        },
+        version: {
+          type: "string",
+          description: "Versión específica a consultar (ej: '9.1.2', '9.1.3') para 'info'.",
         },
         force: {
           type: "boolean",
-          description: "Forzar actualización si ya está al día (solo para 'apply')",
+          description: "Forzar actualización si ya está al día (solo para 'apply').",
+        },
+        args: {
+          type: "object",
+          description: "Argumentos adicionales para la subherramienta.",
         },
       },
       required: ["action"],
+      additionalProperties: true,
     },
   });
   const server = new Server(

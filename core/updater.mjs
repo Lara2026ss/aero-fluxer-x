@@ -151,6 +151,10 @@ export async function computeFileSha256(filePath) {
   return crypto.createHash("sha256").update(content).digest("hex").toLowerCase();
 }
 
+let _updateCheckCache = null;
+let _updateCheckCacheTime = 0;
+const CACHE_TTL_MS = 60000; // 60 segundos de caché anti-rate-limit
+
 /**
  * Consulta actualizaciones si se especifica un manifestUrl, o reporta estado desacoplado.
  *
@@ -159,9 +163,15 @@ export async function computeFileSha256(filePath) {
  * @param {string} [options.manifestUrl]
  * @param {boolean} [options.allowDowngrade=false]
  * @param {boolean} [options.allowPrerelease=false]
+ * @param {boolean} [options.force=false]
  * @returns {Promise<object>}
  */
 export async function checkForUpdates(options = {}) {
+  const force = options.force === true;
+  if (!force && _updateCheckCache && (Date.now() - _updateCheckCacheTime < CACHE_TTL_MS)) {
+    return { ..._updateCheckCache, cached: true };
+  }
+
   const repoRoot = options.repoRoot || process.cwd();
   const manifestUrl = options.manifestUrl || process.env.AERON_UPDATE_MANIFEST_URL;
   const defaultGithubReleaseUrl = "https://api.github.com/repos/Lara2026ss/aero-fluxer-x/releases/latest";
@@ -232,7 +242,7 @@ export async function checkForUpdates(options = {}) {
   }
 
   if (!latestVersion || !downloadUrl) {
-    return {
+    const res = {
       ok: true,
       currentVersion: CURRENT_VERSION,
       latestVersion: latestVersion || CURRENT_VERSION,
@@ -241,6 +251,9 @@ export async function checkForUpdates(options = {}) {
       message: "Aero Fluxer X v" + CURRENT_VERSION + " está al día.",
       releaseNotes,
     };
+    _updateCheckCache = res;
+    _updateCheckCacheTime = Date.now();
+    return res;
   }
 
   const eligibility = checkUpdateEligibility(CURRENT_VERSION, latestVersion, {
@@ -267,6 +280,8 @@ export async function checkForUpdates(options = {}) {
     },
   };
 
+  _updateCheckCache = result;
+  _updateCheckCacheTime = Date.now();
   await logUpdaterMessage(repoRoot, "info", `Comprobación finalizada. Versión actual: v${CURRENT_VERSION}, remota: v${latestVersion}. Actualización disponible: ${eligibility.eligible}`);
   return result;
 }
@@ -429,6 +444,7 @@ export async function runPostUpdateSelfCheck(repoRoot) {
  * @returns {Promise<object>}
  */
 export async function executeAutoUpdate(options = {}) {
+  _updateCheckCache = null;
   const repoRoot = options.repoRoot || process.cwd();
   const storage = getStorageStructure(repoRoot);
   const updateStartTime = Date.now();
