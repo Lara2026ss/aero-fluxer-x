@@ -20,6 +20,7 @@ import { createPackagesDomain } from "../tools/packages.mjs";
 import { createDatabaseDomain } from "../tools/database.mjs";
 import { createSecurityDomain } from "../tools/security.mjs";
 import { createShortcutsDomain } from "../tools/shortcuts.mjs";
+import { createGuideDomain } from "../tools/guide.mjs";
 
 // ── Utilidades compartidas ───────────────────────────────────────────────────
 
@@ -417,6 +418,7 @@ export class Registry {
       { createNetworkDomain: networkFactory } = {},
       { createDiagnosticsDomain: diagnosticsFactory } = {},
       { createDeveloperDomain: developerFactory } = {},
+      { createGuideDomain: guideFactory } = {},
     ] = await Promise.all([
       import(`../tools/files.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/system.mjs?t=${ts}`).catch(() => ({})),
@@ -428,6 +430,7 @@ export class Registry {
       import(`../tools/network.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/diagnostics.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/developer.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/guide.mjs?t=${ts}`).catch(() => ({})),
     ]);
 
     const domains = [
@@ -441,6 +444,7 @@ export class Registry {
       ...(networkFactory ? [networkFactory({ runtime, dns, net, domain })] : []),
       ...(diagnosticsFactory ? [diagnosticsFactory({ runtime, domain, fs })] : []),
       ...(developerFactory ? [developerFactory({ runtime, domain, fs, path })] : []),
+      ...(guideFactory ? [guideFactory({ runtime, domain })] : []),
     ];
 
     this.modules = new Map(domains.map((d) => [d.name, d]));

@@ -589,7 +589,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
             completed: false,
             continue_wait: true,
             message: `Espera síncrona de ${CLIENT_SAFE_MAX_SECONDS}s completada. Tramo seguro ejecutado para prevenir corte de conexión por timeout de cliente (~4 min).`,
-            instruction_for_ai: `DEBES INVOCAR INMEDIATAMENTE de nuevo 'system.wait({ seconds: ${remainingSeconds} })' para completar el tiempo solicitado restante y luego continuar con tu plan.`,
+            instruction_for_ai: `Aviso: El temporizador alcanzó el límite seguro por token. Para completar el tiempo restante, por favor invoca 'system.wait({ seconds: ${remainingSeconds} })'.`,
           };
         }
 

@@ -619,8 +619,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
             const raw2 = reqEnd !== undefined ? Math.max(1, reqEnd) : raw1 + 99;
             const start = Math.max(1, Math.min(raw1, raw2));
             const end = Math.min(totalLines, Math.max(raw1, raw2));
-            let sliced = lines.slice(start - 1, end);
-            if (compact) sliced = sliced.filter(l => l.trim() !== "");
+            let sliced = lines.slice(start - 1, end).map((l, i) => ({ text: l, num: start + i }));
+            if (compact) sliced = sliced.filter(l => l.text.trim() !== "");
             return {
               ok: true,
               path: target,
@@ -628,7 +628,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
               endLine: end,
               totalLines,
               linesReturned: sliced.length,
-              content: includeLineNumbers ? sliced.map((l, i) => `${start + i}: ${l}`).join("\n") : sliced.join("\n"),
+              content: includeLineNumbers ? sliced.map(l => `${l.num}: ${l.text}`).join("\n") : sliced.map(l => l.text).join("\n"),
               encoding,
             };
           }
@@ -639,8 +639,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
             const pg = Math.max(1, Number(page) || 1);
             const totalPages = Math.max(1, Math.ceil(totalLines / lpp));
             const start = (pg - 1) * lpp;
-            let sliced = lines.slice(start, start + lpp);
-            if (compact) sliced = sliced.filter(l => l.trim() !== "");
+            let sliced = lines.slice(start, start + lpp).map((l, i) => ({ text: l, num: start + i + 1 }));
+            if (compact) sliced = sliced.filter(l => l.text.trim() !== "");
             return {
               ok: true,
               path: target,
@@ -652,34 +652,36 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
               hasMore: pg < totalPages,
               nextPage: pg < totalPages ? pg + 1 : null,
               prevPage: pg > 1 ? pg - 1 : null,
-              content: includeLineNumbers ? sliced.map((l, i) => `${start + i + 1}: ${l}`).join("\n") : sliced.join("\n"),
+              content: includeLineNumbers ? sliced.map(l => `${l.num}: ${l.text}`).join("\n") : sliced.map(l => l.text).join("\n"),
             };
           }
 
           // 3. Head / Tail / MaxLines
+          let mappedLines = lines.map((l, i) => ({ text: l, num: i + 1 }));
+          
           if (head !== undefined) {
             const n = Math.max(0, Number(head));
-            lines = lines.slice(0, n);
+            mappedLines = mappedLines.slice(0, n);
           } else if (tail !== undefined) {
             const n = Math.max(0, Number(tail));
-            lines = lines.slice(-n);
+            mappedLines = mappedLines.slice(-n);
           } else if (maxLines !== undefined) {
             const n = Math.max(0, Number(maxLines));
-            lines = lines.slice(0, n);
+            mappedLines = mappedLines.slice(0, n);
           } else if (stat.size > 300 * 1024 && totalLines > 500) {
-            lines = lines.slice(0, 500);
+            mappedLines = mappedLines.slice(0, 500);
             truncated = true;
             warning = `Archivo grande (${(stat.size / 1024).toFixed(1)} KB, ${totalLines} líneas). Se retornaron las primeras 500 líneas. Usa 'files.read_file_range' o los parámetros 'startLine'/'endLine' o 'page' con 'linesPerPage' para explorar el resto.`;
           }
 
-          if (compact) lines = lines.filter(l => l.trim() !== "");
+          if (compact) mappedLines = mappedLines.filter(l => l.text.trim() !== "");
 
           return {
             ok: true,
             path: target,
-            content: includeLineNumbers ? lines.map((l, i) => `${i + 1}: ${l}`).join("\n") : lines.join("\n"),
+            content: includeLineNumbers ? mappedLines.map(l => `${l.num}: ${l.text}`).join("\n") : mappedLines.map(l => l.text).join("\n"),
             totalLines,
-            linesReturned: lines.length,
+            linesReturned: mappedLines.length,
             encoding,
             ...(truncated ? { truncated, warning } : {}),
           };
@@ -708,11 +710,11 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           const raw2 = Math.max(1, eLine);
           const start = Math.min(raw1, raw2);
           const end = Math.min(totalLines, Math.max(raw1, raw2));
-          let sliced = lines.slice(start - 1, end);
-          if (compact) sliced = sliced.filter(l => l.trim() !== "");
+          let sliced = lines.slice(start - 1, end).map((l, i) => ({ text: l, num: start + i }));
+          if (compact) sliced = sliced.filter(l => l.text.trim() !== "");
           const formatted = includeLineNumbers
-            ? sliced.map((l, i) => `${start + i}: ${l}`).join("\n")
-            : sliced.join("\n");
+            ? sliced.map(l => `${l.num}: ${l.text}`).join("\n")
+            : sliced.map(l => l.text).join("\n");
           return {
             ok: true,
             path: target,

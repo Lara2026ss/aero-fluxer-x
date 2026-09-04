@@ -1,3 +1,23 @@
+# Changelog
+
+## [v10.0.0] - 2026-09-04
+### Added
+- Nuevo Permission Engine con modelo de Workflow temporal.
+- Persistencia de estados de elevación en SQLite para tolerancia a reboots.
+- Nivel de seguridad dmintotaluser.
+- Herramienta security.start_workflow, get_workflow, evoke_workflow.
+- Nuevo dominio de guide (Domain #12) interno.
+- Lógica de SemVer centralizada en core/version.mjs.
+- Test de arquitectura automatizados.
+
+### Changed
+- Refactor completo del subsistema de permisos de usuario.
+- compact: true mejorado en iles.list_directory y iles.read_text_file (preservando whitespace importante y línea original).
+- Notificaciones de system.wait suavizadas para IA.
+- Renombrado de "Aeron Fluxer X" a "Fluxer X" progresivamente.
+
+### Deprecated
+- grant_elevation y métodos legacy de permisos migrados a workflows.
 # Changelog de Aero Fluxer X
 
 Todos los cambios notables en este proyecto serÃ¡n documentados en este archivo.
@@ -267,3 +287,4 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 - `core/version.mjs` como Ãºnica fuente de verdad SemVer para todo el servidor.
 - `tools/shortcuts.mjs` adaptado para leer y escribir exclusivamente en el almacenamiento local del usuario.
 - `core/runtime.mjs` y `core/config.mjs` desacoplados de rutas fijas locales.
+

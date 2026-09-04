@@ -46,7 +46,9 @@ export class MemoryStore {
           scope TEXT NOT NULL,
           expires_at TEXT,
           reason TEXT,
-          revoked_at TEXT
+          revoked_at TEXT,
+          principal TEXT,
+          workflow_id TEXT UNIQUE
         );
 
         CREATE TABLE IF NOT EXISTS successful_routes (
@@ -76,17 +78,16 @@ export class MemoryStore {
         CREATE INDEX IF NOT EXISTS idx_history_client ON history(client, ts);
         CREATE INDEX IF NOT EXISTS idx_history_ok ON history(ok, ts);
         CREATE INDEX IF NOT EXISTS idx_permissions_scope ON permissions(scope, expires_at, revoked_at);
+        CREATE INDEX IF NOT EXISTS idx_permissions_principal ON permissions(principal);
         CREATE INDEX IF NOT EXISTS idx_routes_goal_hash ON successful_routes(goal_hash);
         CREATE INDEX IF NOT EXISTS idx_routes_reliability ON successful_routes(reliability DESC, last_used DESC);
         CREATE INDEX IF NOT EXISTS idx_knowledge_notes_ts ON knowledge_notes(ts DESC, id DESC);
         CREATE INDEX IF NOT EXISTS idx_kv_section_key ON kv(section, key);
       `);
 
-      try {
-        this.db.exec("ALTER TABLE history ADD COLUMN error TEXT");
-      } catch (e) {
-        // Ignorar si la columna ya existe
-      }
+      try { this.db.exec("ALTER TABLE history ADD COLUMN error TEXT"); } catch (e) {}
+      try { this.db.exec("ALTER TABLE permissions ADD COLUMN principal TEXT"); } catch (e) {}
+      try { this.db.exec("ALTER TABLE permissions ADD COLUMN workflow_id TEXT UNIQUE"); } catch (e) {}
 
       // Migración y depuración de la tabla errors antigua
       try {
@@ -325,32 +326,49 @@ export class MemoryStore {
     // No-op en MCP 4.0 para optimizar el rendimiento y evitar I/O de disco innecesario
   }
 
-  grantPermission({ level, scope, expiresAt, reason }) {
+  grantPermission({ level, scope, expiresAt, reason, principal = 'default', workflowId = null }) {
     this.db
       .prepare(
-        "INSERT INTO permissions(level, scope, expires_at, reason) VALUES (?, ?, ?, ?)",
+        "INSERT INTO permissions(level, scope, expires_at, reason, principal, workflow_id) VALUES (?, ?, ?, ?, ?, ?)",
       )
       .run(
         level,
         scope,
         expiresAt ? new Date(expiresAt).toISOString() : null,
         reason ?? null,
+        principal,
+        workflowId
       );
   }
 
-  revokePermissions(scope) {
+  revokePermissions(scope, principal = null) {
     const now = new Date().toISOString();
-    const query = scope
-      ? "UPDATE permissions SET revoked_at = ? WHERE scope = ? AND revoked_at IS NULL"
-      : "UPDATE permissions SET revoked_at = ? WHERE revoked_at IS NULL";
-    this.db.prepare(query).run(now, ...(scope ? [scope] : []));
+    let query = "UPDATE permissions SET revoked_at = ? WHERE revoked_at IS NULL";
+    const params = [now];
+    
+    if (scope) {
+      query += " AND scope = ?";
+      params.push(scope);
+    }
+    
+    if (principal) {
+      query += " AND principal = ?";
+      params.push(principal);
+    }
+    
+    this.db.prepare(query).run(...params);
+  }
+
+  revokeWorkflow(workflowId) {
+    const now = new Date().toISOString();
+    this.db.prepare("UPDATE permissions SET revoked_at = ? WHERE workflow_id = ? AND revoked_at IS NULL").run(now, workflowId);
   }
 
   activePermissions() {
     return this.db
       .prepare(
         `
-      SELECT level, scope, expires_at AS expiresAt, reason, ts
+      SELECT level, scope, expires_at AS expiresAt, reason, ts, principal, workflow_id AS workflowId
       FROM permissions
       WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
       ORDER BY ts DESC

@@ -99,7 +99,43 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     permissions_active: async () => {
       return { ok: true, activeLevel: runtime.permissions?.currentLevel() || "user" };
     },
+    
+    start_workflow: async ({ level = "poweruser", durationMinutes = 20, reason = "Solicitado por IA", principal = "default" } = {}) => {
+      try {
+        // Validación estricta
+        if (typeof durationMinutes !== 'number' || isNaN(durationMinutes) || !isFinite(durationMinutes) || durationMinutes <= 0) {
+          return { ok: false, error: "durationMinutes debe ser un número positivo mayor que 0." };
+        }
+        if (durationMinutes > 240) {
+          return { ok: false, error: "durationMinutes no puede exceder los 240 minutos (4 horas)." };
+        }
+        
+        const wf = runtime.permissions.startWorkflow({ level, durationMinutes, reason, principal });
+        return { ok: true, ...wf, message: `Workflow temporal activado exitosamente por ${durationMinutes} minutos. Mantén un buen uso.` };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+    
+    get_workflow: async ({ principal = "default" } = {}) => {
+      try {
+        const wf = runtime.permissions.getWorkflow(principal);
+        if (!wf) return { ok: true, status: "inactive" };
+        return { ok: true, ...wf };
+      } catch(e) {
+        return { ok: false, error: e.message };
+      }
+    },
+    
+    revoke_workflow: async ({ principal = "default" } = {}) => {
+      try {
+        return runtime.permissions.revokeWorkflow({ principal });
+      } catch(e) {
+        return { ok: false, error: e.message };
+      }
+    },
 
+    // DEPRECATED: redirect to start_workflow (manteniendo firmas para compatibilidad)
     grant_permission: async ({ scope = "*", role = "poweruser", level, minutes = 5, ...args } = {}) => {
       try {
         return runtime.permissions.grant({ scope, level: level || role, minutes, ...args });
@@ -108,6 +144,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       }
     },
 
+    // DEPRECATED
     revoke_permission: async ({ scope } = {}) => {
       try {
         return runtime.permissions.revoke({ scope });
@@ -175,6 +212,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, count: entries.length, entries };
     },
 
+    // DEPRECATED
     grant_elevation: async ({ durationMinutes = 20, reason = "Permiso total de administración" } = {}) => {
       return runtime.permissions.grantElevation({ durationMinutes, reason });
     },
@@ -189,6 +227,9 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
   };
 
   const permissions = {
+    start_workflow: "user",
+    get_workflow: "user",
+    revoke_workflow: "user",
     grant_permission: "admin",
     revoke_permission: "admin",
     grant_elevation: "user",

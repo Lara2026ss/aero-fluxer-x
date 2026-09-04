@@ -51,6 +51,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
           host_id: hostId,
           nodeVersion: snapshot.binaries.node.version || process.version,
           securityMode: runtime.permissions?.currentLevel() || "NORMAL",
+          workflow: runtime.permissions?.getWorkflow ? runtime.permissions.getWorkflow("default") : null,
           checks: { pass: 11, fail: 0, status: "ALL_SYSTEMS_OPERATIONAL" }
         };
       }
@@ -71,6 +72,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         pythonVersion: snapshot.binaries.python.version || "N/A",
         effectivePath: snapshot.effectivePath,
         securityMode: runtime.permissions?.currentLevel() || "NORMAL",
+        workflow: runtime.permissions?.getWorkflow ? runtime.permissions.getWorkflow("default") : null,
         toolchain: snapshot.binaries,
         diagnostics: baseHealth,
       };
