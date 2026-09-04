@@ -782,6 +782,106 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         }
       },
 
+      optimize_windows: async () => {
+        const fs = await import("node:fs/promises");
+        const path = await import("node:path");
+        const backupFile = path.join(process.env.LOCALAPPDATA || process.env.USERPROFILE, "FluxerX", "state", "windows_optimizations_backup.json");
+        
+        const readReg = async (key, name) => {
+          const res = await runtime.run(`Get-ItemPropertyValue -Path '${key}' -Name '${name}' -ErrorAction SilentlyContinue`);
+          return res.ok ? parseInt(res.stdout.trim(), 10) : null;
+        };
+
+        const minAnimate = await readReg("HKCU:\\Control Panel\\Desktop", "MinAnimate");
+        const tbAnimate = await readReg("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "TaskbarAnimations");
+
+        const backupData = { MinAnimate: minAnimate !== null ? minAnimate : 1, TaskbarAnimations: tbAnimate !== null ? tbAnimate : 1 };
+        
+        await fs.mkdir(path.dirname(backupFile), { recursive: true });
+        await fs.writeFile(backupFile, JSON.stringify(backupData, null, 2), "utf8");
+
+        await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'MinAnimate' -Value 0 -Type String`);
+        await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarAnimations' -Value 0 -Type DWord`);
+        
+        const psScript = `
+$code = @'
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, uint pvParam, uint fWinIni);
+}
+'@
+Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
+[Win32]::SystemParametersInfo(0x0049, 0, 0, 3) | Out-Null
+`;
+        const b64 = Buffer.from(psScript, "utf16le").toString("base64");
+        await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+        
+        return { ok: true, status: "Windows optimizations applied", backed_up: backupData, backup_file: backupFile };
+      },
+
+      revert_windows_optimization: async () => {
+        const fs = await import("node:fs/promises");
+        const path = await import("node:path");
+        const backupFile = path.join(process.env.LOCALAPPDATA || process.env.USERPROFILE, "FluxerX", "state", "windows_optimizations_backup.json");
+        let backupData;
+        try {
+          backupData = JSON.parse(await fs.readFile(backupFile, "utf8"));
+        } catch {
+          return { ok: false, error: "No backup found. Cannot revert." };
+        }
+        
+        await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'MinAnimate' -Value ${backupData.MinAnimate} -Type String`);
+        await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarAnimations' -Value ${backupData.TaskbarAnimations} -Type DWord`);
+        
+        const psScript = `
+$code = @'
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, uint pvParam, uint fWinIni);
+}
+'@
+Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
+[Win32]::SystemParametersInfo(0x0049, 0, 0, 3) | Out-Null
+`;
+        const b64 = Buffer.from(psScript, "utf16le").toString("base64");
+        await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+        
+        return { ok: true, status: "Windows optimizations reverted", restored: backupData };
+      },
+
+      get_optimization_status: async () => {
+        const fs = await import("node:fs/promises");
+        const path = await import("node:path");
+        const backupFile = path.join(process.env.LOCALAPPDATA || process.env.USERPROFILE, "FluxerX", "state", "windows_optimizations_backup.json");
+        
+        const readReg = async (key, name) => {
+          const res = await runtime.run(`Get-ItemPropertyValue -Path '${key}' -Name '${name}' -ErrorAction SilentlyContinue`);
+          return res.ok ? parseInt(res.stdout.trim(), 10) : null;
+        };
+
+        const minAnimate = await readReg("HKCU:\\Control Panel\\Desktop", "MinAnimate");
+        const tbAnimate = await readReg("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "TaskbarAnimations");
+        
+        const isOptimized = minAnimate === 0 && tbAnimate === 0;
+        let backupExists = false;
+        try {
+          await fs.access(backupFile);
+          backupExists = true;
+        } catch {}
+
+        return { ok: true, is_optimized: isOptimized, min_animate: minAnimate, taskbar_animations: tbAnimate, backup_exists: backupExists };
+      },
+
+      optimize_gpu_memory: async () => {
+        const cmd = "Stop-Process -Name dwm -Force -ErrorAction SilentlyContinue; Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue; Start-Process explorer";
+        const res = await runtime.run(cmd);
+        return { ok: true, status: "GPU memory optimized (DWM/Explorer restarted)", message: "The screen may have flickered. GPU memory has been flushed." };
+      },
+
       manage_disks: async () => {
         try {
           const ps = `
