@@ -25,7 +25,13 @@ export function createShortcutsDomain({ runtime, path, fs, domain }) {
   async function persist() {
     const data = {};
     for (const [name, s] of runtime._shortcuts.entries()) data[name] = s;
-    try { await fs.writeFile(shortcutsFile, JSON.stringify(data, null, 2), "utf8"); } catch {}
+    try {
+      const dir = nodePath.dirname(shortcutsFile);
+      if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
+      const tmpFile = `${shortcutsFile}.tmp`;
+      await fs.writeFile(tmpFile, JSON.stringify(data, null, 2), "utf8");
+      await fs.rename(tmpFile, shortcutsFile);
+    } catch {}
   }
 
   async function loadFromDisk() {
@@ -209,6 +215,33 @@ export function createShortcutsDomain({ runtime, path, fs, domain }) {
     return { ok: true, imported, skipped, total: runtime._shortcuts.size, storedAt: shortcutsFile };
   };
 
+  const backupAction = async ({ destination } = {}) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const defaultDst = shortcutsFile.replace(/\.json$/, `_backup_${timestamp}.json`);
+    const dst = destination ? runtime.hp(destination) : defaultDst;
+    try {
+      if (fsSync.existsSync(shortcutsFile)) {
+        await fs.copyFile(shortcutsFile, dst);
+        return { ok: true, path: dst, count: runtime._shortcuts.size };
+      }
+      return { ok: false, error: "No hay archivo de shortcuts para respaldar." };
+    } catch (e) { return { ok: false, error: e.message }; }
+  };
+
+  const restoreAction = async ({ source } = {}) => {
+    if (!source) return { ok: false, error: "El parámetro 'source' es requerido." };
+    try {
+      const src = runtime.hp(source);
+      if (!fsSync.existsSync(src)) return { ok: false, error: "Archivo de respaldo no encontrado." };
+      const tmpFile = `${shortcutsFile}.tmp`;
+      await fs.copyFile(src, tmpFile);
+      await fs.rename(tmpFile, shortcutsFile);
+      runtime._shortcuts.clear();
+      await loadFromDisk();
+      return { ok: true, source: src, restored: runtime._shortcuts.size };
+    } catch (e) { return { ok: false, error: e.message }; }
+  };
+
   const actions = {
     create: createAction, save: createAction, create_shortcut: createAction, add_shortcut: createAction,
     update: updateAction, edit: updateAction,
@@ -221,6 +254,8 @@ export function createShortcutsDomain({ runtime, path, fs, domain }) {
     history: historyAction,
     export_shortcuts: exportAction,
     import_shortcuts: importAction,
+    backup_shortcuts: backupAction,
+    restore_shortcuts: restoreAction,
     reload: async () => { runtime._shortcuts.clear(); await loadFromDisk(); return { ok: true, loaded: runtime._shortcuts.size, storedAt: shortcutsFile }; },
   };
 
