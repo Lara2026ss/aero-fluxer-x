@@ -9,6 +9,12 @@ import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
 import { getClientRestartNotice } from "../core/client-restart.mjs";
 import { unwrapArgs } from "../core/json-utils.mjs";
 
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { VerificationEngine } from "../core/verification.mjs";
+
+const execAsync = promisify(exec);
+
 export function createDeveloperDomain({ runtime, domain, fs, path }) {
   function parseSkillFrontmatter(rawText) {
     const match = rawText.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
@@ -1220,6 +1226,186 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
       return { ok: false, error: "Dominio diagnostics no disponible." };
     },
+
+    git_status_structured: async ({ path: repoPath = "." } = {}) => {
+      const targetDir = runtime.hp(repoPath);
+      try {
+        const { stdout: isRepo } = await execAsync("git rev-parse --is-inside-work-tree", { cwd: targetDir });
+        if (isRepo.trim() !== "true") {
+          return { ok: false, error: "NOT_GIT_REPOSITORY", message: "La ruta especificada no pertenece a un repositorio Git." };
+        }
+
+        const { stdout: topLevel } = await execAsync("git rev-parse --show-toplevel", { cwd: targetDir });
+        const { stdout: rawBranch } = await execAsync("git rev-parse --abbrev-ref HEAD", { cwd: targetDir });
+        const branch = rawBranch.trim();
+        const isDetached = branch === "HEAD";
+
+        const { stdout: statusRaw } = await execAsync("git status --porcelain=v1 -b", { cwd: targetDir });
+        const lines = statusRaw.split(/\r?\n/).filter(Boolean);
+
+        let ahead = 0;
+        let behind = 0;
+        const branchHeader = lines[0] || "";
+        const aheadMatch = branchHeader.match(/ahead (\d+)/);
+        const behindMatch = branchHeader.match(/behind (\d+)/);
+        if (aheadMatch) ahead = parseInt(aheadMatch[1], 10);
+        if (behindMatch) behind = parseInt(behindMatch[1], 10);
+
+        const staged = [];
+        const unstaged = [];
+        const untracked = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          const x = line[0];
+          const y = line[1];
+          const file = line.slice(3).trim();
+
+          if (x === "?" && y === "?") {
+            untracked.push(file);
+          } else {
+            if (x !== " " && x !== "?") staged.push({ file, status: x });
+            if (y !== " " && y !== "?") unstaged.push({ file, status: y });
+          }
+        }
+
+        return {
+          ok: true,
+          repoRoot: topLevel.trim(),
+          branch,
+          isDetached,
+          isClean: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,
+          ahead,
+          behind,
+          staged,
+          unstaged,
+          untracked,
+          summary: `${staged.length} staged, ${unstaged.length} unstaged, ${untracked.length} untracked.`
+        };
+      } catch (e) {
+        return { ok: false, error: "GIT_FAILED", message: e.message };
+      }
+    },
+
+    git_diff_summary: async ({ staged = false, path: repoPath = "." } = {}) => {
+      const targetDir = runtime.hp(repoPath);
+      try {
+        const cmd = staged ? "git diff --cached --numstat" : "git diff --numstat";
+        const { stdout: raw } = await execAsync(cmd, { cwd: targetDir });
+        const lines = raw.split(/\r?\n/).filter(Boolean);
+
+        const files = [];
+        let totalInsertions = 0;
+        let totalDeletions = 0;
+
+        for (const line of lines) {
+          const parts = line.split(/\t/);
+          if (parts.length >= 3) {
+            const ins = parts[0] === "-" ? 0 : parseInt(parts[0], 10) || 0;
+            const del = parts[1] === "-" ? 0 : parseInt(parts[1], 10) || 0;
+            const file = parts.slice(2).join("\t").trim();
+            const binary = parts[0] === "-" && parts[1] === "-";
+            totalInsertions += ins;
+            totalDeletions += del;
+            files.push({ file, insertions: ins, deletions: del, binary });
+          }
+        }
+
+        return {
+          ok: true,
+          mode: staged ? "staged" : "working_tree",
+          filesChanged: files.length,
+          totalInsertions,
+          totalDeletions,
+          files
+        };
+      } catch (e) {
+        return { ok: false, error: "GIT_DIFF_FAILED", message: e.message };
+      }
+    },
+
+    git_switch_identity: async ({ account, name, email, path: repoPath = "." } = {}) => {
+      const targetDir = runtime.hp(repoPath);
+      let targetName = name;
+      let targetEmail = email;
+
+      if (account) {
+        const storageFile = path.join(runtime.root, "..", "storage", "github_accounts.json");
+        try {
+          const raw = await fs.readFile(storageFile, "utf8");
+          const data = JSON.parse(raw);
+          if (data.accounts?.[account]) {
+            targetName = data.accounts[account].username;
+            targetEmail = data.accounts[account].email;
+          }
+        } catch {}
+      }
+
+      if (!targetName || !targetEmail) {
+        return {
+          ok: false,
+          error: "INVALID_IDENTITY",
+          message: "Se requiere especificar 'account' (ej. 'Agy-Leo', 'Lara2026ss') o 'name' y 'email'."
+        };
+      }
+
+      try {
+        await execAsync(`git config --local user.name "${targetName}"`, { cwd: targetDir });
+        await execAsync(`git config --local user.email "${targetEmail}"`, { cwd: targetDir });
+
+        const verification = await VerificationEngine.verifyGitIdentity(targetDir, {
+          expectedName: targetName,
+          expectedEmail: targetEmail
+        });
+
+        if (!verification.verified) {
+          return {
+            ok: false,
+            error: "VERIFICATION_FAILED",
+            message: verification.reason
+          };
+        }
+
+        return {
+          ok: true,
+          activeIdentity: { name: targetName, email: targetEmail },
+          verified: true,
+          repoPath: targetDir
+        };
+      } catch (e) {
+        return { ok: false, error: "GIT_CONFIG_FAILED", message: e.message };
+      }
+    },
+
+    git_log_compact: async ({ maxCount = 10, path: repoPath = "." } = {}) => {
+      const targetDir = runtime.hp(repoPath);
+      const limit = Math.max(1, Math.min(Number(maxCount) || 10, 100));
+      try {
+        const { stdout: raw } = await execAsync(
+          `git log -n ${limit} --pretty=format:"%H|%h|%an|%ae|%aI|%s"`,
+          { cwd: targetDir }
+        );
+        const commits = raw.split(/\r?\n/).filter(Boolean).map(line => {
+          const [hash, shortHash, author, email, date, ...msgParts] = line.split("|");
+          return {
+            hash,
+            shortHash,
+            author,
+            email,
+            date,
+            message: msgParts.join("|")
+          };
+        });
+
+        return {
+          ok: true,
+          count: commits.length,
+          commits
+        };
+      } catch (e) {
+        return { ok: false, error: "GIT_LOG_FAILED", message: e.message };
+      }
+    },
   };
 
   return domain(
@@ -1245,6 +1431,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       upd_check: "user",
       upd_info: "user",
       upd: "poweruser",
+      git_status_structured: "user",
+      git_diff_summary: "user",
+      git_switch_identity: "poweruser",
+      git_log_compact: "user",
       list_feedbacks: "poweruser",
       read_feedback: "poweruser",
       delete_feedback: "poweruser",

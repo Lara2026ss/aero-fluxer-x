@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// 🧪 FLUXER MCP v6.5 — Suite de Verificación Masiva Completa
-// Valida los 10 dominios MCP, plugin flonnet, router, nuevas herramientas y rendimiento
+// 🚀 AERON FLUXER X — Verificación Integral de Dominios y Herramientas
+// Valida los dominios MCP, router, nuevas herramientas y rendimiento
 // ══════════════════════════════════════════════════════════════════════════════
 
 import path from "node:path";
@@ -101,7 +101,7 @@ async function runVerification() {
   await test("Crear base de datos SQLite", "database", "create_database", { database: testDb });
   await test("Crear tabla y registrar datos", "database", "execute_query", {
     database: testDb,
-    query: "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, role TEXT); INSERT INTO users (name, role) VALUES ('Leo', 'Admin'), ('Aether', 'AI');",
+    query: "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, role TEXT); INSERT INTO users (name, role) VALUES ('Leo', 'Admin'), ('Dev', 'Developer');",
   });
   await test("Consultar datos", "database", "execute_query", { database: testDb, query: "SELECT * FROM users;" });
   await test("Analizar base de datos (analyze_database)", "database", "analyze_database", { database: testDb });
@@ -112,11 +112,9 @@ async function runVerification() {
   await test("Verificar estado de URL (check_url_status)", "web", "check_url_status", { url: "https://httpbin.org/status/200" });
   await test("Búsqueda web", "web", "search_web", { query: "Node.js documentation" });
 
-  console.log("\n--- 7. Dominio 'ai' & Plugin 'flonnet' ---");
-  await test("Estado de Flonnet Aether", "ai", "status");
-  await test("Contador de tokens estimado", "ai", "count_tokens", { text: "Fluxer MCP v6.5 es un sistema modular de herramientas." });
-  await test("Consulta directa a Flonnet (ask)", "ai", "ask", { prompt: "Responde solo con 'OK'." });
-  await test("Razonamiento analítico (think)", "ai", "think", { prompt: "Analiza el estado del sistema." });
+  console.log("\n--- 6. Dominio 'network' & 'diagnostics' ---");
+  await test("Diagnóstico rápido del sistema", "diagnostics", "compact_status");
+  await test("Verificar toolchain", "diagnostics", "resolve_toolchain");
 
   console.log("\n--- 8. Dominio 'shortcuts' (Macros & Variables Dinámicas) ---");
   await test("Crear shortcut con variables", "shortcuts", "create", {

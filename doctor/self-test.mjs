@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 🩺 AERON FLUXER X DOCTOR — doctor/self-test.mjs
  * Verification-of-the-Verifier / Self-Integrity Suite.
  * Demuestra empíricamente que el propio Doctor Engine detecta y rechaza falsos PASS.
@@ -7,6 +7,12 @@
 import { checkInvariant } from "./invariants.mjs";
 import { VerificationEngine } from "../core/verification.mjs";
 import { DeployIdentityEngine } from "../core/deploy-identity.mjs";
+import { Validator } from "../core/validator.mjs";
+import { OperationEngine } from "../core/operation-engine.mjs";
+import { CachePolicyEngine } from "../core/cache-policy.mjs";
+import { redactSecrets } from "../core/memory.mjs";
+import { createDeveloperDomain } from "../tools/developer.mjs";
+import { createSystemDomain } from "../tools/system.mjs";
 
 export async function runSelfTest(runtime) {
   const engine = new VerificationEngine({ runtime });
@@ -14,7 +20,7 @@ export async function runSelfTest(runtime) {
   const invariantResults = [];
 
   console.log("==================================================================");
-  console.log("🩺 DOCTOR SELF-TEST: VERIFICACIÓN DE AUTO-INTEGRIDAD (INV-001..INV-010)");
+  console.log("🩺 DOCTOR SELF-TEST: VERIFICACIÓN DE AUTO-INTEGRIDAD (INV-001..INV-020)");
   console.log("==================================================================\n");
 
   // 1. INV-001: No False PASS (Fake 200 con discrepancia de estado)
@@ -104,6 +110,80 @@ export async function runSelfTest(runtime) {
   const allPassedSoFar = invariantResults.every(r => r.passed);
   invariantResults.push(checkInvariant("INV_010", allPassedSoFar, { totalEvaluated: invariantResults.length }));
 
+  // 11. INV-011: Process Termination Verification
+  const termVerify = await VerificationEngine.verifyProcessTerminated(9999999, { maxWaitMs: 50 });
+  invariantResults.push(checkInvariant("INV_011", termVerify.verified === true && termVerify.state === "TERMINATED", termVerify));
+
+  // 12. INV-012: Critical Process Protection
+  let pid0Blocked = false;
+  let pid4Blocked = false;
+  let selfBlocked = false;
+  try { Validator.validatePid(0); } catch { pid0Blocked = true; }
+  try { Validator.validatePid(4); } catch { pid4Blocked = true; }
+  try { Validator.validatePid(process.pid); } catch { selfBlocked = true; }
+  invariantResults.push(checkInvariant("INV_012", pid0Blocked && pid4Blocked && selfBlocked, { pid0Blocked, pid4Blocked, selfBlocked }));
+
+  // 13. INV-013: File Mutation Physical Verification
+  const fileWrittenVerify = await VerificationEngine.verifyFileWritten("package.json", { minBytes: 10 });
+  invariantResults.push(checkInvariant("INV_013", fileWrittenVerify.verified === true && fileWrittenVerify.actualBytes > 0, fileWrittenVerify));
+
+  // 14. INV-014: Git Identity Integrity
+  const gitIdVerify = await VerificationEngine.verifyGitIdentity(process.cwd(), { expectedName: "Agy-Leo" });
+  invariantResults.push(checkInvariant("INV_014", gitIdVerify.verified === true && gitIdVerify.identity.name === "Agy-Leo", gitIdVerify));
+
+  // 15. INV-015: FTS5 Secret Redaction
+  const sampleSecret = "token: ghp_123456789012345678901234567890123456";
+  const sampleRedacted = redactSecrets(sampleSecret);
+  const secretRedactedOk = !sampleRedacted.includes("123456789012345678901234567890123456") && sampleRedacted.includes("[REDACTED]");
+  invariantResults.push(checkInvariant("INV_015", secretRedactedOk, { sampleRedacted }));
+
+  // 16. INV-016: Structured Git Status Cleanliness
+  const devDomain = createDeveloperDomain({
+    runtime,
+    path: await import("node:path"),
+    fs: await import("node:fs/promises"),
+    domain: (name, desc, actions) => ({ actions })
+  });
+  const gitStatusRes = await devDomain.actions.git_status_structured();
+  const gitStatusOk = gitStatusRes.ok && Array.isArray(gitStatusRes.staged) && Array.isArray(gitStatusRes.unstaged) && Array.isArray(gitStatusRes.untracked);
+  invariantResults.push(checkInvariant("INV_016", gitStatusOk, gitStatusRes));
+
+  // 17. INV-017: Process Hierarchy Determinism
+  const sysDomain = createSystemDomain({
+    runtime,
+    os: await import("node:os"),
+    dns: {},
+    net: {},
+    domain: (name, desc, actions) => ({ actions }),
+    httpFetchText: () => {},
+    sendNativeNotification: () => {}
+  });
+  const procTreeRes = await sysDomain.actions.process_tree({ pid: process.pid });
+  const procTreeOk = procTreeRes.ok && procTreeRes.tree && procTreeRes.tree.pid === process.pid;
+  invariantResults.push(checkInvariant("INV_017", procTreeOk, procTreeRes));
+
+  // 18. INV-018: Port Ownership Determinism
+  const portOwnerRes = await sysDomain.actions.inspect_port_owner({ port: 59199 });
+  const portOwnerOk = portOwnerRes.ok && portOwnerRes.inUse === false;
+  invariantResults.push(checkInvariant("INV_018", portOwnerOk, portOwnerRes));
+
+  // 19. INV-019: Cache In-Flight Deduplication
+  const cachePolicy = new CachePolicyEngine({ runtime });
+  let dedupExecs = 0;
+  const dedupFn = async () => { dedupExecs++; await new Promise(r => setTimeout(r, 20)); return "ok"; };
+  await Promise.all([cachePolicy.deduplicate("k1", dedupFn), cachePolicy.deduplicate("k1", dedupFn)]);
+  invariantResults.push(checkInvariant("INV_019", dedupExecs === 1, { dedupExecs }));
+
+  // 20. INV-020: Deterministic Operation Id Tracing
+  const opEngine = new OperationEngine({ runtime });
+  const opRes = await opEngine.execute({
+    domain: "doctor",
+    action: "ping",
+    execute: async () => ({ pong: true })
+  });
+  const opIdOk = opRes.ok && typeof opRes.operationId === "string" && opRes.operationId.startsWith("op_");
+  invariantResults.push(checkInvariant("INV_020", opIdOk, opRes));
+
   let passCount = 0;
   let failCount = 0;
 
@@ -118,7 +198,7 @@ export async function runSelfTest(runtime) {
   }
 
   console.log("\n==================================================================");
-  console.log(`📊 DOCTOR SELF-TEST RESULTADO: ${failCount === 0 ? "10/10 INVARIANTES CUMPLIDAS" : "FALLOS DETECTADOS"}`);
+  console.log(`📊 DOCTOR SELF-TEST RESULTADO: ${failCount === 0 ? "20/20 INVARIANTES CUMPLIDAS" : "FALLOS DETECTADOS"}`);
   console.log("==================================================================\n");
 
   return {

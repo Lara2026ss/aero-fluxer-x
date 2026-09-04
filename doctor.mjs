@@ -74,11 +74,11 @@ async function main() {
     errors++;
   }
 
-  // 3. Doctor Self-Test (FASE 0.75 — INV-001 a INV-010)
-  console.log(`\n  ${BOLD}${CYAN}── FASE 0.75: Self-Integrity & 10 Invariants ──${RESET}`);
+  // 3. Doctor Self-Test (FASE 0.75 — INV-001 a INV-020)
+  console.log(`\n  ${BOLD}${CYAN}── FASE 0.75: Self-Integrity & 20 Invariants ──${RESET}`);
   const selfTest = await runSelfTest(runtime);
   if (selfTest.ok) {
-    console.log(`  ${GREEN}✓${RESET} Doctor Self-Test: ${CYAN}10/10 Invariantes Cumplidas (INV-001..INV-010)${RESET}`);
+    console.log(`  ${GREEN}✓${RESET} Doctor Self-Test: ${CYAN}20/20 Invariantes Cumplidas (INV-001..INV-020)${RESET}`);
   } else {
     console.log(`  ${RED}✗${RESET} Doctor Self-Test: ${RED}${selfTest.failCount} invariantes fallidas${RESET}`);
     errors++;

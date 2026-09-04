@@ -302,6 +302,7 @@ export async function startServer() {
       } catch {}
       return mcpText({
         ok: false,
+        operationId: error?.operationId || undefined,
         tool: req.params.name,
         action: actionName,
         error: message,

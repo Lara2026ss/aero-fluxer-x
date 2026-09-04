@@ -2,6 +2,19 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+export function redactSecrets(text) {
+  if (typeof text !== "string") return text;
+  let redacted = text;
+  redacted = redacted.replace(/ghp_[a-zA-Z0-9]{36}/gi, "ghp_[REDACTED]");
+  redacted = redacted.replace(/github_pat_[a-zA-Z0-9_]{50,}/gi, "github_pat_[REDACTED]");
+  redacted = redacted.replace(/gho_[a-zA-Z0-9]{36}/gi, "gho_[REDACTED]");
+  redacted = redacted.replace(/-----BEGIN[ A-Z_-]+PRIVATE KEY-----[\s\S]*?-----END[ A-Z_-]+PRIVATE KEY-----/gi, "[REDACTED_PRIVATE_KEY]");
+  redacted = redacted.replace(/(["']?(?:api[_-]?key|secret|token|password|auth[_-]?token)["']?\s*[:=]\s*["']?)([^"'\s\r\n]{8,})(["']?)/gi, (m, pre, secret, post) => {
+    return `${pre}[REDACTED]${post}`;
+  });
+  return redacted;
+}
+
 export class MemoryStore {
   constructor({ file, legacyFile }) {
     this.file = file;
@@ -50,13 +63,6 @@ export class MemoryStore {
           principal TEXT,
           workflow_id TEXT UNIQUE
         );
-      `);
-
-      // Migración segura para bases de datos existentes de versiones previas
-      try { this.db.exec("ALTER TABLE permissions ADD COLUMN principal TEXT;"); } catch {}
-      try { this.db.exec("ALTER TABLE permissions ADD COLUMN workflow_id TEXT;"); } catch {}
-
-      this.db.exec(`
 
         CREATE TABLE IF NOT EXISTS successful_routes (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,6 +87,35 @@ export class MemoryStore {
           project_path TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ts TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          tags TEXT NOT NULL DEFAULT '[]',
+          category TEXT NOT NULL DEFAULT 'general',
+          project_path TEXT
+        );
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+          title,
+          content,
+          tags,
+          content='notes',
+          content_rowid='id'
+        );
+
+        CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+          INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
+        END;
+        CREATE TRIGGER IF NOT EXISTS notes_ad AFTER DELETE ON notes BEGIN
+          INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
+        END;
+        CREATE TRIGGER IF NOT EXISTS notes_au AFTER UPDATE ON notes BEGIN
+          INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
+          INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
+        END;
+
         CREATE INDEX IF NOT EXISTS idx_history_tool_action ON history(tool, action, ts);
         CREATE INDEX IF NOT EXISTS idx_history_client ON history(client, ts);
         CREATE INDEX IF NOT EXISTS idx_history_ok ON history(ok, ts);
@@ -89,6 +124,8 @@ export class MemoryStore {
         CREATE INDEX IF NOT EXISTS idx_routes_goal_hash ON successful_routes(goal_hash);
         CREATE INDEX IF NOT EXISTS idx_routes_reliability ON successful_routes(reliability DESC, last_used DESC);
         CREATE INDEX IF NOT EXISTS idx_knowledge_notes_ts ON knowledge_notes(ts DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_notes_ts ON notes(ts DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category, ts DESC);
         CREATE INDEX IF NOT EXISTS idx_kv_section_key ON kv(section, key);
       `);
 
@@ -543,6 +580,98 @@ export class MemoryStore {
         (a, b) => b.score - a.score || String(b.ts).localeCompare(String(a.ts)),
       )
       .slice(0, Math.min(Number(limit) || 8, 50));
+  }
+
+  rememberNote({ title, content, tags = [], category = "general", projectPath = null } = {}) {
+    if (!title || !content) throw new Error("title and content are required");
+    const rawTitle = String(title);
+    const rawContent = String(content);
+    const cleanTitle = redactSecrets(rawTitle);
+    const cleanContent = redactSecrets(rawContent);
+    const wasRedacted = cleanTitle !== rawTitle || cleanContent !== rawContent;
+
+    const parsedTags = Array.isArray(tags) ? tags.map(String) : [String(tags)];
+    const cleanTags = parsedTags.map(t => redactSecrets(t));
+    const cleanCat = String(category || "general").trim();
+    const cleanPath = projectPath ? String(projectPath) : null;
+
+    const res = this.db.prepare(`
+      INSERT INTO notes(title, content, tags, category, project_path)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(cleanTitle, cleanContent, JSON.stringify(cleanTags), cleanCat, cleanPath);
+
+    return {
+      id: Number(res.lastInsertRowid),
+      title: cleanTitle,
+      content: cleanContent,
+      tags: cleanTags,
+      category: cleanCat,
+      projectPath: cleanPath,
+      redacted: wasRedacted
+    };
+  }
+
+  searchNotes({ query, tag, category, limit = 20 } = {}) {
+    const maxLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+    const params = [];
+
+    let hasQuery = false;
+    let sql = "";
+
+    if (query && String(query).trim().length > 0) {
+      hasQuery = true;
+      const terms = String(query)
+        .trim()
+        .replace(/["*]/g, "")
+        .split(/\s+/)
+        .filter(Boolean);
+
+      if (terms.length > 0) {
+        const ftsQuery = terms.map(t => `"${t}"*`).join(" ");
+        sql = `
+          SELECT notes.id, notes.ts, notes.title, notes.content, notes.tags, notes.category,
+                 notes.project_path AS projectPath, bm25(notes_fts) AS rank
+          FROM notes_fts
+          JOIN notes ON notes.id = notes_fts.rowid
+          WHERE notes_fts MATCH ?
+        `;
+        params.push(ftsQuery);
+
+        if (category) {
+          sql += " AND notes.category = ?";
+          params.push(String(category));
+        }
+
+        sql += " ORDER BY rank LIMIT ?";
+        params.push(maxLimit);
+      }
+    }
+
+    if (!hasQuery) {
+      sql = `
+        SELECT id, ts, title, content, tags, category, project_path AS projectPath
+        FROM notes
+      `;
+      if (category) {
+        sql += " WHERE category = ?";
+        params.push(String(category));
+      }
+      sql += " ORDER BY ts DESC, id DESC LIMIT ?";
+      params.push(maxLimit);
+    }
+
+    const rows = this.db.prepare(sql).all(...params);
+    let results = rows.map(r => ({
+      ...r,
+      tags: this.safeParseJson(r.tags, [])
+    }));
+
+    if (tag) {
+      const filterTag = String(tag).toLowerCase();
+      results = results.filter(r => r.tags.some(t => String(t).toLowerCase() === filterTag));
+    }
+
+    return results;
   }
 
   stats() {

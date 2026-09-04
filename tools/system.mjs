@@ -3,6 +3,9 @@
  * Dominio: diagnóstico de hardware, entorno, clipboard, servicios, red, energía y actualizaciones.
  */
 import { CURRENT_VERSION } from "../core/version.mjs";
+import { Validator } from "../core/validator.mjs";
+import { VerificationEngine } from "../core/verification.mjs";
+import { FluxerError, ERROR_CODES } from "../core/errors.mjs";
 
 const SYSTEM_CRITICAL_PROCESSES = new Set([
   "csrss", "lsass", "services", "smss", "wininit", "dwm", "explorer", "svchost",
@@ -297,7 +300,13 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       // ── Red ─────────────────────────────────────────────────────────────────
       ping: async ({ host = "8.8.8.8", count = 3 } = {}) => {
         const n = Math.min(Number(count) || 3, 10);
-        const cmd = `ping -n ${n} ${runtime.shellQuote(host)}`;
+        const safeHost = runtime.shellQuote(host);
+        let cmd;
+        if (process.platform === "win32") {
+          cmd = `$oem = [System.Globalization.CultureInfo]::InstalledUICulture.TextInfo.OEMCodePage; [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding($oem); $raw = ping -n ${n} ${safeHost} | Out-String; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::Out.Write($raw);`;
+        } else {
+          cmd = `ping -c ${n} ${safeHost}`;
+        }
         const res = await runtime.run(cmd);
         return { ok: res.ok, host, output: res.stdout };
       },
@@ -499,7 +508,27 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       get_windows_update_status: async () => {
         const cmd = "Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 10 HotFixID,Description,InstalledOn | ConvertTo-Json";
         const res = await runtime.run(cmd);
-        try { return { ok: true, recentUpdates: JSON.parse(res.stdout) }; }
+        const parseDotNetDate = (val) => {
+          if (typeof val === "string") {
+            const m = val.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+            if (m) return new Date(Number(m[1])).toISOString();
+          } else if (val && typeof val === "object") {
+            if (val.value && typeof val.value === "string") {
+              const m = val.value.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+              if (m) return new Date(Number(m[1])).toISOString();
+            }
+          }
+          return val;
+        };
+        try {
+          let updates = JSON.parse(res.stdout);
+          if (!Array.isArray(updates)) updates = [updates];
+          updates = updates.map(u => ({
+            ...u,
+            InstalledOn: parseDotNetDate(u.InstalledOn)
+          }));
+          return { ok: true, recentUpdates: updates };
+        }
         catch { return { ok: true, raw: res.stdout }; }
       },
 
@@ -577,7 +606,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         const CLIENT_SAFE_MAX_SECONDS = 180; // 180 segundos (3 minutos)
         const CLIENT_SAFE_MAX_MS = CLIENT_SAFE_MAX_SECONDS * 1000;
 
-        if (requestedMs > CLIENT_SAFE_MAX_MS && !force) {
+        if (requestedMs > CLIENT_SAFE_MAX_SECONDS * 1000 && !force) {
           await new Promise((r) => setTimeout(r, CLIENT_SAFE_MAX_MS));
           const remainingSeconds = requestedSeconds - CLIENT_SAFE_MAX_SECONDS;
 
@@ -585,6 +614,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
             ok: true,
             waitedSeconds: CLIENT_SAFE_MAX_SECONDS,
             requestedSeconds,
+            sleptMs: CLIENT_SAFE_MAX_MS,
             remainingSeconds,
             completed: false,
             continue_wait: true,
@@ -599,6 +629,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
           ok: true,
           waitedSeconds: requestedSeconds,
           requestedSeconds,
+          sleptMs: requestedMs,
           remainingSeconds: 0,
           completed: true,
           message: `Espera síncrona de ${requestedSeconds}s completada exitosamente. Continúa con tu trabajo.`,
@@ -962,6 +993,208 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
           return { ok: false, error: err.message };
         }
       },
+
+      inspect_port_owner: async ({ port, protocol = "TCP" } = {}) => {
+        try {
+          const validPort = Validator.validatePort(port, { required: true });
+          const proto = String(protocol || "TCP").toUpperCase();
+          if (proto !== "TCP" && proto !== "UDP") {
+            return { ok: false, error: "Protocolo no soportado. Use 'TCP' o 'UDP'.", code: "INVALID_INPUT" };
+          }
+
+          if (process.platform === "win32") {
+            const ps = `
+$port = ${validPort}
+$conn = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1 OwningProcess, LocalAddress, LocalPort, State
+if (-not $conn) {
+  $lines = netstat -ano | Select-String ":$port\\s"
+  if ($lines) {
+    $first = ($lines[0].Line.Trim() -split '\\s+')
+    $pidNum = [int]$first[-1]
+    $proc = Get-CimInstance Win32_Process -Filter "ProcessId = $pidNum" -ErrorAction SilentlyContinue | Select-Object ProcessId, Name, ExecutablePath, CommandLine
+    [PSCustomObject]@{
+      found = $true
+      port = $port
+      pid = $pidNum
+      processName = $proc.Name
+      executablePath = $proc.ExecutablePath
+      commandLine = $proc.CommandLine
+      state = "Listening"
+      localAddress = "0.0.0.0"
+    } | ConvertTo-Json -Compress
+    exit 0
+  }
+  [PSCustomObject]@{ found = $false; port = $port } | ConvertTo-Json -Compress
+  exit 0
+}
+$proc = Get-CimInstance Win32_Process -Filter "ProcessId = $($conn.OwningProcess)" -ErrorAction SilentlyContinue | Select-Object ProcessId, Name, ExecutablePath, CommandLine
+[PSCustomObject]@{
+  found = $true
+  port = $port
+  pid = $conn.OwningProcess
+  processName = $proc.Name
+  executablePath = $proc.ExecutablePath
+  commandLine = $proc.CommandLine
+  state = [string]$conn.State
+  localAddress = [string]$conn.LocalAddress
+} | ConvertTo-Json -Compress
+`;
+            const b64 = Buffer.from(ps, "utf16le").toString("base64");
+            const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+            if (res.stdout) {
+              try {
+                const data = JSON.parse(res.stdout);
+                if (!data.found) {
+                  return { ok: true, inUse: false, port: validPort, message: `El puerto ${validPort} está libre.` };
+                }
+                return {
+                  ok: true,
+                  inUse: true,
+                  port: validPort,
+                  pid: data.pid,
+                  processName: data.processName || "Unknown",
+                  executablePath: data.executablePath || null,
+                  commandLine: data.commandLine || null,
+                  state: data.state,
+                  localAddress: data.localAddress
+                };
+              } catch (err) {
+                return { ok: false, error: "PARSE_ERROR", message: err.message };
+              }
+            }
+            return { ok: true, inUse: false, port: validPort, message: `El puerto ${validPort} no reporta conexiones activas.` };
+          }
+          return { ok: false, error: "UNSUPPORTED_PLATFORM" };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
+        }
+      },
+
+      process_tree: async ({ pid, maxDepth = 5 } = {}) => {
+        const targetPid = pid !== undefined && pid !== null && pid !== ""
+          ? Validator.validatePid(pid, { required: false, protectSystemPids: false, protectSelf: false })
+          : null;
+        const depth = Math.max(1, Math.min(Number(maxDepth) || 5, 10));
+
+        if (process.platform === "win32") {
+          const ps = `
+Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, CommandLine | ConvertTo-Json -Compress
+`;
+          const b64 = Buffer.from(ps, "utf16le").toString("base64");
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+          if (!res.stdout) {
+            return { ok: false, error: "PROCESS_QUERY_FAILED", message: res.stderr || "No se pudo consultar Win32_Process." };
+          }
+          let procList = [];
+          try {
+            procList = JSON.parse(res.stdout);
+            if (!Array.isArray(procList)) procList = [procList];
+          } catch (e) {
+            return { ok: false, error: "PARSE_ERROR", message: e.message };
+          }
+
+          const procMap = new Map();
+          for (const p of procList) {
+            procMap.set(p.ProcessId, { ...p, children: [] });
+          }
+
+          for (const p of procList) {
+            if (p.ParentProcessId && procMap.has(p.ParentProcessId)) {
+              procMap.get(p.ParentProcessId).children.push(p.ProcessId);
+            }
+          }
+
+          function buildNode(pId, currDepth) {
+            const item = procMap.get(pId);
+            if (!item) return null;
+            const node = {
+              pid: item.ProcessId,
+              parentPid: item.ParentProcessId,
+              name: item.Name,
+              commandLine: item.CommandLine || null,
+              children: []
+            };
+            if (currDepth < depth) {
+              for (const childPid of item.children) {
+                const childNode = buildNode(childPid, currDepth + 1);
+                if (childNode) node.children.push(childNode);
+              }
+            }
+            return node;
+          }
+
+          if (targetPid !== null) {
+            const rootNode = buildNode(targetPid, 0);
+            if (!rootNode) {
+              return { ok: false, error: "PID_NOT_FOUND", message: `El PID ${targetPid} no fue encontrado entre los procesos activos.` };
+            }
+            return { ok: true, targetPid, tree: rootNode };
+          }
+
+          const currentNode = buildNode(process.pid, 0);
+          return {
+            ok: true,
+            currentProcessPid: process.pid,
+            tree: currentNode,
+            totalProcesses: procList.length
+          };
+        }
+
+        return { ok: false, error: "UNSUPPORTED_PLATFORM" };
+      },
+
+      kill_process_tree: async ({ pid, force = true } = {}) => {
+        try {
+          const validPid = Validator.validatePid(pid, { required: true, protectSystemPids: true, protectSelf: true });
+
+          if (process.platform === "win32") {
+            try {
+              const ps = `Get-Process -Id ${validPid} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ProcessName`;
+              const chk = await runtime.run(`powershell -NoProfile -NonInteractive -Command "${ps}"`);
+              const pName = (chk.stdout || "").trim().toLowerCase();
+              if (pName && SYSTEM_CRITICAL_PROCESSES.has(pName)) {
+                throw new FluxerError(`Operación denegada: El proceso '${pName}' (PID ${validPid}) es un proceso crítico del sistema operativo.`, {
+                  code: ERROR_CODES.SECURITY_BLOCKED,
+                  details: { pid: validPid, processName: pName }
+                });
+              }
+            } catch (e) {
+              if (e instanceof FluxerError) throw e;
+            }
+
+            if (runtime.processes) {
+              await runtime.processes.killProcessTree(validPid);
+            } else {
+              const { exec } = await import("node:child_process");
+              const { promisify } = await import("node:util");
+              const execAsync = promisify(exec);
+              await execAsync(`taskkill /F /T /PID ${validPid}`).catch(() => {});
+            }
+
+            const verification = await VerificationEngine.verifyProcessTerminated(validPid, { maxWaitMs: 2500 });
+            if (!verification.verified) {
+              return {
+                ok: false,
+                error: "TERMINATION_VERIFICATION_FAILED",
+                pid: validPid,
+                reason: verification.reason
+              };
+            }
+
+            return {
+              ok: true,
+              pid: validPid,
+              verified: true,
+              state: "TERMINATED",
+              message: `Árbol del proceso ${validPid} terminado y verificado físicamente.`
+            };
+          }
+
+          return { ok: false, error: "UNSUPPORTED_PLATFORM" };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
+        }
+      },
   };
 
   // Alias intuitivos para llamadas de LLMs
@@ -971,9 +1204,23 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
   actions.snapshot = actions.get_system_snapshot;
   actions.free_ram = actions.clean_ram;
 
+  const permissions = {
+    kill_process_tree: "poweruser",
+    terminate_process: "poweruser",
+    kill_process_by_name: "poweruser",
+    bcd_manager: "admin",
+    apply_windows_optimization: "poweruser",
+    revert_windows_optimization: "poweruser",
+    optimize_gpu_memory: "poweruser",
+    clean_ram: "user",
+    inspect_port_owner: "user",
+    process_tree: "user",
+  };
+
   return domain(
     "system",
     "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.",
-    actions
+    actions,
+    permissions
   );
 }

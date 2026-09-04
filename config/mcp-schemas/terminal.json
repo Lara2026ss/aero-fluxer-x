@@ -1,7 +1,7 @@
 {
   "name": "terminal",
   "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema.\nAcciones y argumentos (usar en args): admin_terminal {} | attach_session { sessionId } | close_session { sessionId } | command { command, timeout, cwd, env, shell, stripAnsi, maxOutputChars } | create_session { sessionId, cwd, env } | exec { command, timeout, cwd, env, shell, stripAnsi, maxOutputChars } | execute { command, timeout, cwd, env, shell, stripAnsi, maxOutputChars } | execute_command { command, timeout, cwd, env, shell, stripAnsi, maxOutputChars } | get_background_output { taskId, pid, tailLines } | kill_background_task { taskId, pid } | kill_process { pid } | kill_process_tree { pid } | list_background_tasks {} | list_processes { filterName, limit, sortBy } | list_sessions { id, cwd, createdAt, updatedAt, historyCount, envKeysCount } | open_file_explorer { path } | open_url { url } | run_admin_command {} | run_as_admin { command, cwd } | run_background { command, cwd } | run_command { command, timeout, cwd, env, shell, stripAnsi, maxOutputChars } | run_inline_script { code, language, args, cwd, timeout, stripAnsi } | run_script { path, args, interpreter, cwd, env, timeout, stripAnsi, maxOutputChars } | run_session_command { sessionId, command, cwd, env } | stop_background_task { taskId, pid } | terminal_admin {} | wait_for_background_task { taskId, pid, timeoutMs, pollIntervalMs }",
-  "parameters": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
@@ -44,6 +44,7 @@
     },
     "required": [
       "action"
-    ]
+    ],
+    "additionalProperties": false
   }
 }

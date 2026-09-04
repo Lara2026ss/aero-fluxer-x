@@ -1,7 +1,7 @@
 {
   "name": "database",
-  "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).\nAcciones y argumentos (usar en args): analyze_database { database } | backup_database { database, destination } | create_database { database } | delete_database { database } | describe { database, table } | describe_table { database, table } | execute_query { engine, database, query, user, password, host } | execute_script { engine, database, scriptFile } | explain_query { database, query } | export_table { database, table, format, destination } | import_table { database, table, data, source } | list_tables { database } | query { engine, database, query, user, password, host } | restore_database { database, source } | schema { database, table } | script { engine, database, scriptFile } | search_tables { database } | show_tables { database } | tables { database }",
-  "parameters": {
+  "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).\nAcciones y argumentos (usar en args): analyze_database { database } | backup_database { database, destination } | create_database { database } | delete_database { database } | describe { database, table } | describe_table { database, table } | execute_query { engine, database, query, user, password, host } | execute_script { engine, database, scriptFile } | explain_query { database, query } | export_table { database, table, format, destination } | import_table { database, table, data, source } | list_tables { database } | query { engine, database, query, user, password, host } | remember_note { title, content, tags, category, projectPath } | restore_database { database, source } | schema { database, table } | script { engine, database, scriptFile } | search_notes { query, tag, category, limit } | search_tables { database } | show_tables { database } | tables { database }",
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
@@ -20,9 +20,11 @@
           "import_table",
           "list_tables",
           "query",
+          "remember_note",
           "restore_database",
           "schema",
           "script",
+          "search_notes",
           "search_tables",
           "show_tables",
           "tables"
@@ -36,6 +38,7 @@
     },
     "required": [
       "action"
-    ]
+    ],
+    "additionalProperties": false
   }
 }

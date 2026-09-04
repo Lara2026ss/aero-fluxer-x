@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 🪟 AERON FLUXER X — core/verification.mjs
  * Motor Central de Verificación de Estado Real y Pipeline Estricto.
  */
@@ -118,4 +118,106 @@ export class VerificationEngine {
       verificationStatus: evalResult.status,
     });
   }
+
+  /**
+   * Verifica físicamente en disco que un archivo fue escrito correctamente.
+   */
+  static async verifyFileWritten(targetPath, { minBytes = 0 } = {}) {
+    const fs = await import("node:fs/promises");
+    try {
+      const stat = await fs.stat(targetPath);
+      if (stat.size < minBytes) {
+        return {
+          verified: false,
+          reason: `El archivo existe pero su tamaño (${stat.size}B) es menor al esperado (${minBytes}B).`,
+          actualBytes: stat.size,
+        };
+      }
+      return {
+        verified: true,
+        actualBytes: stat.size,
+        modifiedAt: stat.mtime.toISOString(),
+      };
+    } catch (e) {
+      return {
+        verified: false,
+        reason: `El archivo no se encuentra físicamente en el disco tras la escritura: ${e.message}`,
+      };
+    }
+  }
+
+  /**
+   * Verifica físicamente que un archivo fue eliminado y ya no existe.
+   */
+  static async verifyFileDeleted(targetPath) {
+    const fs = await import("node:fs/promises");
+    try {
+      await fs.access(targetPath);
+      return {
+        verified: false,
+        reason: `El archivo aún existe en disco después de la orden de eliminación.`,
+      };
+    } catch {
+      return { verified: true, state: "ABSENT" };
+    }
+  }
+
+  /**
+   * Verifica físicamente que un proceso de Windows ha terminado.
+   */
+  static async verifyProcessTerminated(pid, { maxWaitMs = 1500 } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      try {
+        process.kill(pid, 0); // Lanza excepción si el PID ya no existe
+        await new Promise((r) => setTimeout(r, 100));
+      } catch {
+        return { verified: true, pid, state: "TERMINATED" };
+      }
+    }
+    return {
+      verified: false,
+      pid,
+      reason: `El proceso con PID ${pid} sigue activo tras la orden de terminación.`,
+    };
+  }
+
+  /**
+   * Verifica la identidad local activa en un repositorio Git.
+   */
+  static async verifyGitIdentity(repoDir, { expectedName, expectedEmail } = {}) {
+    const { exec } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execAsync = promisify(exec);
+
+    try {
+      const { stdout: actualName } = await execAsync("git config --local user.name", { cwd: repoDir });
+      const { stdout: actualEmail } = await execAsync("git config --local user.email", { cwd: repoDir });
+
+      const name = actualName.trim();
+      const email = actualEmail.trim();
+
+      const nameMatches = expectedName ? name === expectedName : true;
+      const emailMatches = expectedEmail ? email === expectedEmail : true;
+
+      if (!nameMatches || !emailMatches) {
+        return {
+          verified: false,
+          reason: `La identidad Git no coincide. Esperado: ${expectedName} <${expectedEmail}>, Actual: ${name} <${email}>`,
+          actual: { name, email },
+        };
+      }
+
+      return {
+        verified: true,
+        identity: { name, email },
+      };
+    } catch (e) {
+      return {
+        verified: false,
+        reason: `No se pudo verificar la identidad Git en ${repoDir}: ${e.message}`,
+      };
+    }
+  }
 }
+

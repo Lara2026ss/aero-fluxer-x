@@ -23,6 +23,11 @@ import { AuditLog } from "./audit-log.mjs";
 import { CURRENT_VERSION, BRAND_NAME } from "./version.mjs";
 import { ensureUserDataInitialized } from "./storage-paths.mjs";
 import { FirstRunBootstrap } from "./bootstrap.mjs";
+import { OperationEngine } from "./operation-engine.mjs";
+import { ProcessLifecycleManager } from "./process-lifecycle.mjs";
+import { CachePolicyEngine } from "./cache-policy.mjs";
+import { Validator } from "./validator.mjs";
+import { FluxerError, ERROR_CODES } from "./errors.mjs";
 
 export async function createRuntime({ root, version = CURRENT_VERSION, brand = BRAND_NAME }) {
   // Guardia de plataforma adaptativa (Windows 10/11 preferido)
@@ -136,6 +141,11 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
     enabled: config.logging?.auditEnabled !== false,
   });
   await auditLog.init();
+
+  // Project X: Gestor de Ciclo de Vida de Procesos, Caché y Operation Engine
+  const processes = new ProcessLifecycleManager({ logger });
+  const cache = new CachePolicyEngine({ runtime: null });
+  const operations = new OperationEngine({ runtime: null });
 
   const buildMeta = await loadBuildMeta(root);
   const stateFile = path.join(dirs.runtime, "status.json");
@@ -500,6 +510,7 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
         }
       } catch {}
     }
+    processes.cleanupAll();
     await logger.close();
     auditLog.close();
     memory.close();
@@ -528,6 +539,11 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
     taskQueue,
     circuitBreaker,
     auditLog,
+    processes,
+    cache,
+    operations,
+    validator: Validator,
+    errors: { FluxerError, ERROR_CODES },
     client,
     buildMeta,
     stateFile,
@@ -550,4 +566,8 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
       shutdown: async () => ({ ok: false, reason: "not_ready" }),
     },
   };
+
+  operations.runtime = runtime;
+  cache.runtime = runtime;
+  return runtime;
 }

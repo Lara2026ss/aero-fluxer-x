@@ -1,7 +1,7 @@
 {
   "name": "network",
   "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces.\nAcciones y argumentos (usar en args): diagnose_network {} | dns_query { domain, rrtype } | get_interfaces { name, item } | scan_ports { host, ports, 443, 3000, 5000, 8000, 8080, 8765, timeoutMs } | test_connection { host, port, timeoutMs }",
-  "parameters": {
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
@@ -22,6 +22,7 @@
     },
     "required": [
       "action"
-    ]
+    ],
+    "additionalProperties": false
   }
 }

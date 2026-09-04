@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { Validator } from "../core/validator.mjs";
 
 let sqliteDbSync = null;
 try { sqliteDbSync = (await import("node:sqlite")).DatabaseSync; } catch {}
@@ -329,6 +330,51 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
       } catch (e) {
         return { ok: false, error: e.message };
       }
+    },
+
+    remember_note: async ({ title, content, tags = [], category = "general", projectPath = null } = {}) => {
+      try {
+        const validTitle = Validator.validateNonEmptyString(title, "title");
+        const validContent = Validator.validateNonEmptyString(content, "content");
+        if (!runtime.memory?.rememberNote) {
+          return { ok: false, error: "MEMORY_NOT_AVAILABLE", message: "El subsistema de memoria persistente no está inicializado." };
+        }
+        const note = runtime.memory.rememberNote({
+          title: validTitle,
+          content: validContent,
+          tags,
+          category,
+          projectPath
+        });
+        return {
+          ok: true,
+          note,
+          message: note.redacted
+            ? "Nota guardada con éxito en SQLite (se redactaron secretos sensibles detectados automáticamente)."
+            : "Nota guardada con éxito en SQLite y sincronizada en el índice FTS5."
+        };
+      } catch (err) {
+        return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
+      }
+    },
+
+    search_notes: async ({ query, tag, category, limit = 20 } = {}) => {
+      if (!runtime.memory?.searchNotes) {
+        return { ok: false, error: "MEMORY_NOT_AVAILABLE", message: "El subsistema de memoria persistente no está inicializado." };
+      }
+      try {
+        const notes = runtime.memory.searchNotes({ query, tag, category, limit });
+        return {
+          ok: true,
+          count: notes.length,
+          query: query || null,
+          category: category || null,
+          tag: tag || null,
+          notes
+        };
+      } catch (err) {
+        return { ok: false, error: "SEARCH_NOTES_FAILED", message: err.message };
+      }
     }
   };
 
@@ -341,5 +387,14 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
   actions.describe = actions.describe_table;
   actions.script = actions.execute_script;
 
-  return domain("database", "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).", actions, {});
+  const permissions = {
+    delete_database: "poweruser",
+    restore_database: "poweruser",
+    execute_query: "user",
+    explain_query: "user",
+    remember_note: "user",
+    search_notes: "user",
+  };
+
+  return domain("database", "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).", actions, permissions);
 }

@@ -73,6 +73,7 @@ export function normalizeWindowsPath(rawPath = process.env.PATH || "") {
     path.join(localAppData, "Programs", "Python", "Launcher"),
     path.join(localAppData, "Microsoft", "WinGet", "Links"),
     path.join(localAppData, "Microsoft", "WinGet", "Packages", "Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe", "cmd"),
+    path.join(localAppData, "Microsoft", "WindowsApps"),
     path.join(userProfile, ".cargo", "bin"),
     path.join(userProfile, ".dotnet", "tools"),
     "C:\\Program Files\\dotnet",
@@ -147,10 +148,13 @@ export async function resolveBinary(binaryName, customPath = null) {
       windowsHide: true,
     });
     const firstMatch = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean)[0];
-    if (firstMatch && existsSync(firstMatch)) {
-      const norm = path.normalize(firstMatch);
-      _binaryCache.set(cacheKey, { path: norm, ts: Date.now() });
-      return norm;
+    if (firstMatch) {
+      const isAppExecAlias = firstMatch.toLowerCase().includes("\\microsoft\\windowsapps\\");
+      if (isAppExecAlias || existsSync(firstMatch)) {
+        const norm = path.normalize(firstMatch);
+        _binaryCache.set(cacheKey, { path: norm, ts: Date.now() });
+        return norm;
+      }
     }
   } catch {}
 

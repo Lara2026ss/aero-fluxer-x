@@ -2,7 +2,7 @@
 
 > **Motor MCP de Nueva Generación para IA con Control de Sistema, Automatización de Archivos, Terminal Avanzada, Persistencia Aislada y Actualización Automática con Rollback.**
 
-[![Version](https://img.shields.io/badge/version-10.0.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-9.2.5-blue.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Linux%20(Adaptive)-informational.svg)](docs/ARCHITECTURE.md)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
@@ -11,46 +11,26 @@
 
 ## 📖 ¿Qué es Aero Fluxer X?
 
-**Aero Fluxer X** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) de alto rendimiento diseñado para potenciar a los modelos de Inteligencia Artificial (Claude Desktop, Antigravity, Cursor, etc.) con herramientas de nivel de sistema operativo: manipulación profunda de archivos y documentos (Word, Excel, PDF), ejecución de terminal y PowerShell con saneamiento UTF-8, gestión de bases de datos SQLite nativas, macros multi-paso locales, inspección de hardware/red, y un motor de actualización automática seguro con verificación criptográfica SHA-256 y rollback instantáneo.
-
----
-
-## 🚀 Fluxer Z (v10.0.0) — Novedades Arquitectónicas
-
-Con la llegada de **Project Z (v10.0.0)**, Fluxer X incorpora una profunda evolución en su motor de seguridad, ergonomía para IAs y preservación de contexto:
-
-1. **Permission Engine con Máquina de Estados de Workflows**:
-   - Escala jerárquica unificada: `guest → user → poweruser → admin → developer → admintotaluser`.
-   - Nivel por defecto: `user` (mínimo privilegio).
-   - Solicitudes temporales de elevación (`security.start_workflow`): 5 minutos por defecto. Al invocarse, el sistema emite `CONFIRMATION_REQUIRED` obligando a la IA a solicitar permiso explícito al usuario en el chat.
-   - **Tolerancia a Reinicios (Reboot Resilient)**: El estado de elevación se persiste en SQLite y se re-evalúa dinámicamente frente al reloj del sistema (`Date.now()`). Al expirar o reiniciarse el equipo fuera de plazo, los privilegios retornan automáticamente a `user`.
-2. **Nuevo Rol `admintotaluser`**:
-   - Máxima autoridad funcional dentro de las herramientas de Fluxer, sin omitir las validaciones críticas de integridad y seguridad.
-3. **Dominio Guide (Domain #12)**:
-   - Permite a los modelos de IA consultar manuales internos en tiempo de ejecución (`guide.permissions_info`, `guide.best_practices`, `guide.tool_usage`), evitando alucinaciones o usos incorrectos de herramientas de alto impacto.
-4. **Optimización de Tokens (`compact: true`)**:
-   - Compresión inteligente en `files.list_directory` y `files.read_text_file` que ahorra hasta un 40% de tokens preservando estrictamente el sangrado y números de línea originales para código Python y YAML.
+**Aero Fluxer X** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) diseñado para potenciar a los modelos de Inteligencia Artificial (Claude Desktop, Antigravity, Cursor, etc.) con herramientas de nivel de sistema operativo: manipulación profunda de archivos y documentos (Word, Excel, PDF), ejecución de terminal y PowerShell con saneamiento UTF-8, gestión de bases de datos SQLite nativas, macros multi-paso locales, inspección de hardware/red, y un motor de actualización automática seguro con verificación criptográfica SHA-256 y rollback instantáneo.
 
 ---
 
 ## 🎯 Principales Capacidades y Dominios
 
-Aero Fluxer X expone **12 dominios modulares con 276 acciones verificadas empíricamente (100% PASS)**:
+Aero Fluxer X expone **10 dominios modulares con 265 acciones verificadas empíricamente (100% PASS)**:
 
 | Dominio | Descripción | Acciones Clave |
 |---|---|---|
 | 📁 **`files`** | Manipulación atómica de archivos, cirugía de líneas, búsqueda y reemplazo en lotes, hashing, compresión/extracción ZIP/tar y generación/lectura de `.docx`, `.xlsx` y `.pdf`. | `read_file`, `write_file`, `create_office_document`, `read_office_document`, `extract_archive` |
 | 💻 **`terminal`** | Ejecución de comandos en PowerShell/Bash con codificación UTF-8 garantizada, sesiones persistentes interactivas y control de procesos. | `run_command`, `create_session`, `run_session_command`, `kill_process` |
-| ⚙️ **`system`** | Métricas de hardware en tiempo real (CPU, RAM, discos), portabilidad, clipboard, gestión de servidores y auto-actualización. | `get_system_info`, `get_cpu_info`, `wait`, `reboot`, `shutdown` |
+| ⚙️ **`system`** | Métricas de hardware en tiempo real (CPU, RAM, discos), portabilidad, clipboard, gestión de servidores y auto-actualización. | `get_system_info`, `get_cpu_info`, `check_for_updates`, `apply_update`, `rollback_update` |
 | 🗄️ **`database`** | Motor SQLite nativo ultra-rápido para ejecución de DDL, consultas DML parametrizadas e introspección de esquemas. | `query_sqlite`, `execute_sqlite`, `list_tables`, `describe_table` |
 | ⚡ **`shortcuts`** | Automatización y macros multi-paso personalizables almacenadas de forma estrictamente local en el equipo del usuario. | `create_shortcut`, `execute_shortcut`, `list_shortcuts`, `update_shortcut` |
 | 📦 **`packages`** | Inspección y gestión de dependencias de software (npm, pip, winget, etc.). | `inspect_package_json`, `list_installed_packages`, `detect_package_manager` |
-| 🛡️ **`security`** | Permission Engine con Workflows, auditoría criptográfica, hashing y elevación temporal. | `start_workflow`, `get_workflow`, `revoke_workflow`, `approve_request` |
+| 🛡️ **`security`** | Límites de permisos dinámicos (SAFE, NORMAL, ELEVATED), enmascaramiento de secretos y auditoría. | `get_security_mode`, `set_security_mode`, `audit_action` |
 | 🌐 **`network`** | Diagnóstico de red, resolución DNS, ping, escaneo de puertos locales y peticiones HTTP estructuradas. | `ping_host`, `dns_lookup`, `check_port`, `fetch_url` |
 | 🩺 **`diagnostics`** | Auto-evaluación del estado del sistema, preflight de capacidades y análisis de invariantes. | `run_diagnostics`, `get_capabilities`, `verify_invariants` |
-| 🛠️ **`developer`** | Introspección del proyecto, escaneo de skills, feedback gateway y linters. | `inspect_project`, `detect_project`, `scan_skills`, `upd_check` |
-| 📖 **`guide`** | Manuales internos, directrices de seguridad y mejores prácticas para IAs en tiempo real. | `permissions_info`, `best_practices`, `tool_usage` |
-| 🔄 **`upd`** | Gestor autónomo de actualizaciones directas desde GitHub con integridad SHA-256 y rollback. | `check`, `info`, `apply`, `status` |
+| 🛠️ **`developer`** | Introspección del proyecto, escaneo de skills y linters. | `inspect_project`, `detect_project`, `scan_skills` |
 
 ---
 
@@ -261,13 +241,6 @@ aero-fluxer-x/
    npm run doctor
    ```
 5. Envía un Pull Request detallando los cambios y la evidencia de pruebas.
-
----
-
-## 👥 Equipo y Contribuidores
-
-- **Lara ([@Lara2026ss](https://github.com/Lara2026ss))** — Creadora, Arquitecta Principal y Líder de Desarrollo de Fluxer X.
-- **Agy-Leo ([@Agy-Leo](https://github.com/Agy-Leo))** — Co-desarrollador de IA (Antigravity), Arquitectura de Permisos (Project Z), Diagnósticos, Optimización de Contexto y Auditorías Forenses.
 
 ---
 

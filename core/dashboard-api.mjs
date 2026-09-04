@@ -529,6 +529,19 @@ export async function startDashboardApi({
     try {
       const url = new URL(req.url, `http://${host}:${port}`);
 
+      // Verificación de autenticación cuando FLUXER_DASHBOARD_TOKEN está configurado
+      const requiredToken = process.env.FLUXER_DASHBOARD_TOKEN || runtime?.config?.dashboard?.token;
+      if (requiredToken) {
+        const authHeader = req.headers["authorization"] || req.headers["x-fluxer-token"] || "";
+        const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+        const queryToken = url.searchParams.get("token") || "";
+        if (bearerToken !== requiredToken && queryToken !== requiredToken) {
+          res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: false, error: "Unauthorized: Invalid or missing dashboard token", code: "UNAUTHORIZED" }));
+          return;
+        }
+      }
+
       // ——— Endpoint HTML Dashboard: GET / o GET /dashboard ———
       if (
         req.method === "GET" &&

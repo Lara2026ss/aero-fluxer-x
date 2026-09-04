@@ -163,7 +163,8 @@ export class Router {
 
     // Soporte nativo para sleep / wait (ej: tool: "sleep", action: "5")
     if (["sleep", "wait", "delay"].includes(tool.toLowerCase())) {
-      const sec = Number(action) || Number(args.seconds) || Number(args.sec) || 1;
+      const parsedActionSec = Number(action);
+      const sec = (parsedActionSec > 0 ? parsedActionSec : null) || Number(args.seconds) || Number(args.sec) || Number(args.duration) || 1;
       tool = "system";
       action = "sleep";
       args = { seconds: sec, ...args };
@@ -445,8 +446,9 @@ export class Router {
 
     if (!resolved) throw new Error(`unknown route: ${tool}.${action}`);
 
-    // ID único de trazabilidad para toda la cadena de ejecución
-    const requestId = crypto.randomUUID();
+    // ID único de trazabilidad determinista para toda la cadena de ejecución
+    const operationId = this.runtime?.operations?.generateOperationId() || `op_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
+    const requestId = operationId;
     const started = performance.now();
 
     try {
@@ -456,11 +458,26 @@ export class Router {
       // CONFIRMATION_REQUIRED + requestId, se lo muestra al humano, y si
       // dice que sí llama a security.approve_request con ese requestId —
       // lo cual reintenta ESTA llamada exacta, no un grant general.
-      const required = this.runtime.permissions.requiredFor({ tool, action }, resolved.unit);
+      let required = this.runtime.permissions.requiredFor({ tool, action }, resolved.unit);
       const current = this.runtime.permissions.currentLevel();
       const trustedBypass = process.env.FLUXER_TRUSTED_CLIENT === "true" || this.runtime.config?.security?.trustedClient === true;
 
-      const needsMoreLevel = this.runtime.permissions.levelRank(current) < this.runtime.permissions.levelRank(required);
+      let needsMoreLevel = this.runtime.permissions.levelRank(current) < this.runtime.permissions.levelRank(required);
+
+      // AFX-FB-3WVGDU Fix: Prevención de escalamiento desatendido de workflow.
+      // Cuando se invoca start_workflow, grant_permission o grant_elevation,
+      // el nivel requerido debe ser el nivel objetivo pedido (ej: admintotaluser).
+      // Si el nivel solicitado supera al nivel actual, o se pide admintotaluser, o no hay elevación activa previa,
+      // se exige CONFIRMATION_REQUIRED puntual.
+      if (tool === "security" && ["start_workflow", "grant_permission", "grant_elevation"].includes(action)) {
+        const requestedTargetLevel = args.level || args.role || "poweruser";
+        const currentRank = this.runtime.permissions.levelRank(current);
+        const targetRank = this.runtime.permissions.levelRank(requestedTargetLevel);
+        if (targetRank > currentRank || requestedTargetLevel === "admintotaluser" || !this.runtime.permissions.isElevationActive?.()) {
+          needsMoreLevel = true;
+          required = requestedTargetLevel;
+        }
+      }
 
       // No basta con que el llamador mande "__confirmed: true": eso sería
       // trivial de falsificar y anularía todo el sistema. Se exige el
@@ -568,6 +585,7 @@ export class Router {
       if (typeof innerData === "object" && innerData !== null && !Array.isArray(innerData)) {
         response = {
           ok: isOk,
+          operationId,
           tool,
           action,
           durationMs,
@@ -577,6 +595,7 @@ export class Router {
       } else {
         response = {
           ok: isOk,
+          operationId,
           tool,
           action,
           durationMs,

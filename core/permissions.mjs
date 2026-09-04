@@ -335,14 +335,8 @@ export class PermissionEngine {
     return { ok: true, revoked: false, message: "No active workflow found for this principal." };
   }
 
-  isElevationActive(principal = "default") {
-    const wf = this.getWorkflow(principal);
-    if (!wf || wf.status !== "active") return false;
-    return this.levelRank(wf.level) >= this.levelRank("poweruser");
-  }
-
-  grantElevation(args = {}) {
-    return this.startWorkflow({ level: "admin", durationMinutes: args.durationMinutes || 5, reason: args.reason, principal: "default" });
+  grantElevation(args) {
+    return this.startWorkflow({ level: "admin", durationMinutes: args.durationMinutes, reason: args.reason, principal: "default" });
   }
 
   getElevationStatus() {
@@ -365,6 +359,11 @@ export class PermissionEngine {
       remaining_formatted: `${mins}m ${secs}s`,
       reason: wf.reason,
     };
+  }
+
+  isElevationActive(principal = "default") {
+    const wf = this.getWorkflow(principal);
+    return Boolean(wf && wf.remainingSeconds > 0);
   }
 
   revokeElevation() {

@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.0.0",
-  "description": "Fluxer X MCP v10.0.0 (Project Z) — Motor MCP modular de alto rendimiento para Windows 11",
+  "version": "10.1.0",
+  "description": "Fluxer X MCP v10.1.0 (Project X) — Core Optimization & Advanced Tooling para Windows 11",
   "type": "module",
   "main": "server.js",
   "bin": {
@@ -43,17 +43,5 @@
     "security"
   ],
   "author": "mau",
-  "contributors": [
-    {
-      "name": "Lara",
-      "email": "mauriciosalu2gg@gmail.com",
-      "url": "https://github.com/Lara2026ss"
-    },
-    {
-      "name": "Agy-Leo (Antigravity AI)",
-      "email": "mauriciosalu1gg@gmail.com",
-      "url": "https://github.com/Agy-Leo"
-    }
-  ],
   "license": "MIT"
 }

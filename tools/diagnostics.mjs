@@ -1,3 +1,5 @@
+import { CURRENT_VERSION } from "../core/version.mjs";
+
 export function createDiagnosticsDomain({ runtime, domain, fs }) {
   const actions = {
     self_test: async () => {
@@ -9,7 +11,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       checks.push({ name: "Security Mode", value: runtime.permissions?.currentLevel() || "NORMAL", status: "OK" });
       return {
         ok: true,
-        engine: "Aeron Fluxer X MCP v9.0.0",
+        engine: `Aeron Fluxer X MCP v${CURRENT_VERSION}`,
         health: "HEALTHY",
         checksCount: checks.length,
         checks
@@ -21,7 +23,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       const snapshot = await getToolchainSnapshot(forceRefresh);
       return {
         ok: true,
-        engine: "Aeron Fluxer X MCP v9.0.0",
+        engine: `Aeron Fluxer X MCP v${CURRENT_VERSION}`,
         platform: snapshot.platform,
         isWindowsOnly: snapshot.isWindowsOnly,
         effectivePath: snapshot.effectivePath,
@@ -31,7 +33,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       };
     },
 
-    health_check: async ({ expose_host_info = false, compact = false } = {}) => {
+    health_check: async ({ expose_host_info = false, compact = false, anonymize = false } = {}) => {
       const { getToolchainSnapshot } = await import("../core/toolchain.mjs");
       const os = await import("node:os");
       const crypto = await import("node:crypto");
@@ -40,14 +42,18 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       const baseHealth = await runHealthCheck({ runtime, registry: runtime._registry, config: runtime.config });
 
       const rawHostname = os.hostname();
-      const hostId = runtime.hostId || ("host-" + crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8));
+      const hostHash = crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8);
+      const hostId = runtime.hostId || ("host-" + hostHash);
+
+      const shouldAnonymize = Boolean(anonymize || process.env.FLUXER_PUBLIC_MODE === "true" || (runtime.config?.mode === "public"));
+      const displayHost = shouldAnonymize ? `host-${hostHash}` : rawHostname;
 
       if (compact) {
         return {
           ok: true,
           status: "HEALTHY",
           platform: "win32",
-          hostname: rawHostname,
+          hostname: displayHost,
           host_id: hostId,
           nodeVersion: snapshot.binaries.node.version || process.version,
           securityMode: runtime.permissions?.currentLevel() || "NORMAL",
@@ -56,13 +62,17 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         };
       }
 
+      const effectivePathSanitized = shouldAnonymize
+        ? (snapshot.effectivePath || "").replace(/C:[\\/]Users[\\/][^\\/;\\]+/gi, "C:\\Users\\<redacted>")
+        : snapshot.effectivePath;
+
       const result = {
         ok: true,
         platform: "win32",
         isWindowsOnly: true,
         osRelease: os.release(),
-        hostname: rawHostname,
-        display_hostname: rawHostname,
+        hostname: displayHost,
+        display_hostname: displayHost,
         host_id: hostId,
         shell: "powershell",
         powershellVersion: snapshot.binaries.powershell.version || "5.1",
@@ -70,23 +80,26 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         npmVersion: snapshot.binaries.npm.version || "N/A",
         gitVersion: snapshot.binaries.git.version || "N/A",
         pythonVersion: snapshot.binaries.python.version || "N/A",
-        effectivePath: snapshot.effectivePath,
+        effectivePath: effectivePathSanitized,
         securityMode: runtime.permissions?.currentLevel() || "NORMAL",
         workflow: runtime.permissions?.getWorkflow ? runtime.permissions.getWorkflow("default") : null,
         toolchain: snapshot.binaries,
         diagnostics: baseHealth,
       };
 
-      if (expose_host_info) result.workspaceRoot = runtime.root;
+      if (expose_host_info && !shouldAnonymize) result.workspaceRoot = runtime.root;
 
       return result;
     },
 
-    compact_status: async () => actions.health_check({ compact: true }),
+    compact_status: async ({ anonymize = false } = {}) => actions.health_check({ compact: true, anonymize }),
 
 
     benchmark: async ({ loops = 100 } = {}) => {
-      const n = Math.min(Math.max(1, Number(loops) || 100), 1000);
+      const requested = Number(loops) || 100;
+      const MAX_LOOPS = 5000;
+      const n = Math.min(Math.max(1, requested), MAX_LOOPS);
+      const isCapped = requested > MAX_LOOPS;
       const startTime = performance.now();
       for (let i = 0; i < n; i++) {
         runtime.shellQuote("benchmark_quote_" + i);
@@ -96,8 +109,29 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       return {
         ok: true,
         operations: n,
+        requested_loops: requested,
+        capped_to: isCapped ? MAX_LOOPS : undefined,
+        capped: isCapped,
+        warning: isCapped ? `El parámetro 'loops' (${requested}) fue limitado a ${MAX_LOOPS} para prevenir bloqueo del bucle de eventos.` : undefined,
         totalDurationMs: durationMs,
         avgOpMs: Number((durationMs / n).toFixed(4))
+      };
+    },
+
+    telemetry: async () => {
+      const mem = process.memoryUsage();
+      return {
+        ok: true,
+        uptimeSeconds: Math.round(process.uptime()),
+        memory: {
+          rssMb: Number((mem.rss / (1024 * 1024)).toFixed(2)),
+          heapUsedMb: Number((mem.heapUsed / (1024 * 1024)).toFixed(2)),
+          heapTotalMb: Number((mem.heapTotal / (1024 * 1024)).toFixed(2)),
+        },
+        operations: runtime.operations?.getSnapshot() || {},
+        processes: runtime.processes?.getSnapshot() || {},
+        cache: runtime.cache?.getMetrics() || {},
+        metrics: runtime.metrics?.snapshot() || {}
       };
     },
 

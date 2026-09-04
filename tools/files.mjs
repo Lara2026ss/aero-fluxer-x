@@ -7,6 +7,11 @@
  * @version 8.1.0
  * @param {object} ctx — { runtime, path, fs, crypto, domain, helpers }
  */
+import os from "node:os";
+import { Validator } from "../core/validator.mjs";
+import { VerificationEngine } from "../core/verification.mjs";
+import { FluxerError, ERROR_CODES } from "../core/errors.mjs";
+
 export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }) {
   const { getDirectoryTreeHelper, searchFilesHelper, grepFilesHelper, generateSimpleDiff, splitLines } = helpers;
 
@@ -141,6 +146,128 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       if (exts.includes(e)) return cat;
     }
     return "binary";
+  }
+
+  // ── Gestión dinámica y persistente de carpetas permitidas (Sandbox) ────────
+  const allowedConfigPath = runtime.dirs?.config ? path.join(runtime.dirs.config, "allowed_directories.json") : null;
+  let cachedDynamicAllowedDirs = null;
+
+  async function loadDynamicAllowedDirs() {
+    if (cachedDynamicAllowedDirs !== null) return cachedDynamicAllowedDirs;
+    if (!allowedConfigPath) {
+      cachedDynamicAllowedDirs = [];
+      return cachedDynamicAllowedDirs;
+    }
+    try {
+      const raw = await fs.readFile(allowedConfigPath, "utf8");
+      const parsed = JSON.parse(raw);
+      cachedDynamicAllowedDirs = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      cachedDynamicAllowedDirs = [];
+    }
+    return cachedDynamicAllowedDirs;
+  }
+
+  async function saveDynamicAllowedDirs(dirs) {
+    cachedDynamicAllowedDirs = dirs;
+    if (allowedConfigPath) {
+      try {
+        await fs.mkdir(path.dirname(allowedConfigPath), { recursive: true });
+        await fs.writeFile(allowedConfigPath, JSON.stringify(dirs, null, 2), "utf8");
+      } catch {}
+    }
+  }
+
+  async function getAllowedDirectoriesList() {
+    if (!runtime.dirs) return [];
+    const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
+    const builtinSkills = path.join(homeDir, ".gemini", "antigravity", "builtin", "skills");
+    const hasBuiltin = await fs.access(builtinSkills).then(() => true).catch(() => false);
+    const defaults = [
+      { path: runtime.dirs.root, label: "mcp_root", domain: "files", note: "Directorio de instalación del MCP" },
+      { path: runtime.dirs.documents, label: "documents", domain: "files", note: "Documentos del usuario" },
+      { path: runtime.dirs.downloads, label: "downloads", domain: "files", note: "Descargas del usuario" },
+      { path: runtime.dirs.storage, label: "storage", domain: "files", note: "Datos locales del MCP (AppData)" },
+      { path: runtime.dirs.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"), label: "skills_config", domain: "developer", note: "Configuración global de habilidades de IA" },
+      { path: runtime.dirs.skills || path.join(homeDir, ".gemini", "skills"), label: "skills_user", domain: "developer", note: "Habilidades locales de usuario de IA" },
+      ...(hasBuiltin ? [{ path: builtinSkills, label: "skills_builtin", domain: "developer", note: "Habilidades predeterminadas de Antigravity" }] : [])
+    ].filter(d => d && d.path);
+
+    const dynamic = await loadDynamicAllowedDirs();
+    const map = new Map();
+    for (const d of defaults) {
+      const norm = path.resolve(d.path).toLowerCase();
+      map.set(norm, { ...d, path: path.resolve(d.path), isDefault: true });
+    }
+    for (const d of dynamic) {
+      if (d?.path) {
+        const norm = path.resolve(d.path).toLowerCase();
+        if (!map.has(norm)) {
+          map.set(norm, { ...d, path: path.resolve(d.path), isDefault: false });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }
+
+  async function assertPathAllowed(targetPath) {
+    if (!targetPath) return true;
+    if (!runtime.dirs) return true;
+    const currentLevel = runtime.permissions?.currentLevel?.() || "user";
+    if (currentLevel === "admintotaluser") return true;
+    if (process.env.FLUXER_TRUSTED_CLIENT === "true" || runtime.config?.security?.trustedClient === true) return true;
+
+    const allowedList = await getAllowedDirectoriesList();
+    const resolvedTarget = path.resolve(runtime.hp ? runtime.hp(targetPath) : targetPath);
+    const normTarget = resolvedTarget.toLowerCase();
+
+    const matched = allowedList.find(d => {
+      const normDir = path.resolve(d.path).toLowerCase();
+      return normTarget === normDir || normTarget.startsWith(normDir + path.sep);
+    });
+
+    if (!matched) {
+      const err = new Error(`Acceso denegado (Sandbox de archivos): La ruta "${targetPath}" no pertenece a ningún directorio autorizado. Autorízala con 'files.add_allowed_directory({ path: "..." })' o eleva permisos a admintotaluser.`);
+      err.code = "PERMISSION_DENIED";
+      err.sandboxBlocked = true;
+      err.path = targetPath;
+      throw err;
+    }
+    return true;
+  }
+
+  function extractPathsFromArgs(args) {
+    if (!args || typeof args !== "object") return [];
+    const paths = [];
+    const directKeys = [
+      "path", "p", "filePath", "rawPath", "targetPath", "rawTargetPath",
+      "fileA", "fileB", "left", "right",
+      "source", "destination", "src", "dst",
+      "directory", "dir", "target", "file", "database"
+    ];
+    for (const k of directKeys) {
+      if (typeof args[k] === "string" && args[k].trim()) {
+        paths.push(args[k]);
+      }
+    }
+    if (Array.isArray(args.paths)) {
+      for (const p of args.paths) {
+        if (typeof p === "string" && p.trim()) paths.push(p);
+      }
+    }
+    if (Array.isArray(args.files)) {
+      for (const item of args.files) {
+        if (typeof item === "string" && item.trim()) paths.push(item);
+        else if (item && typeof item === "object") {
+          if (typeof item.source === "string") paths.push(item.source);
+          if (typeof item.destination === "string") paths.push(item.destination);
+          if (typeof item.src === "string") paths.push(item.src);
+          if (typeof item.dst === "string") paths.push(item.dst);
+          if (typeof item.path === "string") paths.push(item.path);
+        }
+      }
+    }
+    return paths;
   }
 
   async function createSafeBackup(filePath) {
@@ -295,38 +422,91 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       },
 
       list_allowed_directories: async () => {
-        // Se excluye el home completo (~) para no exponer el directorio raíz del usuario.
-        // Se listan todas las ubicaciones semánticas autorizadas y sandboxeadas que el MCP gestiona (archivos + skills).
-        const homeDir = runtime.dirs?.home || runtime.home;
-        const builtinSkills = path.join(homeDir, ".gemini", "antigravity", "builtin", "skills");
-        const hasBuiltin = await fs.access(builtinSkills).then(() => true).catch(() => false);
-        const dirs = [
-          { path: runtime.dirs.root, label: "mcp_root", domain: "files", note: "Directorio de instalación del MCP" },
-          { path: runtime.dirs.documents, label: "documents", domain: "files", note: "Documentos del usuario" },
-          { path: runtime.dirs.downloads, label: "downloads", domain: "files", note: "Descargas del usuario" },
-          { path: runtime.dirs.storage, label: "storage", domain: "files", note: "Datos locales del MCP (AppData)" },
-          { path: runtime.dirs.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"), label: "skills_config", domain: "developer", note: "Configuración global de habilidades de IA" },
-          { path: runtime.dirs.skills || path.join(homeDir, ".gemini", "skills"), label: "skills_user", domain: "developer", note: "Habilidades locales de usuario de IA" },
-          ...(hasBuiltin ? [{ path: builtinSkills, label: "skills_builtin", domain: "developer", note: "Habilidades predeterminadas de Antigravity" }] : [])
-        ].filter(d => d.path);
+        const dirs = await getAllowedDirectoriesList();
         return { ok: true, count: dirs.length, directories: dirs };
+      },
+
+      add_allowed_directory: async ({ path: p, label = "custom", persistent = true } = {}) => {
+        if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+        const resolvedTarget = path.resolve(runtime.hp ? runtime.hp(p) : p);
+        const normTarget = resolvedTarget.toLowerCase();
+        try {
+          const exists = await fs.access(resolvedTarget).then(() => true).catch(() => false);
+          const dynamic = await loadDynamicAllowedDirs();
+          const existing = dynamic.find((d) => path.resolve(d.path).toLowerCase() === normTarget);
+          if (!existing) {
+            dynamic.push({
+              path: resolvedTarget,
+              label: String(label || "custom"),
+              addedAt: new Date().toISOString(),
+              persistent: Boolean(persistent),
+            });
+            if (persistent) {
+              await saveDynamicAllowedDirs(dynamic);
+            } else {
+              cachedDynamicAllowedDirs = dynamic;
+            }
+          }
+          return {
+            ok: true,
+            path: resolvedTarget,
+            label: String(label || "custom"),
+            persistent: Boolean(persistent),
+            exists,
+            message: `Directorio "${resolvedTarget}" añadido exitosamente a la lista de permitidos del sandbox.`,
+          };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      remove_allowed_directory: async ({ path: p } = {}) => {
+        if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+        const resolvedTarget = path.resolve(runtime.hp ? runtime.hp(p) : p);
+        const normTarget = resolvedTarget.toLowerCase();
+        try {
+          const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
+          const defaultDirs = [
+            runtime.dirs?.root,
+            runtime.dirs?.documents,
+            runtime.dirs?.downloads,
+            runtime.dirs?.storage,
+            runtime.dirs?.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"),
+            runtime.dirs?.skills || path.join(homeDir, ".gemini", "skills"),
+          ]
+            .filter(Boolean)
+            .map((d) => path.resolve(d).toLowerCase());
+
+          if (defaultDirs.includes(normTarget)) {
+            return { ok: false, error: `No se puede remover el directorio predeterminado "${resolvedTarget}" del sandbox.` };
+          }
+
+          const dynamic = await loadDynamicAllowedDirs();
+          const filtered = dynamic.filter((d) => path.resolve(d.path).toLowerCase() !== normTarget);
+          if (filtered.length === dynamic.length) {
+            return { ok: false, error: `El directorio "${resolvedTarget}" no estaba en la lista de permitidos dinámicos.` };
+          }
+          await saveDynamicAllowedDirs(filtered);
+          return {
+            ok: true,
+            path: resolvedTarget,
+            removed: true,
+            message: `Directorio "${resolvedTarget}" removido exitosamente del sandbox.`,
+          };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
       },
 
       validate_path: async ({ path: p } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
-        const target = runtime.hp(p);
-        const homeDir = runtime.dirs?.home || runtime.home;
-        const allowedDirs = [
-          runtime.dirs.root,
-          runtime.dirs.documents,
-          runtime.dirs.downloads,
-          runtime.dirs.storage,
-          runtime.dirs.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"),
-          runtime.dirs.skills || path.join(homeDir, ".gemini", "skills"),
-        ].filter(Boolean).map(d => path.resolve(d).toLowerCase());
-
+        const target = runtime.hp ? runtime.hp(p) : p;
+        const allowedDirs = await getAllowedDirectoriesList();
         const normTarget = path.resolve(target).toLowerCase();
-        const matched = allowedDirs.find(ad => normTarget === ad || normTarget.startsWith(ad + path.sep));
+        const matched = allowedDirs.find((ad) => {
+          const normDir = path.resolve(ad.path).toLowerCase();
+          return normTarget === normDir || normTarget.startsWith(normDir + path.sep);
+        });
         const exists = await fs.access(target).then(() => true).catch(() => false);
 
         return {
@@ -334,7 +514,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           path: target,
           isAllowed: Boolean(matched),
           exists,
-          matchedAllowedDirectory: matched || null,
+          matchedAllowedDirectory: matched?.path || null,
+          label: matched?.label || null,
         };
       },
 
@@ -870,7 +1051,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           }
 
           await fs.writeFile(target, buf);
-          const hash = crypto.createHash("sha256").update(buf).digest("hex");
+          const hash = crypto.createHash("sha256").update(buf).digest("hex").trim().toLowerCase().slice(0, 64);
           const lineCount = buf.toString("utf8").split(/\r?\n/).length;
 
           return {
@@ -1635,6 +1816,261 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           accessible: true,
         };
       },
+
+      get_image_metadata: async ({ path: rawPath } = {}) => {
+        try {
+          const filePath = Validator.validatePath(rawPath, { fieldName: "path", required: true });
+          const stat = await fs.stat(filePath).catch(() => null);
+          if (!stat || !stat.isFile()) {
+            return {
+              ok: false,
+              code: "NOT_FOUND",
+              error: `El archivo de imagen no existe o no es accesible: ${filePath}`,
+              path: filePath
+            };
+          }
+
+          const ext = path.extname(filePath).toLowerCase().replace(/^\./, "");
+          const ps = `
+Add-Type -AssemblyName System.Drawing
+try {
+  $file = [System.IO.Path]::GetFullPath('${filePath.replace(/'/g, "''")}')
+  $img = [System.Drawing.Image]::FromFile($file)
+  [PSCustomObject]@{
+    width = $img.Width
+    height = $img.Height
+    horizontalResolution = $img.HorizontalResolution
+    verticalResolution = $img.VerticalResolution
+    pixelFormat = [string]$img.PixelFormat
+    rawFormat = [string]$img.RawFormat
+  } | ConvertTo-Json -Compress
+  $img.Dispose()
+} catch {
+  [PSCustomObject]@{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
+`;
+          const b64 = Buffer.from(ps, "utf16le").toString("base64");
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+          if (res.stdout) {
+            try {
+              const data = JSON.parse(res.stdout);
+              if (data.error) {
+                return { ok: false, error: "METADATA_READ_FAILED", message: data.error, path: filePath };
+              }
+              return {
+                ok: true,
+                path: filePath,
+                format: ext,
+                sizeBytes: stat.size,
+                width: data.width,
+                height: data.height,
+                dimensions: `${data.width}x${data.height}`,
+                horizontalResolution: data.horizontalResolution,
+                verticalResolution: data.verticalResolution,
+                pixelFormat: data.pixelFormat,
+                modifiedAt: stat.mtime.toISOString()
+              };
+            } catch (e) {
+              return { ok: false, error: "PARSE_ERROR", message: e.message };
+            }
+          }
+          return { ok: false, error: "NO_OUTPUT", message: res.stderr || "No se pudo extraer metadata de la imagen." };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
+        }
+      },
+
+      convert_image: async ({ path: rawPath, targetPath: rawTargetPath, format = "png", quality = 90 } = {}) => {
+        try {
+          const srcPath = Validator.validatePath(rawPath, { fieldName: "path", required: true });
+          const targetFmt = String(format || "png").toLowerCase().replace(/^\./, "");
+          const allowedFormats = ["png", "jpg", "jpeg", "bmp", "gif", "tiff", "ico"];
+          Validator.validateEnum(targetFmt, allowedFormats, "format");
+
+          let outPath;
+          if (rawTargetPath) {
+            outPath = Validator.validatePath(rawTargetPath, { fieldName: "targetPath", required: true });
+          } else {
+            const dir = path.dirname(srcPath);
+            const base = path.basename(srcPath, path.extname(srcPath));
+            outPath = path.join(dir, `${base}.${targetFmt === "jpeg" ? "jpg" : targetFmt}`);
+          }
+
+          if (outPath.toLowerCase() === srcPath.toLowerCase()) {
+            return {
+              ok: false,
+              code: "INVALID_ARGUMENT",
+              error: "El archivo de destino no puede ser idéntico al de origen para evitar corrupción."
+            };
+          }
+
+          const ps = `
+Add-Type -AssemblyName System.Drawing
+try {
+  $src = [System.IO.Path]::GetFullPath('${srcPath.replace(/'/g, "''")}')
+  $target = [System.IO.Path]::GetFullPath('${outPath.replace(/'/g, "''")}')
+  $fmt = '${targetFmt}'
+  $img = [System.Drawing.Image]::FromFile($src)
+  
+  $imgFormat = switch ($fmt) {
+    'jpg'  { [System.Drawing.Imaging.ImageFormat]::Jpeg }
+    'jpeg' { [System.Drawing.Imaging.ImageFormat]::Jpeg }
+    'bmp'  { [System.Drawing.Imaging.ImageFormat]::Bmp }
+    'gif'  { [System.Drawing.Imaging.ImageFormat]::Gif }
+    'tiff' { [System.Drawing.Imaging.ImageFormat]::Tiff }
+    'ico'  { [System.Drawing.Imaging.ImageFormat]::Icon }
+    default { [System.Drawing.Imaging.ImageFormat]::Png }
+  }
+  
+  $img.Save($target, $imgFormat)
+  $img.Dispose()
+  [PSCustomObject]@{ ok = $true } | ConvertTo-Json -Compress
+} catch {
+  [PSCustomObject]@{ ok = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
+`;
+          const b64 = Buffer.from(ps, "utf16le").toString("base64");
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+
+          const verification = await VerificationEngine.verifyFileWritten(outPath, { minBytes: 10 });
+          if (!verification.verified) {
+            return {
+              ok: false,
+              error: "CONVERSION_VERIFICATION_FAILED",
+              reason: verification.reason,
+              details: res.stdout || res.stderr
+            };
+          }
+
+          return {
+            ok: true,
+            sourcePath: srcPath,
+            targetPath: outPath,
+            format: targetFmt,
+            sizeBytes: verification.actualBytes,
+            verified: true,
+            modifiedAt: verification.modifiedAt
+          };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
+        }
+      },
+
+      resize_image: async ({ path: rawPath, targetPath: rawTargetPath, width, height, maintainAspectRatio = true } = {}) => {
+        try {
+          const srcPath = Validator.validatePath(rawPath, { fieldName: "path", required: true });
+          const targetW = width ? Validator.validateNumber(width, { fieldName: "width", min: 1, max: 16384, required: false }) : null;
+          const targetH = height ? Validator.validateNumber(height, { fieldName: "height", min: 1, max: 16384, required: false }) : null;
+
+          if (!targetW && !targetH) {
+            return {
+              ok: false,
+              code: "INVALID_ARGUMENT",
+              error: "Debe especificar al menos 'width' o 'height' para redimensionar la imagen."
+            };
+          }
+
+          let outPath;
+          if (rawTargetPath) {
+            outPath = Validator.validatePath(rawTargetPath, { fieldName: "targetPath", required: true });
+          } else {
+            const dir = path.dirname(srcPath);
+            const ext = path.extname(srcPath);
+            const base = path.basename(srcPath, ext);
+            outPath = path.join(dir, `${base}_resized${ext}`);
+          }
+
+          const ps = `
+Add-Type -AssemblyName System.Drawing
+try {
+  $src = [System.IO.Path]::GetFullPath('${srcPath.replace(/'/g, "''")}')
+  $target = [System.IO.Path]::GetFullPath('${outPath.replace(/'/g, "''")}')
+  $img = [System.Drawing.Image]::FromFile($src)
+  
+  $origW = $img.Width
+  $origH = $img.Height
+  $reqW = ${targetW ? targetW : "$null"}
+  $reqH = ${targetH ? targetH : "$null"}
+  $keepRatio = ${maintainAspectRatio ? "$true" : "$false"}
+
+  $finalW = $origW
+  $finalH = $origH
+
+  if ($keepRatio) {
+    if ($reqW -ne $null -and $reqH -ne $null) {
+      $ratioW = $reqW / $origW
+      $ratioH = $reqH / $origH
+      $ratio = [Math]::Min($ratioW, $ratioH)
+      $finalW = [int][Math]::Round($origW * $ratio)
+      $finalH = [int][Math]::Round($origH * $ratio)
+    } elseif ($reqW -ne $null) {
+      $finalW = $reqW
+      $finalH = [int][Math]::Round($origH * ($reqW / $origW))
+    } elseif ($reqH -ne $null) {
+      $finalH = $reqH
+      $finalW = [int][Math]::Round($origW * ($reqH / $origH))
+    }
+  } else {
+    if ($reqW -ne $null) { $finalW = $reqW }
+    if ($reqH -ne $null) { $finalH = $reqH }
+  }
+
+  $finalW = [Math]::Max(1, $finalW)
+  $finalH = [Math]::Max(1, $finalH)
+
+  $newBmp = New-Object System.Drawing.Bitmap $finalW, $finalH
+  $g = [System.Drawing.Graphics]::FromImage($newBmp)
+  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $g.DrawImage($img, 0, 0, $finalW, $finalH)
+  $g.Dispose()
+
+  $newBmp.Save($target, $img.RawFormat)
+  $newBmp.Dispose()
+  $img.Dispose()
+
+  [PSCustomObject]@{
+    ok = $true
+    originalWidth = $origW
+    originalHeight = $origH
+    newWidth = $finalW
+    newHeight = $finalH
+  } | ConvertTo-Json -Compress
+} catch {
+  [PSCustomObject]@{ ok = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
+`;
+          const b64 = Buffer.from(ps, "utf16le").toString("base64");
+          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+
+          const verification = await VerificationEngine.verifyFileWritten(outPath, { minBytes: 10 });
+          if (!verification.verified) {
+            return {
+              ok: false,
+              error: "RESIZE_VERIFICATION_FAILED",
+              reason: verification.reason,
+              details: res.stdout || res.stderr
+            };
+          }
+
+          let info = {};
+          try { info = JSON.parse(res.stdout || "{}"); } catch {}
+
+          return {
+            ok: true,
+            sourcePath: srcPath,
+            targetPath: outPath,
+            originalDimensions: `${info.originalWidth}x${info.originalHeight}`,
+            newDimensions: `${info.newWidth}x${info.newHeight}`,
+            sizeBytes: verification.actualBytes,
+            verified: true,
+            modifiedAt: verification.modifiedAt
+          };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
+        }
+      },
     };
 
     // Alias intuitivos para llamadas de LLMs
@@ -1646,10 +2082,41 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     actions.get_metadata = actions.get_file_info;
     actions.get_info = actions.get_file_info;
 
+    const SANDBOX_EXCLUDED_ACTIONS = new Set([
+      "list_allowed_directories",
+      "validate_path",
+      "add_allowed_directory",
+      "remove_allowed_directory",
+    ]);
+
+    const wrappedActions = {};
+    for (const [actionName, fn] of Object.entries(actions)) {
+      if (SANDBOX_EXCLUDED_ACTIONS.has(actionName)) {
+        wrappedActions[actionName] = fn;
+      } else {
+        wrappedActions[actionName] = async (args = {}, ...rest) => {
+          try {
+            const pathsToCheck = extractPathsFromArgs(args);
+            for (const p of pathsToCheck) {
+              await assertPathAllowed(p);
+            }
+          } catch (err) {
+            return {
+              ok: false,
+              code: err.code || "PERMISSION_DENIED",
+              error: err.message,
+              ...(err.path ? { path: err.path } : {}),
+            };
+          }
+          return fn(args, ...rest);
+        };
+      }
+    }
+
     return domain(
       "files",
       "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
-      actions,
+      wrappedActions,
       {
         delete_path: "poweruser",
         delete_file: "poweruser",
@@ -1679,6 +2146,11 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         find_and_replace_in_files: "poweruser",
         set_attributes: "poweruser",
         create_document: "user",
+        get_image_metadata: "user",
+        convert_image: "user",
+        resize_image: "user",
+        add_allowed_directory: "poweruser",
+        remove_allowed_directory: "poweruser",
       }
     );
   }
