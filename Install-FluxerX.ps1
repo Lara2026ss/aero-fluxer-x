@@ -36,12 +36,25 @@ $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeCmd) {
     Write-Host "  ✗ Node.js no fue encontrado en el PATH." -ForegroundColor Red
     Write-Host "    Fluxer X requiere Node.js v18.0 o superior." -ForegroundColor Yellow
-    Write-Host "    Intentando instalar Node.js LTS mediante winget..." -ForegroundColor Cyan
     try {
+        Write-Host "    Intentando instalar Node.js LTS mediante winget..." -ForegroundColor Cyan
         winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
         $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
     } catch {}
+
+    if (-not $nodeCmd) {
+        Write-Host "    winget falló. Intentando descargar el instalador oficial MSI..." -ForegroundColor Cyan
+        try {
+            $msiPath = Join-Path $env:TEMP "node-lts-x64.msi"
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            Invoke-WebRequest -Uri "https://nodejs.org/dist/v20.11.1/node-v20.11.1-x64.msi" -OutFile $msiPath -UseBasicParsing
+            Write-Host "    Instalando Node.js (puede solicitar permisos de administrador)..." -ForegroundColor Cyan
+            Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /qn" -Wait -NoNewWindow
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+        } catch {}
+    }
     
     if (-not $nodeCmd) {
         Write-Error "Por favor instale Node.js desde https://nodejs.org y vuelva a ejecutar este instalador."
