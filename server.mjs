@@ -27,8 +27,8 @@ const SERVER_NAME = APP_NAME;
 function notifyClient(clientName, event = "connect", version = VERSION, options = {}) {
   const displayAI = (clientName || "desconocida").replace(/"/g, "'").trim();
   const actionText = event === "connect" ? "conectó exitosamente a" : "desconectó exitosamente de";
-  const msg = `La Inteligencia Artificial "${displayAI}" se ${actionText} Aeron Fluxer X v${version}`;
-  sendNativeNotification("AERON FLUXER X MCP", msg, options);
+  const msg = `La Inteligencia Artificial "${displayAI}" se ${actionText} Fluxer X v${version}`;
+  sendNativeNotification("FLUXER X MCP", msg, options);
 }
 
 
@@ -181,7 +181,7 @@ export async function startServer() {
   // Herramienta unificada de actualización (11ª herramienta visible en el MCP)
   tools.push({
     name: "upd",
-    description: "Centro unificado de actualización de Aeron Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Checa en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión detalladas (usa el parámetro 'version' para una versión específica, ej: '9.1.2').\n- 'apply' (o 'update'): Descarga y aplica la actualización bajo demanda desde GitHub (activado únicamente por orden de la IA/usuario).\n- 'data' (o 'status'): Auditoría forense interna en disco para verificar si el servidor realmente se actualizó (sin simulación).",
+    description: "Centro unificado de actualización de Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Checa en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión detalladas (usa el parámetro 'version' para una versión específica, ej: '9.2.0').\n- 'apply' (o 'update'): Descarga y aplica la actualización bajo demanda desde GitHub (activado únicamente por orden de la IA/usuario).\n- 'data' (o 'status'): Auditoría forense interna en disco para verificar si el servidor realmente se actualizó (sin simulación).",
     inputSchema: {
       type: "object",
       properties: {
@@ -192,7 +192,7 @@ export async function startServer() {
         },
         version: {
           type: "string",
-          description: "Versión específica a consultar (ej: '9.1.2', '9.1.3') para 'info'.",
+          description: "Versión específica a consultar (ej: '9.2.0') para 'info'.",
         },
         force: {
           type: "boolean",
@@ -212,9 +212,18 @@ export async function startServer() {
     { capabilities: { tools: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    if (runtime.waitForReady) {
+      await runtime.waitForReady(60000);
+    }
+    return { tools };
+  });
+
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     try {
+      if (runtime.waitForReady) {
+        await runtime.waitForReady(60000);
+      }
       let rawArgs = req.params.arguments || {};
       if (typeof rawArgs === "string") {
         const parsed = parseResilientJson(rawArgs);

@@ -90,6 +90,9 @@ async function main() {
       "logging": { "level": "info", "auditEnabled": true, "maxLogLines": 1000 }
     };
     await fs.writeFile(userStorage.configFile, JSON.stringify(defaultTemplate, null, 2), "utf8").catch(() => {});
+    if (userStorage.legacyConfigFile && !existsSync(userStorage.legacyConfigFile)) {
+      await fs.writeFile(userStorage.legacyConfigFile, JSON.stringify(defaultTemplate, null, 2), "utf8").catch(() => {});
+    }
     console.log(`  ${GREEN}✓ Configuración local creada:${RESET} ${userStorage.configFile}`);
   } else {
     console.log(`  ${GREEN}✓ Configuración local existente preservada:${RESET} ${userStorage.configFile}`);

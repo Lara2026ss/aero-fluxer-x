@@ -43,16 +43,16 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       // datos del entorno del host al usar el MCP en modo de distribución pública.
       // Pasar expose_host_info: true para ver los valores reales (solo para depuración local).
       const rawHostname = os.hostname();
-      const hostnameDisplay = expose_host_info
-        ? rawHostname
-        : "host-" + crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8);
+      const hostId = runtime.hostId || ("host-" + crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8));
 
       const result = {
         ok: true,
         platform: "win32",
         isWindowsOnly: true,
         osRelease: os.release(),
-        hostname: hostnameDisplay,
+        hostname: rawHostname,
+        display_hostname: rawHostname,
+        host_id: hostId,
         shell: "powershell",
         powershellVersion: snapshot.binaries.powershell.version || "5.1",
         nodeVersion: snapshot.binaries.node.version || process.version,

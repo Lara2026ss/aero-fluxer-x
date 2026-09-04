@@ -121,7 +121,7 @@ await runTest("Storage — Resolución de rutas fuera del repositorio", async ()
   assert.notEqual(path.resolve(userDir), path.resolve(ROOT), "El directorio de datos no debe ser la raíz del repo");
 
   const structure = getStorageStructure(ROOT);
-  assert.ok(structure.base.includes("AeroFluxerX") || structure.base.includes("aero-fluxer-x"));
+  assert.ok(structure.base.includes("FluxerX") || structure.base.includes("fluxer-x") || structure.base.includes("AeroFluxerX") || structure.base.includes("aero-fluxer-x"));
   assert.ok(structure.shortcutsFile.endsWith("shortcuts.json"));
   assert.ok(structure.memoryDb.endsWith("fluxer-memory.sqlite"));
   assert.ok(structure.mainLog.endsWith("fluxer.log"));

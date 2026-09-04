@@ -20,7 +20,12 @@ const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const ZIP_PATH = path.join(ROOT, "dist", "aeron-fluxer-x-v9.0.0.zip");
+const candidateZips = [
+  path.join(ROOT, "dist", "fluxer-x-v9.2.0.zip"),
+  path.join(ROOT, "dist", "aeron-fluxer-x-v9.2.0.zip"),
+  path.join(ROOT, "dist", "aeron-fluxer-x-v9.0.0.zip"),
+];
+const ZIP_PATH = candidateZips.find(p => existsSync(p)) || candidateZips[0];
 
 console.log("══════════════════════════════════════════════════════════════════");
 console.log("🧪 FASE 23: INSPECCIÓN FORENSE DEL RELEASE ZIP");

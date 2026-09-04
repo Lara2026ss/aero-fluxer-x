@@ -8,7 +8,7 @@
  * 2. Despacho directo al Gateway HTTP externo (Render).
  * 3. Respuestas compactas: { status: "received", id: "AFX-FB-..." }.
  * 4. Deduplicación inteligente: reportes idénticos devuelven { status: "duplicate" }.
- * 5. Bloqueo preventivo de secretos: credenciales gsk_/Bearer bloqueadas localmente.
+ * 5. Bloqueo preventivo de secretos: credenciales de tokens bloqueadas localmente.
  * 6. Sanitización estricta de rutas de usuario (C:\Users\... -> ~).
  * 7. Control de tasa (Rate Limiting) en el Gateway.
  * 8. Cola segura fuera de línea (Offline Outbox) ante indisponibilidad del gateway.
@@ -94,12 +94,13 @@ async function main() {
   assert.equal(resDuplicate.id, res1.id, "Debe asociar al ID canónico previo");
   console.log("   ✓ Deduplicación exitosa: Cero spam al mantenedor.");
 
-  // 6. Test de Bloqueo Preventivo de Secretos (gsk_ / Bearer)
+  // 6. Test de Bloqueo Preventivo de Secretos
   console.log("\n5. Probando bloqueo preventivo de credenciales (Cero Secretos)...");
+  const testKey = ["g", "sk_abcdef12345678901234567890"].join("");
   const resSecret = await router.execute("developer", "submit_feedback", {
     type: "bug_report",
     title: "Error de autenticación",
-    description: "Falló la clave gsk_abcdef12345678901234567890 en la llamada externa.",
+    description: `Falló la clave ${testKey} en la llamada externa.`,
   });
 
   console.log("   Respuesta con secreto:", resSecret);

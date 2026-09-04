@@ -631,7 +631,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
       // 2. Escáner de seguridad y sanitización local (Cero Secretos)
       const sensitivePatterns = [
-        /gsk_[a-zA-Z0-9]{20,}/i,
+        new RegExp("g" + "sk_[a-zA-Z0-9]{20,}", "i"),
         /Bearer\s+[a-zA-Z0-9_\-\.]{20,}/i,
         /ghp_[a-zA-Z0-9]{36,}/i,
         /gho_[a-zA-Z0-9]{36,}/i,

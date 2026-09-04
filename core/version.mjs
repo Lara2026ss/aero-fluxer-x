@@ -5,9 +5,11 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "9.1.5";
-export const APP_NAME = "aeron-fluxer-x";
-export const BRAND_NAME = "Aeron Fluxer X";
+export const CURRENT_VERSION = "9.2.0";
+export const APP_NAME = "fluxer-x";
+export const BRAND_NAME = "Fluxer X";
+export const LEGACY_APP_NAME = "aeron-fluxer-x";
+export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 
 /**
  * Parsea una cadena de versión SemVer.

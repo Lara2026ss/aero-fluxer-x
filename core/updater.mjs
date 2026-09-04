@@ -511,10 +511,7 @@ export async function executeAutoUpdate(options = {}) {
       await logUpdaterMessage(repoRoot, "info", `Paquete descargado (${downloadResult.bytes} bytes, SHA-256: ${downloadResult.sha256}).`);
     }
 
-    // 5. Crear Backup Preventivo del Código Actual
-    backupInfo = await createCodeBackup(repoRoot, CURRENT_VERSION);
-
-    // 6. Extracción en staging para inspección previa
+    // 5. Extracción en staging para inspección previa
     await fs.mkdir(extractedDir, { recursive: true });
     await logUpdaterMessage(repoRoot, "info", `Extrayendo paquete en staging para inspección: ${extractedDir}`);
 
@@ -536,13 +533,34 @@ export async function executeAutoUpdate(options = {}) {
       }
     }
 
+    // 6. Validación conjunta estricta: Metadata, Versión y Artefacto
+    const extractedPkgPath = path.join(sourceContentDir, "package.json");
+    if (!existsSync(extractedPkgPath)) {
+      throw new Error("ARTEFACTO INVÁLIDO: El paquete descargado no contiene package.json válido. Actualización abortada sin modificar la instalación actual.");
+    }
+    const extractedPkgRaw = await fs.readFile(extractedPkgPath, "utf8");
+    const extractedPkg = JSON.parse(extractedPkgRaw);
+
+    const validNames = ["fluxer-x", "aeron-fluxer-x"];
+    if (!validNames.includes(extractedPkg.name)) {
+      throw new Error(`ARTEFACTO INVÁLIDO: El paquete descargado no corresponde a Fluxer X (nombre encontrado: '${extractedPkg.name}'). Actualización abortada.`);
+    }
+
+    if (extractedPkg.version !== targetVersion) {
+      throw new Error(`INCONSISTENCIA DE VERSIÓN: La versión del paquete extraído (${extractedPkg.version}) no coincide con la versión objetivo declarada (${targetVersion}). Actualización abortada sin tocar la instalación actual.`);
+    }
+
     // 7. Verificación previa de sintaxis en el código extraído
     const syntaxCheck = await verifyCodeSyntax(sourceContentDir);
     if (!syntaxCheck.ok) {
-      throw new Error(`Código descargado falló chequeo de sintaxis previo: ${syntaxCheck.error}`);
+      throw new Error(`Código descargado falló chequeo de sintaxis previo: ${syntaxCheck.error}. Actualización abortada.`);
     }
+    await logUpdaterMessage(repoRoot, "info", `Validación conjunta exitosa: Metadata, Versión v${targetVersion} e Integridad verificadas al 100%.`);
 
-    // 8. Aplicar la Actualización (reemplazo atómico de código)
+    // 8. Crear Backup Preventivo del Código Actual (solo una vez validadas todas las precondiciones)
+    backupInfo = await createCodeBackup(repoRoot, CURRENT_VERSION);
+
+    // 9. Aplicar la Actualización (reemplazo atómico de código)
     await logUpdaterMessage(repoRoot, "info", `Aplicando actualización sobre: ${repoRoot}`);
     const itemsToCopy = await fs.readdir(sourceContentDir);
 

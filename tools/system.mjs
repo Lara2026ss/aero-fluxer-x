@@ -144,15 +144,22 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         }
       },
 
-      get_system_info: async () => ({
-        ok: true,
-        platform: "win32",
-        isWindowsOnly: true,
-        arch: process.arch,
-        release: os.release(),
-        hostname: os.hostname(),
-        nodeVersion: process.version,
-      }),
+      get_system_info: async () => {
+        const crypto = await import("node:crypto");
+        const rawHostname = os.hostname();
+        const hostId = runtime.hostId || ("host-" + crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8));
+        return {
+          ok: true,
+          platform: "win32",
+          isWindowsOnly: true,
+          arch: process.arch,
+          release: os.release(),
+          hostname: rawHostname,
+          display_hostname: rawHostname,
+          host_id: hostId,
+          nodeVersion: process.version,
+        };
+      },
 
       get_kernel_info: async () => {
         try {

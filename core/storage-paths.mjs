@@ -19,22 +19,22 @@ import { existsSync } from "node:fs";
  */
 export function resolveUserDataDir() {
   // 1. Variable de entorno explícita
-  const envOverride = process.env.AERON_DATA_DIR || process.env.AERO_FLUXER_DATA_DIR || process.env.FLUXER_STORAGE_DIR;
+  const envOverride = process.env.FLUXER_DATA_DIR || process.env.FLUXER_STORAGE_DIR || process.env.AERON_DATA_DIR || process.env.AERO_FLUXER_DATA_DIR;
   if (envOverride && typeof envOverride === "string" && envOverride.trim().length > 0) {
     return path.resolve(envOverride.trim());
   }
 
   const home = os.homedir();
 
-  // 2. Windows: %APPDATA%\AeroFluxerX (fallback a ~/.aerofluxerx si APPDATA no está definido)
+  // 2. Windows: %LOCALAPPDATA%\FluxerX (fallback a %APPDATA%\FluxerX)
   if (process.platform === "win32") {
-    const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
-    return path.join(appData, "AeroFluxerX");
+    const localAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
+    return path.join(localAppData, "FluxerX");
   }
 
-  // 3. Linux / macOS: XDG compliant (~/.config/aero-fluxer-x o ~/.local/share/aero-fluxer-x)
+  // 3. Linux / macOS: XDG compliant (~/.local/share/fluxer-x)
   const xdgData = process.env.XDG_DATA_HOME || path.join(home, ".local", "share");
-  return path.join(xdgData, "aero-fluxer-x");
+  return path.join(xdgData, "fluxer-x");
 }
 
 /**
@@ -47,8 +47,11 @@ export function getStorageStructure(repoRoot) {
   const home = os.homedir();
   return {
     base,
+    stateDir: path.join(base, "state"),
+    stateFile: path.join(base, "state", "state.json"),
     configDir: path.join(base, "config"),
-    configFile: path.join(base, "config", "aeron.config.json"),
+    configFile: path.join(base, "config", "fluxer.config.json"),
+    legacyConfigFile: path.join(base, "config", "aeron.config.json"),
     shortcutsDir: path.join(base, "shortcuts"),
     shortcutsFile: path.join(base, "shortcuts", "shortcuts.json"),
     memoryDir: path.join(base, "memory"),
@@ -83,6 +86,7 @@ export async function ensureUserDataInitialized(repoRoot) {
   // Crear directorios de usuario
   const dirsToEnsure = [
     structure.base,
+    structure.stateDir,
     structure.configDir,
     structure.shortcutsDir,
     structure.memoryDir,
@@ -98,6 +102,25 @@ export async function ensureUserDataInitialized(repoRoot) {
   for (const dir of dirsToEnsure) {
     await fs.mkdir(dir, { recursive: true }).catch(() => {});
   }
+
+  // 0. Migración automática transparente desde el legado %APPDATA%\AeroFluxerX si existe
+  try {
+    const legacyAeroFluxerX = path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "AeroFluxerX");
+    if (existsSync(legacyAeroFluxerX) && !existsSync(structure.shortcutsFile)) {
+      const legacyShortcuts = path.join(legacyAeroFluxerX, "shortcuts", "shortcuts.json");
+      if (existsSync(legacyShortcuts)) {
+        await fs.copyFile(legacyShortcuts, structure.shortcutsFile).catch(() => {});
+      }
+      const legacyMemory = path.join(legacyAeroFluxerX, "memory", "fluxer-memory.sqlite");
+      if (existsSync(legacyMemory) && !existsSync(structure.memoryDb)) {
+        await fs.copyFile(legacyMemory, structure.memoryDb).catch(() => {});
+      }
+      const legacyCfg = path.join(legacyAeroFluxerX, "config", "aeron.config.json");
+      if (existsSync(legacyCfg) && !existsSync(structure.configFile)) {
+        await fs.copyFile(legacyCfg, structure.configFile).catch(() => {});
+      }
+    }
+  } catch {}
 
   // 1. Inicialización de shortcuts.json local
   if (!existsSync(structure.shortcutsFile)) {

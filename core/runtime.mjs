@@ -20,10 +20,11 @@ import { ConfirmationStore } from "./confirmation.mjs";
 import { loadConfig } from "./config.mjs";
 import { existsSync } from "node:fs";
 import { AuditLog } from "./audit-log.mjs";
-import { CURRENT_VERSION } from "./version.mjs";
+import { CURRENT_VERSION, BRAND_NAME } from "./version.mjs";
 import { ensureUserDataInitialized } from "./storage-paths.mjs";
+import { FirstRunBootstrap } from "./bootstrap.mjs";
 
-export async function createRuntime({ root, version = CURRENT_VERSION, brand = "AERON FLUXER X" }) {
+export async function createRuntime({ root, version = CURRENT_VERSION, brand = BRAND_NAME }) {
   // Guardia de plataforma adaptativa (Windows 10/11 preferido)
   assertWindows({ strict: false });
 
@@ -102,6 +103,9 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = "
     legacyFile: path.join(dirs.memory, "memory.json"),
   });
   await memory.load();
+
+  const bootstrap = new FirstRunBootstrap({ root, version, brand, logger });
+  await bootstrap.initialize();
 
   const client = detectClient(env, memory);
   const session = new Session({ memory, logger });
@@ -512,6 +516,11 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = "
     memory,
     session,
     permissions,
+    bootstrap,
+    hostId: bootstrap.hostId,
+    displayHostname: bootstrap.displayHostname,
+    isReady: bootstrap.isReady,
+    waitForReady: (timeout) => bootstrap.waitForReady(timeout),
     confirmations,
     metrics,
     taskQueue,

@@ -75,9 +75,9 @@ try {
   const simLogs = path.join(simUserData, "logs", "fluxer.log");
 
   assert.ok(existsSync(simShortcuts), "shortcuts.json debe haberse generado automáticamente");
-  assert.ok(existsSync(simConfig), "aeron.config.json debe haberse generado automáticamente");
+  assert.ok(existsSync(simConfig) || existsSync(path.join(simUserData, "config", "fluxer.config.json")), "config debe haberse generado automáticamente");
   console.log("   ✓ shortcuts.json generado desde plantilla pública.");
-  console.log("   ✓ aeron.config.json local creado.");
+  console.log("   ✓ config local creada.");
 
   console.log("5. Verificando que el código clonado NO contenga datos de usuario ni secretos...");
   assert.equal(existsSync(path.join(simRepo, "storage", "GROQ.txt")), false, "Cero secretos en el repo");
