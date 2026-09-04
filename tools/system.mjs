@@ -693,11 +693,15 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         if (process.platform === "win32") {
           const cmd = pid ? `Stop-Process -Id ${Number(pid)} -Force` : `Stop-Process -Name "${name}" -Force`;
           const res = await runtime.run(`powershell -NoProfile -NonInteractive -Command "${cmd}"`);
+          const outputText = String(res.stderr || res.stdout || "");
+          const isNotFound = outputText.includes("No se encuentra") || outputText.includes("Cannot find") || outputText.includes("not found");
           return {
             ok: res.ok,
             pid,
             name,
-            message: res.ok ? `Proceso ${name || pid} terminado exitosamente.` : `Error al terminar proceso: ${res.stderr || res.stdout}`,
+            code: res.ok ? "OK" : (isNotFound ? "NOT_FOUND" : "PROCESS_FAILED"),
+            message: res.ok ? `Proceso ${name || pid} terminado exitosamente.` : `Error al terminar proceso: ${outputText}`,
+            error: res.ok ? undefined : outputText,
           };
         }
 

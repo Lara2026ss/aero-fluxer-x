@@ -456,20 +456,33 @@ export function createTerminalDomain({ runtime, path, fs, crypto, domain }) {
     },
 
     kill_process: async ({ pid } = {}) => {
-      if (!pid) return { ok: false, error: "El parámetro 'pid' es requerido." };
+      if (!pid) return { ok: false, code: "INVALID_INPUT", error: "El parámetro 'pid' es requerido." };
       const numPid = Number(pid);
       const res = await runtime.run(`Stop-Process -Id ${numPid} -Force -ErrorAction SilentlyContinue`);
-      return { ok: res.ok, pid: numPid, killed: true };
+      return {
+        ok: res.ok,
+        pid: numPid,
+        killed: res.ok,
+        code: res.ok ? "OK" : "NOT_FOUND",
+        error: res.ok ? undefined : `Proceso con PID ${numPid} no encontrado o no se pudo terminar.`
+      };
     },
 
     kill_process_tree: async ({ pid } = {}) => {
-      if (!pid) return { ok: false, error: "El parámetro 'pid' es requerido." };
+      if (!pid) return { ok: false, code: "INVALID_INPUT", error: "El parámetro 'pid' es requerido." };
       const numPid = Number(pid);
       try {
         const res = await runtime.run(`taskkill /PID ${numPid} /T /F`);
-        return { ok: res.ok, pid: numPid, killedTree: true, output: res.stdout || res.stderr };
+        return {
+          ok: res.ok,
+          pid: numPid,
+          killedTree: res.ok,
+          code: res.ok ? "OK" : "NOT_FOUND",
+          output: res.stdout || res.stderr,
+          error: res.ok ? undefined : (res.stderr || res.stdout || `Proceso con PID ${numPid} no encontrado.`)
+        };
       } catch (e) {
-        return { ok: false, pid: numPid, error: e.message };
+        return { ok: false, pid: numPid, code: "PROCESS_FAILED", error: e.message };
       }
     },
 

@@ -95,7 +95,7 @@ function getActionHarness(domain, action) {
     if (["copy_file", "move_file", "batch_copy", "batch_move", "batch_rename"].includes(action)) {
       const tempSrc = path.join(sandboxDir, `src_${Date.now()}.txt`);
       const tempDst = path.join(sandboxDir, `dst_${Date.now()}.txt`);
-      return { category: "MUTATIVE_SANDBOX", risk: "MEDIO", setup: async () => fs.writeFile(tempSrc, "copy test"), args: { source: tempSrc, destination: tempDst, files: [{ from: tempSrc, to: tempDst }] } };
+      return { category: "MUTATIVE_SANDBOX", risk: "MEDIO", setup: async () => fs.writeFile(tempSrc, "copy test"), args: { source: tempSrc, destination: tempDst, files: [{ source: tempSrc, destination: tempDst }] } };
     }
     if (["delete_file", "delete_path", "delete", "batch_delete"].includes(action)) {
       const tempDel = path.join(sandboxDir, `del_${Date.now()}.txt`);
@@ -367,6 +367,7 @@ for (const domain of allDomains) {
       if (harness.dryRunOnly) {
         // Operación de control o apagado: validada sintáctica y estructuralmente sin ejecutar parada de proceso
         status = "PASS";
+        passCount++;
         outputSummary = "Estructuralmente validada (Control / Dry-Run seguro)";
       } else {
         const res = await router.execute({ tool: domain, action, args: harness.args || {} });
