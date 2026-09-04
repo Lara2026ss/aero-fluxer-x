@@ -204,8 +204,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           skillFile = path.join(skillDir, "SKILL.md");
         }
       } else {
-        const baseRoot = runtime.root || process.cwd();
-        skillDir = path.join(baseRoot, ".gemini", "skills", cleanName);
+        const userHome = process.env.USERPROFILE || process.env.HOME || runtime.dirs?.home || runtime.home;
+        skillDir = path.join(userHome, ".gemini", "config", "skills", cleanName);
         skillFile = path.join(skillDir, "SKILL.md");
       }
 
@@ -453,6 +453,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       return {
         ok: true,
         count: uniqueSkills.length,
+        scope: "ai_skills",
+        directories_scanned: searchGlobal
+          ? [target, ...(typeof globalLocations !== "undefined" ? globalLocations : [])]
+          : [target],
         skills: uniqueSkills,
       };
     },

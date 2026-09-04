@@ -46,6 +46,8 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
     config: userStorage.configDir,
     downloads: userStorage.downloads,
     documents: userStorage.documents,
+    skills: path.join(home, ".gemini", "skills"),
+    skillsConfig: path.join(home, ".gemini", "config", "skills"),
   };
 
   for (const dir of Object.values(dirs)) {

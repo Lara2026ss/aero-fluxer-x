@@ -288,12 +288,18 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
 
       list_allowed_directories: async () => {
         // Se excluye el home completo (~) para no exponer el directorio raíz del usuario.
-        // Solo se listan las ubicaciones semánticas seguras que el MCP realmente usa.
+        // Se listan todas las ubicaciones semánticas autorizadas y sandboxeadas que el MCP gestiona (archivos + skills).
+        const homeDir = runtime.dirs?.home || runtime.home;
+        const builtinSkills = path.join(homeDir, ".gemini", "antigravity", "builtin", "skills");
+        const hasBuiltin = await fs.access(builtinSkills).then(() => true).catch(() => false);
         const dirs = [
-          { path: runtime.dirs.root, label: "mcp_root", note: "Directorio de instalación del MCP" },
-          { path: runtime.dirs.documents, label: "documents", note: "Documentos del usuario" },
-          { path: runtime.dirs.downloads, label: "downloads", note: "Descargas del usuario" },
-          { path: runtime.dirs.storage, label: "storage", note: "Datos locales del MCP (AppData)" },
+          { path: runtime.dirs.root, label: "mcp_root", domain: "files", note: "Directorio de instalación del MCP" },
+          { path: runtime.dirs.documents, label: "documents", domain: "files", note: "Documentos del usuario" },
+          { path: runtime.dirs.downloads, label: "downloads", domain: "files", note: "Descargas del usuario" },
+          { path: runtime.dirs.storage, label: "storage", domain: "files", note: "Datos locales del MCP (AppData)" },
+          { path: runtime.dirs.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"), label: "skills_config", domain: "developer", note: "Configuración global de habilidades de IA" },
+          { path: runtime.dirs.skills || path.join(homeDir, ".gemini", "skills"), label: "skills_user", domain: "developer", note: "Habilidades locales de usuario de IA" },
+          ...(hasBuiltin ? [{ path: builtinSkills, label: "skills_builtin", domain: "developer", note: "Habilidades predeterminadas de Antigravity" }] : [])
         ].filter(d => d.path);
         return { ok: true, count: dirs.length, directories: dirs };
       },
