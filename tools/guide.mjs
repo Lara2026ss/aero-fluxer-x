@@ -13,7 +13,7 @@ export function createGuideDomain({ runtime, domain }) {
         ],
         workflow_system: {
           concept: "Una elevación de permisos temporal solicitada por la IA.",
-          how_to_use: "Usa 'security.start_workflow({ level, durationMinutes })'. El servidor elevará tu nivel durante ese tiempo.",
+          how_to_use: "Usa 'security.start_workflow({ level, durationMinutes: 5 })'. Al hacerlo, el servidor te devolverá CONFIRMATION_REQUIRED. Debes preguntar AL USUARIO (en el chat) si te da permiso. Si el usuario dice que sí, debes llamar a 'security.approve_request({ requestId })'.",
           expiration: "Al expirar, volverás al nivel 'user' y cualquier operación privilegiada devolverá PERMISSION_DENIED.",
           best_practice: "Pide el nivel que necesitas (ej. 'poweruser') por el tiempo que estimes (ej. 20) solo cuando debas usar herramientas de alto riesgo."
         },

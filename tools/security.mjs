@@ -100,7 +100,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, activeLevel: runtime.permissions?.currentLevel() || "user" };
     },
     
-    start_workflow: async ({ level = "poweruser", durationMinutes = 20, reason = "Solicitado por IA", principal = "default" } = {}) => {
+    start_workflow: async ({ level = "poweruser", durationMinutes = 5, reason = "Solicitado por IA", principal = "default" } = {}) => {
       try {
         // Validación estricta
         if (typeof durationMinutes !== 'number' || isNaN(durationMinutes) || !isFinite(durationMinutes) || durationMinutes <= 0) {
@@ -227,7 +227,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
   };
 
   const permissions = {
-    start_workflow: "user",
+    start_workflow: "poweruser",
     get_workflow: "user",
     revoke_workflow: "user",
     grant_permission: "admin",
