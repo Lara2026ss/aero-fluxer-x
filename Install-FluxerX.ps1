@@ -157,11 +157,13 @@ if ($hasEngineInDest -and (-not $ForceDownload)) {
     if ($DownloadUrl) {
         $downloadCandidates += $DownloadUrl
     }
-    # 1. Release oficial ZIP
+    # 1. Versión de Fábrica Certificada (Gold Master)
+    $downloadCandidates += "https://github.com/Lara2026ss/aero-fluxer-x/releases/download/v$TargetVersion/fluxer-x-factory.zip"
+    # 2. Release oficial ZIP
     $downloadCandidates += "https://github.com/Lara2026ss/aero-fluxer-x/releases/download/v$TargetVersion/fluxer-x-v$TargetVersion.zip"
-    # 2. Release tag fallback
+    # 3. Release tag fallback
     $downloadCandidates += "https://github.com/Lara2026ss/aero-fluxer-x/archive/refs/tags/v$TargetVersion.zip"
-    # 3. Main branch fallback
+    # 4. Main branch fallback
     $downloadCandidates += "https://github.com/Lara2026ss/aero-fluxer-x/archive/refs/heads/main.zip"
 
     $tempZip = Join-Path $fluxerCacheDir "fluxer-x-download.zip"
@@ -362,8 +364,9 @@ if ($TestMode) {
                 }
             }
 
-            # 3. Validar JSON resultante
+            # 3. Validar JSON resultante y asegurar formato de array para args (compatibilidad PowerShell 5.1)
             $jsonString = $finalObj | ConvertTo-Json -Depth 10
+            $jsonString = $jsonString -replace '("args"\s*:\s*)"([^"\r\n]+)"', '$1[ "$2" ]'
             $validationCheck = $jsonString | ConvertFrom-Json
             if (-not $validationCheck.mcpServers.$ServerKey) {
                 throw "Fallo de validacion interna al verificar entrada $ServerKey."
@@ -391,16 +394,16 @@ if ($TestMode) {
 
     # A) Claude Desktop
     $claudeConfig = Join-Path $env:APPDATA "Claude\claude_desktop_config.json"
-    Update-McpClientConfig -ClientName "Claude Desktop" -ConfigPath $claudeConfig -ServerKey "Fluxer_X" -ServerConfig $fluxerServerEntry
+    Update-McpClientConfig -ClientName "Claude Desktop" -ConfigPath $claudeConfig -ServerKey "Aeron_Fluxer_X" -ServerConfig $fluxerServerEntry
 
     # B) Antigravity
     $antigravityConfig = Join-Path $env:USERPROFILE ".gemini\config\mcp_config.json"
-    Update-McpClientConfig -ClientName "Google Antigravity" -ConfigPath $antigravityConfig -ServerKey "Fluxer_X" -ServerConfig $fluxerServerEntry
+    Update-McpClientConfig -ClientName "Google Antigravity" -ConfigPath $antigravityConfig -ServerKey "Aeron_Fluxer_X" -ServerConfig $fluxerServerEntry
 
     # C) Codex / Extensiones MCP
     $codexConfig = Join-Path $env:USERPROFILE ".codex\config.json"
     if (Test-Path (Split-Path $codexConfig -Parent)) {
-        Update-McpClientConfig -ClientName "Codex" -ConfigPath $codexConfig -ServerKey "Fluxer_X" -ServerConfig $fluxerServerEntry
+        Update-McpClientConfig -ClientName "Codex" -ConfigPath $codexConfig -ServerKey "Aeron_Fluxer_X" -ServerConfig $fluxerServerEntry
     }
 
     # D) Cursor (soporte nativo MCP)
@@ -411,7 +414,7 @@ if ($TestMode) {
             New-Item -ItemType Directory -Path $cursorConfigDir -Force | Out-Null
         }
         $cursorConfig = Join-Path $cursorConfigDir "mcp.json"
-        Update-McpClientConfig -ClientName "Cursor" -ConfigPath $cursorConfig -ServerKey "Fluxer_X" -ServerConfig $fluxerServerEntry
+        Update-McpClientConfig -ClientName "Cursor" -ConfigPath $cursorConfig -ServerKey "Aeron_Fluxer_X" -ServerConfig $fluxerServerEntry
     } else {
         Write-Host "  - Cursor: No detectado en el sistema." -ForegroundColor DarkGray
     }

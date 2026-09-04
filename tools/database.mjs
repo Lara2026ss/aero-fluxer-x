@@ -219,7 +219,8 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
             try { db?.close(); } catch {}
           }
         }
-        const res = await runtime.run(`sqlite3 ${runtime.shellQuote(targetDb)} < ${runtime.shellQuote(targetScript)}`);
+        const normalizedScript = targetScript.replace(/\\/g, "/");
+        const res = await runtime.run(`sqlite3 ${runtime.shellQuote(targetDb)} ".read '${normalizedScript}'"`);
         return { ok: res.ok, output: res.stdout };
       } catch (e) {
         return { ok: false, error: e.message };

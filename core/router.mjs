@@ -322,6 +322,7 @@ export class Router {
         check: "health_check",
         status: "health_check",
         doctor: "health_check",
+        compact_status: "compact_status",
       },
       network: {
         ping: "test_connection",

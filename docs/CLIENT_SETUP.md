@@ -26,7 +26,7 @@ Antigravity es un entorno de codificación local de Google que soporta MCP nativ
 ```json
 {
   "mcpServers": {
-    "Fluxer_X": {
+    "Aeron_Fluxer_X": {
       "command": "node",
       "args": [
         "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
@@ -51,7 +51,7 @@ Claude Desktop para Windows soporta herramientas locales vía MCP.
 ```json
 {
   "mcpServers": {
-    "Fluxer_X": {
+    "Aeron_Fluxer_X": {
       "command": "node",
       "args": [
         "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
@@ -76,7 +76,7 @@ Codex soporta integración local de herramientas.
 ```json
 {
   "mcpServers": {
-    "Fluxer_X": {
+    "Aeron_Fluxer_X": {
       "command": "node",
       "args": [
         "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"
@@ -99,7 +99,7 @@ Cursor soporta servidores MCP para enriquecer sus modelos y agentes en tiempo re
 ```json
 {
   "mcpServers": {
-    "Fluxer_X": {
+    "Aeron_Fluxer_X": {
       "command": "node",
       "args": [
         "C:\\Users\\TU_USUARIO\\Documents\\Fluxer X\\server.js"

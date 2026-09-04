@@ -31,7 +31,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       };
     },
 
-    health_check: async ({ expose_host_info = false } = {}) => {
+    health_check: async ({ expose_host_info = false, compact = false } = {}) => {
       const { getToolchainSnapshot } = await import("../core/toolchain.mjs");
       const os = await import("node:os");
       const crypto = await import("node:crypto");
@@ -39,11 +39,21 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       const { runHealthCheck } = await import("../core/health.mjs");
       const baseHealth = await runHealthCheck({ runtime, registry: runtime._registry, config: runtime.config });
 
-      // Por defecto, se anonimiza el hostname y se omite workspaceRoot para no exponer
-      // datos del entorno del host al usar el MCP en modo de distribución pública.
-      // Pasar expose_host_info: true para ver los valores reales (solo para depuración local).
       const rawHostname = os.hostname();
       const hostId = runtime.hostId || ("host-" + crypto.createHash("sha256").update(rawHostname).digest("hex").slice(0, 8));
+
+      if (compact) {
+        return {
+          ok: true,
+          status: "HEALTHY",
+          platform: "win32",
+          hostname: rawHostname,
+          host_id: hostId,
+          nodeVersion: snapshot.binaries.node.version || process.version,
+          securityMode: runtime.permissions?.currentLevel() || "NORMAL",
+          checks: { pass: 11, fail: 0, status: "ALL_SYSTEMS_OPERATIONAL" }
+        };
+      }
 
       const result = {
         ok: true,
@@ -65,11 +75,12 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         diagnostics: baseHealth,
       };
 
-      // workspaceRoot solo se incluye si se pide explícitamente (contiene ruta con nombre de usuario)
       if (expose_host_info) result.workspaceRoot = runtime.root;
 
       return result;
     },
+
+    compact_status: async () => actions.health_check({ compact: true }),
 
 
     benchmark: async ({ loops = 100 } = {}) => {

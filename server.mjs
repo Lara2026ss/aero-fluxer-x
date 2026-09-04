@@ -33,7 +33,14 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
 
 
 function mcpText(value) {
-  let text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  let text;
+  if (typeof value === "string") {
+    text = value;
+  } else {
+    // Si el payload es mayor a 2KB, minificar para ahorrar hasta 40% de tokens de salida
+    const pretty = JSON.stringify(value, null, 2);
+    text = pretty.length > 2048 ? JSON.stringify(value) : pretty;
+  }
   const MAX_LENGTH = 64 * 1024; // 64KB limit
   if (text.length > MAX_LENGTH) {
     const originalLength = text.length;

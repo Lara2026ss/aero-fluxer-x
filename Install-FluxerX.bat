@@ -19,7 +19,7 @@ if %ERRORLEVEL% NEQ 0 (
 :: 2. Si Install-FluxerX.ps1 no existe localmente (descarga aislada del .bat), descargarlo automáticamente
 if not exist "%~dp0Install-FluxerX.ps1" (
     echo [INFO] Descargando componentes del instalador Fluxer X...
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13; try { Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Lara2026ss/aero-fluxer-x/main/Install-FluxerX.ps1' -OutFile '%~dp0Install-FluxerX.ps1' -UseBasicParsing } catch { exit 1 }"
+    powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13; try { Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/Lara2026ss/aero-fluxer-x/main/Install-FluxerX.ps1' -OutFile '%~dp0Install-FluxerX.ps1' -UseBasicParsing } catch { exit 1 }"
     if not exist "%~dp0Install-FluxerX.ps1" (
         echo [ERROR] No se pudo descargar Install-FluxerX.ps1. Verifique su conexion a Internet.
         pause
@@ -29,8 +29,8 @@ if not exist "%~dp0Install-FluxerX.ps1" (
     echo.
 )
 
-:: 3. Ejecutar el instalador PowerShell usando política de proceso aislada
-:: (Principio de menor privilegio: RemoteSigned acotado a este proceso, sin alterar directivas globales ni requerir UAC)
+:: 3. Desbloquear archivo si fue descargado de Internet y ejecutar con política aislada segura
+powershell.exe -NoProfile -Command "if (Test-Path '%~dp0Install-FluxerX.ps1') { Unblock-File -Path '%~dp0Install-FluxerX.ps1' -ErrorAction SilentlyContinue }"
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "%~dp0Install-FluxerX.ps1" %*
 
 set EXIT_CODE=%ERRORLEVEL%

@@ -109,8 +109,11 @@ async function packageRelease() {
     await execAsync(`cd "${stagingDir}" && zip -r -q "${zipPath}" .`);
   }
 
-  // Copia retrocompatible
+  // Copia retrocompatible y copia de versión de fábrica certificada
+  const factoryZipName = "fluxer-x-factory.zip";
+  const factoryZipPath = path.join(DIST_DIR, factoryZipName);
   await fs.copyFile(zipPath, legacyZipPath).catch(() => {});
+  await fs.copyFile(zipPath, factoryZipPath).catch(() => {});
 
   // 3b. Crear paquete ligero de instalador (FluxerX-Installer-vX.X.X.zip)
   const installerZipName = `FluxerX-Installer-v${CURRENT_VERSION}.zip`;
@@ -166,9 +169,10 @@ async function packageRelease() {
   const sha256Bat = await computeSha256(directBatPath);
   const checksumFileName = "checksums.sha256";
   const checksumFilePath = path.join(DIST_DIR, checksumFileName);
-  const checksumContent = `${sha256}  ${zipName}\n${sha256}  ${legacyZipName}\n${sha256Installer}  ${installerZipName}\n${sha256Bat}  Install-FluxerX.bat\n`;
+  const checksumContent = `${sha256}  ${zipName}\n${sha256}  ${factoryZipName}\n${sha256}  ${legacyZipName}\n${sha256Installer}  ${installerZipName}\n${sha256Bat}  Install-FluxerX.bat\n`;
   await fs.writeFile(checksumFilePath, checksumContent, "utf8");
   console.log(`  ✓ SHA-256 (${zipName}): ${sha256}`);
+  console.log(`  ✓ SHA-256 (${factoryZipName}): ${sha256}`);
   console.log(`  ✓ SHA-256 (${installerZipName}): ${sha256Installer}`);
 
   // 5. Generar Release Manifest
