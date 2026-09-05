@@ -5,9 +5,10 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "10.1.0";
-export const APP_NAME = "fluxer-x";
-export const BRAND_NAME = "Fluxer X";
+export const CURRENT_VERSION = "10.1.5";
+export const APP_NAME = "fluxer-core";
+export const BRAND_NAME = "Fluxer Core";
+export const CHANNEL = "experimental-public";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
 export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 
@@ -220,6 +221,7 @@ export function getVersionInfo() {
     brand: BRAND_NAME,
     version: CURRENT_VERSION,
     tag: `v${CURRENT_VERSION}`,
+    channel: CHANNEL,
     parsed,
     platform: process.platform,
     nodeVersion: process.version,

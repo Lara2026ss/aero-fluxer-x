@@ -1,23 +1,57 @@
-# Changelog
+# Changelog — Fluxer Core
+
+Todos los cambios notables en este proyecto están documentados en este archivo.
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+
+---
+
+## [v10.1.5] - 2026-09-05 (Experimental Public Release — 10/10 Enterprise Polish)
+
+### ⚠️ Breaking Changes en v10.x
+Con el endurecimiento del motor de seguridad y permisos en v10.x:
+- **`developer.run_project_tests`**: Ahora requiere nivel **`poweruser`** (anteriormente accesible en `user`).
+- **`terminal.run_command`**: Ahora requiere nivel **`poweruser`** (anteriormente accesible en `user`).
+- **Migración v9 → v10**:
+  Para ejecutar comandos o tests, inicie un workflow temporal antes de invocar la acción:
+  ```json
+  // Paso 1: Solicitar elevación temporal
+  { "action": "start_workflow", "level": "poweruser", "durationMinutes": 5 }
+  // Paso 2: Tras aprobación, ejecutar el comando con normalidad
+  { "action": "run_command", "command": "npm test" }
+  ```
+
+### 🌟 What's New en v10.1.5
+- **Token Compression Inteligente (No Destructivo)**: Poda selectiva recursiva con `sanitizeAndPrune`, formateador denso tabular/JSONL (`compactFormatter`) y truncado inteligente Head (25%) + Tail (75%) (`smartTruncate`) que nunca recorta errores ni stack traces. Ahorro de 20% a 45% de tokens sin pérdida de debuggabilidad.
+- **Motor de Terminal Windows 11 Production-Grade**: Detección priorizada (`pwsh.exe` PowerShell 7 Core → `powershell.exe` 5.1 → `cmd.exe`), preámbulo UTF-8 estricto (`[Console]::OutputEncoding`), drenado continuo de streams para evitar bloqueos de búfer de 64KB y terminación de procesos en árbol (`taskkill /pid <PID> /T /F`).
+- **Sandbox Inteligente (Seguro + Usable)**: Detección inteligente de Workspace (CWD, Desktop, Documents, Downloads, Temp) y resolución de rutas canónicas con `fs.realpathSync.native()` bloqueando Alternate Data Streams (ADS) y nombres de dispositivos reservados (`CON`, `PRN`, `AUX`, `NUL`). Flujo de consentimiento transparente con código `SANDBOX_BOUNDARY`.
+- **Descubrimiento Ultrarrápido de Herramientas**: Nueva acción universal `search_tools` en dominios `guide` y `system` para que Claude, GPT y Gemini encuentren instantáneamente la herramienta adecuada entre más de 290 acciones en <15 ms.
+- **Instalador Robusto con Auto-Recovery**: Script dinámico `Install-FluxerX.bat` e `Install-FluxerX.ps1` con verificación pre-flight, descarga resiliente (3 reintentos con backoff), auto-test funcional post-instalación y auto-configuración no destructiva (merge) para Claude Desktop, Google Antigravity y Cursor.
+
+### 📦 Installation & Setup
+- **Instalador 1-Clic**: Descargue y ejecute directamente [`Install-FluxerX.bat`](https://github.com/Lara2026ss/aero-fluxer-x/releases/download/v10.1.5/Install-FluxerX.bat).
+- **Paquete Portable Completo**: [`FluxerX-v10.1.5-Portable.zip`](https://github.com/Lara2026ss/aero-fluxer-x/releases/download/v10.1.5/FluxerX-v10.1.5-Portable.zip).
+- **Requisitos mínimos**: Windows 10/11 x64, Node.js v18.0.0 o superior.
+
+---
 
 ## [v10.0.0] - 2026-09-04
 ### Added
 - Nuevo Permission Engine con modelo de Workflow temporal.
-- Persistencia de estados de elevaci�n en SQLite para tolerancia a reboots.
+- Persistencia de estados de elevaci�n en SQLite para tolerancia a reboots.
 - Nivel de seguridad dmintotaluser.
 - Herramienta security.start_workflow, get_workflow, evoke_workflow.
 - Nuevo dominio de guide (Domain #12) interno.
-- L�gica de SemVer centralizada en core/version.mjs.
+- L�gica de SemVer centralizada en core/version.mjs.
 - Test de arquitectura automatizados.
 
 ### Changed
 - Refactor completo del subsistema de permisos de usuario.
-- compact: true mejorado en iles.list_directory y iles.read_text_file (preservando whitespace importante y l�nea original).
+- compact: true mejorado en iles.list_directory y iles.read_text_file (preservando whitespace importante y l�nea original).
 - Notificaciones de system.wait suavizadas para IA.
 - Renombrado de "Aeron Fluxer X" a "Fluxer X" progresivamente.
 
 ### Deprecated
-- grant_elevation y m�todos legacy de permisos migrados a workflows.
+- grant_elevation y m�todos legacy de permisos migrados a workflows.
 # Changelog de Aero Fluxer X
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.

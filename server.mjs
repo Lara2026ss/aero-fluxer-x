@@ -16,7 +16,13 @@ import { Router } from "./core/router.mjs";
 import { startDashboardApi } from "./core/dashboard-api.mjs";
 import { PluginLoader } from "./core/plugin-loader.mjs";
 import { sendNativeNotification } from "./core/notify.mjs";
-import { parseResilientJson, unwrapArgs } from "./core/json-utils.mjs";
+import {
+  parseResilientJson,
+  unwrapArgs,
+  sanitizeAndPrune,
+  compactFormatter,
+  smartTruncate,
+} from "./core/json-utils.mjs";
 
 assertWindows({ strict: false });
 
@@ -27,25 +33,34 @@ const SERVER_NAME = APP_NAME;
 function notifyClient(clientName, event = "connect", version = VERSION, options = {}) {
   const displayAI = (clientName || "desconocida").replace(/"/g, "'").trim();
   const actionText = event === "connect" ? "conectó exitosamente a" : "desconectó exitosamente de";
-  const msg = `La Inteligencia Artificial "${displayAI}" se ${actionText} Fluxer X v${version}`;
-  sendNativeNotification("FLUXER X MCP", msg, options);
+  const msg = `La Inteligencia Artificial "${displayAI}" se ${actionText} Fluxer Core v${version}`;
+  sendNativeNotification("FLUXER CORE MCP", msg, options);
 }
 
-
-function mcpText(value) {
+function mcpText(value, options = {}) {
   let text;
   if (typeof value === "string") {
     text = value;
   } else {
-    // Si el payload es mayor a 2KB, minificar para ahorrar hasta 40% de tokens de salida
-    const pretty = JSON.stringify(value, null, 2);
-    text = pretty.length > 2048 ? JSON.stringify(value) : pretty;
+    // Sanitización inteligente preservando siempre errores, timestamps y permisos
+    const pruned = sanitizeAndPrune(value, options);
+    const format = options.format || (options.compact ? "json" : null);
+
+    if (format === "jsonl" || format === "table") {
+      text = compactFormatter(pruned, format);
+    } else if (options.compact) {
+      text = JSON.stringify(pruned);
+    } else {
+      const pretty = JSON.stringify(pruned, null, 2);
+      text = pretty.length > 2048 ? JSON.stringify(pruned) : pretty;
+    }
   }
+
   const MAX_LENGTH = 64 * 1024; // 64KB limit
   if (text.length > MAX_LENGTH) {
-    const originalLength = text.length;
-    text = text.substring(0, MAX_LENGTH) + `\n\n...[TRUNCATED_BY_FLUXER_X] Output exceeded 64KB (was ${originalLength} chars). Use pagination or specific queries to see more.`;
+    text = smartTruncate(text, MAX_LENGTH, options.prefer || "tail");
   }
+
   return {
     content: [
       {
@@ -285,7 +300,11 @@ export async function startServer() {
         args,
       });
 
-      return mcpText(response);
+      return mcpText(response, {
+        compact: args?.compact === true,
+        format: args?.format,
+        prefer: args?.prefer || "tail",
+      });
     } catch (error) {
       const message =
         error instanceof Error

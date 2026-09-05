@@ -515,6 +515,47 @@ export class Registry {
     return { modules, plugins: [], duplicates: [], errors: [] };
   }
 
+  searchTools(query, options = {}) {
+    const q = String(query || "").toLowerCase().trim();
+    if (!q) return [];
+    const limit = Math.min(Number(options.limit) || 10, 50);
+    const domainFilter = options.domain ? String(options.domain).toLowerCase() : null;
+    const results = [];
+
+    for (const [unitName, unit] of this.modules.entries()) {
+      if (domainFilter && unitName.toLowerCase() !== domainFilter) continue;
+      const signatures = unit.actionSignatures || {};
+      for (const action of Object.keys(unit.actions)) {
+        const sig = signatures[action] || "";
+        const desc = `${unitName} ${action} ${sig}`.toLowerCase();
+        let score = 0;
+        if (action.toLowerCase() === q) score += 100;
+        else if (action.toLowerCase().includes(q)) score += 50;
+        else if (desc.includes(q)) score += 25;
+
+        const words = q.split(/\s+/).filter(Boolean);
+        let matchCount = 0;
+        for (const w of words) {
+          if (desc.includes(w)) matchCount++;
+        }
+        if (matchCount > 0) score += matchCount * 10;
+
+        if (score > 0) {
+          results.push({
+            domain: unitName,
+            action,
+            signature: sig,
+            score,
+            example: `{ "action": "${action}" }`,
+          });
+        }
+      }
+    }
+
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, limit);
+  }
+
   health() {
     return {
       ok: true,

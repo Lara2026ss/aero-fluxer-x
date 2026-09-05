@@ -8,6 +8,7 @@
  * @param {object} ctx — { runtime, path, fs, crypto, domain, helpers }
  */
 import os from "node:os";
+import fsSync from "node:fs";
 import { Validator } from "../core/validator.mjs";
 import { VerificationEngine } from "../core/verification.mjs";
 import { FluxerError, ERROR_CODES } from "../core/errors.mjs";
@@ -178,15 +179,57 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     }
   }
 
+  const RESERVED_DEVICE_NAMES = new Set([
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+  ]);
+
+  function getCanonicalPath(targetPath) {
+    try {
+      const resolved = path.resolve(runtime.hp ? runtime.hp(targetPath) : targetPath);
+      if (typeof fsSync.realpathSync?.native === "function") {
+        try {
+          return fsSync.realpathSync.native(resolved);
+        } catch {
+          const parent = path.dirname(resolved);
+          try {
+            const canonParent = fsSync.realpathSync.native(parent);
+            return path.join(canonParent, path.basename(resolved));
+          } catch {
+            return resolved;
+          }
+        }
+      }
+      return resolved;
+    } catch {
+      return path.resolve(targetPath);
+    }
+  }
+
   async function getAllowedDirectoriesList() {
     if (!runtime.dirs) return [];
     const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
+    const cwdDir = process.cwd();
+    const parentCwd = path.dirname(cwdDir);
+    const tempDir = os.tmpdir();
+    const desktopDir = path.join(homeDir, "Desktop");
     const builtinSkills = path.join(homeDir, ".gemini", "antigravity", "builtin", "skills");
     const hasBuiltin = await fs.access(builtinSkills).then(() => true).catch(() => false);
+
     const defaults = [
-      { path: runtime.dirs.root, label: "mcp_root", domain: "files", note: "Directorio de instalación del MCP" },
+      // 1. Workspace autorizado
+      { path: cwdDir, label: "workspace_cwd", domain: "files", note: "Directorio de trabajo activo" },
+      { path: parentCwd, label: "workspace_parent", domain: "files", note: "Raíz del proyecto activo" },
+      // 2. User home y subcarpetas estándar
+      { path: homeDir, label: "user_home", domain: "files", note: "Directorio principal del usuario" },
+      { path: desktopDir, label: "desktop", domain: "files", note: "Escritorio del usuario" },
       { path: runtime.dirs.documents, label: "documents", domain: "files", note: "Documentos del usuario" },
       { path: runtime.dirs.downloads, label: "downloads", domain: "files", note: "Descargas del usuario" },
+      // 3. Temporales del sistema
+      { path: tempDir, label: "temp", domain: "files", note: "Directorio temporal del sistema" },
+      // 4. MCP Storage & Skills
+      { path: runtime.dirs.root, label: "mcp_root", domain: "files", note: "Directorio de instalación del MCP" },
       { path: runtime.dirs.storage, label: "storage", domain: "files", note: "Datos locales del MCP (AppData)" },
       { path: runtime.dirs.skillsConfig || path.join(homeDir, ".gemini", "config", "skills"), label: "skills_config", domain: "developer", note: "Configuración global de habilidades de IA" },
       { path: runtime.dirs.skills || path.join(homeDir, ".gemini", "skills"), label: "skills_user", domain: "developer", note: "Habilidades locales de usuario de IA" },
@@ -196,14 +239,14 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     const dynamic = await loadDynamicAllowedDirs();
     const map = new Map();
     for (const d of defaults) {
-      const norm = path.resolve(d.path).toLowerCase();
-      map.set(norm, { ...d, path: path.resolve(d.path), isDefault: true });
+      const canon = getCanonicalPath(d.path).toLowerCase();
+      map.set(canon, { ...d, path: getCanonicalPath(d.path), isDefault: true });
     }
     for (const d of dynamic) {
       if (d?.path) {
-        const norm = path.resolve(d.path).toLowerCase();
-        if (!map.has(norm)) {
-          map.set(norm, { ...d, path: path.resolve(d.path), isDefault: false });
+        const canon = getCanonicalPath(d.path).toLowerCase();
+        if (!map.has(canon)) {
+          map.set(canon, { ...d, path: getCanonicalPath(d.path), isDefault: false });
         }
       }
     }
@@ -217,20 +260,70 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     if (currentLevel === "admintotaluser") return true;
     if (process.env.FLUXER_TRUSTED_CLIENT === "true" || runtime.config?.security?.trustedClient === true) return true;
 
-    const allowedList = await getAllowedDirectoriesList();
-    const resolvedTarget = path.resolve(runtime.hp ? runtime.hp(targetPath) : targetPath);
-    const normTarget = resolvedTarget.toLowerCase();
+    // 1. Bloquear caracteres nulos
+    if (String(targetPath).includes("\0")) {
+      const err = new Error("Carácter nulo detectado en la ruta solicitada.");
+      err.code = "SANDBOX_BOUNDARY";
+      err.path = targetPath;
+      throw err;
+    }
 
+    // 2. Bloquear Alternate Data Streams (ADS) en Windows (ej: archivo:stream)
+    const strippedDrive = String(targetPath).replace(/^[a-zA-Z]:/, "");
+    if (strippedDrive.includes(":")) {
+      const err = new Error(`Alternate Data Stream (ADS) prohibido en Windows: "${targetPath}".`);
+      err.code = "SANDBOX_BOUNDARY";
+      err.path = targetPath;
+      throw err;
+    }
+
+    // 3. Bloquear nombres de dispositivo reservados de Windows (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+    const baseName = path.basename(String(targetPath)).split(".")[0].toUpperCase();
+    if (RESERVED_DEVICE_NAMES.has(baseName)) {
+      const err = new Error(`Nombre de dispositivo reservado de Windows detectado: "${baseName}".`);
+      err.code = "SANDBOX_BOUNDARY";
+      err.path = targetPath;
+      throw err;
+    }
+
+    const canonicalTarget = getCanonicalPath(targetPath);
+    const normTarget = canonicalTarget.toLowerCase();
+
+    // 4. Comprobación contra la lista inteligente de directorios autorizados
+    const allowedList = await getAllowedDirectoriesList();
     const matched = allowedList.find(d => {
-      const normDir = path.resolve(d.path).toLowerCase();
+      const normDir = d.path.toLowerCase();
       return normTarget === normDir || normTarget.startsWith(normDir + path.sep);
     });
 
     if (!matched) {
-      const err = new Error(`Acceso denegado (Sandbox de archivos): La ruta "${targetPath}" no pertenece a ningún directorio autorizado. Autorízala con 'files.add_allowed_directory({ path: "..." })' o eleva permisos a admintotaluser.`);
-      err.code = "PERMISSION_DENIED";
+      // Auto-whitelist workspace si contiene .git o package.json dentro de USERPROFILE
+      const homeDir = (runtime.dirs?.home || os.homedir()).toLowerCase();
+      if (normTarget.startsWith(homeDir + path.sep)) {
+        let checkDir = path.dirname(canonicalTarget);
+        let depth = 0;
+        let isWorkspace = false;
+        while (checkDir && checkDir.length >= homeDir.length && depth < 5) {
+          try {
+            if (fsSync.existsSync(path.join(checkDir, ".git")) || fsSync.existsSync(path.join(checkDir, "package.json"))) {
+              isWorkspace = true;
+              break;
+            }
+          } catch {}
+          checkDir = path.dirname(checkDir);
+          depth++;
+        }
+        if (isWorkspace) {
+          return true;
+        }
+      }
+
+      const err = new Error(`Acceso fuera del sandbox de trabajo (Sandbox Boundary): La ruta "${targetPath}" no pertenece a ningún directorio autorizado.`);
+      err.code = "SANDBOX_BOUNDARY";
       err.sandboxBlocked = true;
       err.path = targetPath;
+      err.canonicalPath = canonicalTarget;
+      err.suggestion = "Puedes autorizar esta carpeta invocando files.add_allowed_directory({ path: '...' }) o agregándola a la configuración en config.json.";
       throw err;
     }
     return true;

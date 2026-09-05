@@ -69,6 +69,12 @@ export function createGuideDomain({ runtime, domain }) {
         return { ok: true, tool: tool_name, usage: usage[tool_name] };
       }
       return { ok: true, usage };
+    },
+
+    search_tools: async ({ query, domain: dom, limit = 10 } = {}) => {
+      if (!runtime._registry) return { ok: false, error: "Registry no disponible." };
+      const matches = runtime._registry.searchTools(query, { domain: dom, limit });
+      return { ok: true, query, count: matches.length, matches };
     }
   };
 
@@ -76,6 +82,7 @@ export function createGuideDomain({ runtime, domain }) {
     permissions_info: "user",
     best_practices: "user",
     tool_usage: "user",
+    search_tools: "user",
   };
 
   return domain("guide", "Documentación oficial interna, reglas y mejores prácticas para IAs que operan este MCP.", actions, permissions);

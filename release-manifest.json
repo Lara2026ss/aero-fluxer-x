@@ -1,0 +1,52 @@
+{
+  "version": "10.1.5",
+  "tag": "v10.1.5",
+  "channel": "experimental-public",
+  "product": "Fluxer Core",
+  "release_date": "2026-09-05T02:15:12.956Z",
+  "release_type": "experimental-public",
+  "minimum_node_version": ">=18.0.0",
+  "platform_support": [
+    "windows",
+    "linux",
+    "darwin"
+  ],
+  "artifacts": {
+    "installer": {
+      "name": "Install-FluxerX.bat",
+      "sha256": "1a5f692f145ad5cf20872e2f557efd0837159cd94c7f3da780479f7b888b5d77",
+      "size_bytes": 2102,
+      "description": "Instalador automático en 1 clic para Windows 11 con pre-flight checks y auto-test."
+    },
+    "portable": {
+      "name": "FluxerX-v10.1.5-Portable.zip",
+      "sha256": "539c9fd6e6e56f1d50b65200251efdda5acc8a350de22dae610cfca2e6ffb090",
+      "size_bytes": 402979,
+      "description": "Paquete portable completo para despliegues manuales y servidores MCP."
+    }
+  },
+  "breakingChanges": [
+    {
+      "action": "run_project_tests",
+      "domain": "developer",
+      "oldLevel": "user",
+      "newLevel": "poweruser",
+      "migration": "Usar security.start_workflow({ level: 'poweruser', durationMinutes: 5 }) antes de ejecutar tests."
+    },
+    {
+      "action": "run_command",
+      "domain": "terminal",
+      "oldLevel": "user",
+      "newLevel": "poweruser",
+      "migration": "Usar security.start_workflow({ level: 'poweruser', durationMinutes: 5 }) antes de ejecutar comandos arbitrarios."
+    }
+  ],
+  "changelog": [
+    "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction",
+    "Token Compression Inteligente: poda selectiva sin eliminar errores ni stack traces (sanitizeAndPrune, compactFormatter, smartTruncate)",
+    "Motor de Terminal Windows 11 Production-Grade: detección pwsh/powershell/cmd, UTF-8 estricto sin mojibake, drenado continuo de streams y terminación de árboles",
+    "Sandbox Inteligente: smart whitelist (CWD, Desktop, Documents, Downloads, Temp) con fs.realpathSync.native(), bloqueo ADS y dispositivos reservados",
+    "Descubrimiento Ultrarrápido: acción search_tools para que cualquier IA encuentre herramientas en <15ms",
+    "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor"
+  ]
+}

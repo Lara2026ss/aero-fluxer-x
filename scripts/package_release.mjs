@@ -92,72 +92,26 @@ async function packageRelease() {
   }
 
   // 3. Crear el archivo ZIP empaquetado
-  const zipName = `fluxer-x-v${CURRENT_VERSION}.zip`;
-  const legacyZipName = `aeron-fluxer-x-v${CURRENT_VERSION}.zip`;
+  const zipName = `FluxerX-v${CURRENT_VERSION}-Portable.zip`;
+  const compatZipName = `fluxer-x-v${CURRENT_VERSION}.zip`;
   const zipPath = path.join(DIST_DIR, zipName);
-  const legacyZipPath = path.join(DIST_DIR, legacyZipName);
+  const compatZipPath = path.join(DIST_DIR, compatZipName);
   await fs.rm(zipPath, { force: true }).catch(() => {});
-  await fs.rm(legacyZipPath, { force: true }).catch(() => {});
+  await fs.rm(compatZipPath, { force: true }).catch(() => {});
 
-  console.log(`  Comprimiendo artefacto limpio en: ${zipPath}...`);
+  console.log(`  Comprimiendo artefacto portable en: ${zipPath}...`);
   const isWin = process.platform === "win32";
   if (isWin) {
-    // Usar PowerShell Compress-Archive sobre el contenido del staging
     const psCmd = `powershell -NoProfile -NonInteractive -Command "Compress-Archive -Path '${stagingDir}\\*' -DestinationPath '${zipPath}' -Force"`;
     await execAsync(psCmd);
   } else {
     await execAsync(`cd "${stagingDir}" && zip -r -q "${zipPath}" .`);
   }
 
-  // Copia retrocompatible y copia de versión de fábrica certificada
-  const factoryZipName = "fluxer-x-factory.zip";
-  const factoryZipPath = path.join(DIST_DIR, factoryZipName);
-  await fs.copyFile(zipPath, legacyZipPath).catch(() => {});
-  await fs.copyFile(zipPath, factoryZipPath).catch(() => {});
+  // Copia de compatibilidad para updater automático
+  await fs.copyFile(zipPath, compatZipPath).catch(() => {});
 
-  // 3b. Crear paquete ligero de instalador (FluxerX-Installer-vX.X.X.zip)
-  const installerZipName = `FluxerX-Installer-v${CURRENT_VERSION}.zip`;
-  const installerZipPath = path.join(DIST_DIR, installerZipName);
-  const installerStaging = path.join(DIST_DIR, `staging-installer-v${CURRENT_VERSION}`);
-  await fs.rm(installerStaging, { recursive: true, force: true }).catch(() => {});
-  await fs.mkdir(installerStaging, { recursive: true });
-
-  const installerFiles = [
-    "Install-FluxerX.bat",
-    "Install-FluxerX.ps1",
-    "shortcuts.template.json",
-  ];
-  for (const f of installerFiles) {
-    const src = path.join(ROOT, f);
-    if (existsSync(src)) {
-      await fs.cp(src, path.join(installerStaging, f));
-    }
-  }
-
-  const readmeContent = `======================================================================
-  🚀 FLUXER X MCP v${CURRENT_VERSION} - GUÍA RÁPIDA DE INSTALACIÓN
-======================================================================
-
-1. Para instalar Fluxer X en su equipo, simplemente haga DOBLE CLIC en:
-   👉 Install-FluxerX.bat
-
-2. El instalador:
-   - Verificará su entorno Windows y Node.js.
-   - Descargará e instalará automáticamente el motor Fluxer X en %LOCALAPPDATA%\\FluxerX.
-   - Configurará automáticamente Claude Desktop, Antigravity y Codex.
-   - No requiere permisos de Administrador ni altera directivas globales.
-
-3. Tras la instalación, reinicie su aplicación cliente de IA y comience a usar Fluxer X.
-`;
-  await fs.writeFile(path.join(installerStaging, "LEEME_INSTALACION.txt"), readmeContent, "utf8");
-
-  if (isWin) {
-    const psCmdInstaller = `powershell -NoProfile -NonInteractive -Command "Compress-Archive -Path '${installerStaging}\\*' -DestinationPath '${installerZipPath}' -Force"`;
-    await execAsync(psCmdInstaller);
-  }
-  await fs.rm(installerStaging, { recursive: true, force: true }).catch(() => {});
-
-  // Copiar también scripts directos a dist para descarga individual
+  // Copiar scripts directos a dist para descarga individual
   const directBatPath = path.join(DIST_DIR, "Install-FluxerX.bat");
   await fs.copyFile(path.join(ROOT, "Install-FluxerX.bat"), directBatPath).catch(() => {});
   const directPs1Path = path.join(DIST_DIR, "Install-FluxerX.ps1");
@@ -165,77 +119,78 @@ async function packageRelease() {
 
   // 4. Calcular Checksum SHA-256
   const sha256 = await computeSha256(zipPath);
-  const sha256Installer = await computeSha256(installerZipPath);
   const sha256Bat = await computeSha256(directBatPath);
   const checksumFileName = "checksums.sha256";
   const checksumFilePath = path.join(DIST_DIR, checksumFileName);
-  const checksumContent = `${sha256}  ${zipName}\n${sha256}  ${factoryZipName}\n${sha256}  ${legacyZipName}\n${sha256Installer}  ${installerZipName}\n${sha256Bat}  Install-FluxerX.bat\n`;
+  const checksumContent = `${sha256}  ${zipName}\n${sha256}  ${compatZipName}\n${sha256Bat}  Install-FluxerX.bat\n`;
   await fs.writeFile(checksumFilePath, checksumContent, "utf8");
   console.log(`  ✓ SHA-256 (${zipName}): ${sha256}`);
-  console.log(`  ✓ SHA-256 (${factoryZipName}): ${sha256}`);
-  console.log(`  ✓ SHA-256 (${installerZipName}): ${sha256Installer}`);
+  console.log(`  ✓ SHA-256 (Install-FluxerX.bat): ${sha256Bat}`);
 
   // 5. Generar Release Manifest
   const manifest = {
     version: CURRENT_VERSION,
     tag: `v${CURRENT_VERSION}`,
-    product: "Fluxer X",
+    channel: "experimental-public",
+    product: "Fluxer Core",
     release_date: new Date().toISOString(),
-    release_type: "stable",
+    release_type: "experimental-public",
     minimum_node_version: ">=18.0.0",
     platform_support: ["windows", "linux", "darwin"],
-    artifact: {
-      name: zipName,
-      sha256,
-      size_bytes: (await fs.stat(zipPath)).size,
+    artifacts: {
+      installer: {
+        name: "Install-FluxerX.bat",
+        sha256: sha256Bat,
+        size_bytes: (await fs.stat(directBatPath)).size,
+        description: "Instalador automático en 1 clic para Windows 11 con pre-flight checks y auto-test."
+      },
+      portable: {
+        name: zipName,
+        sha256,
+        size_bytes: (await fs.stat(zipPath)).size,
+        description: "Paquete portable completo para despliegues manuales y servidores MCP."
+      }
     },
-    installer_artifact: {
-      name: installerZipName,
-      sha256: sha256Installer,
-      size_bytes: (await fs.stat(installerZipPath)).size,
-    },
-    standalone_scripts: {
-      bat: "Install-FluxerX.bat",
-      ps1: "Install-FluxerX.ps1",
-      sha256: sha256Bat,
-    },
-    legacy_artifact: {
-      name: legacyZipName,
-      sha256,
-    },
-    changelog: [
-      "v10.1.0 Project X — Core Optimization, 20 Doctor Invariants & Advanced Tooling",
-      "Core OperationEngine con pipeline de 5 etapas (Validate, Authorize, Execute, Verify, Format & Cache)",
-      "Doctor Engine ampliado a 20 invariantes de auto-integridad activas (INV-001..INV-020)",
-      "Gestión de ciclo de vida de procesos: process_tree, kill_process_tree e inspect_port_owner con guardas de seguridad inviolables",
-      "Memoria contextual de alta velocidad: SQLite FTS5 (remember_note, search_notes) con redacción automática de secretos",
-      "Herramientas multimedia nativas: get_image_metadata, convert_image, resize_image",
-      "Herramientas de Git estructuradas: git_status_structured, git_diff_summary, git_log_compact, git_switch_identity",
-      "Hotfixes integrales de feedbacks comunitarios: system.ping en UTF-8 para Windows OEM, token auth en dashboard HTTP, sandbox estricto de archivos y anonimización de host",
+    breakingChanges: [
+      {
+        action: "run_project_tests",
+        domain: "developer",
+        oldLevel: "user",
+        newLevel: "poweruser",
+        migration: "Usar security.start_workflow({ level: 'poweruser', durationMinutes: 5 }) antes de ejecutar tests."
+      },
+      {
+        action: "run_command",
+        domain: "terminal",
+        oldLevel: "user",
+        newLevel: "poweruser",
+        migration: "Usar security.start_workflow({ level: 'poweruser', durationMinutes: 5 }) antes de ejecutar comandos arbitrarios."
+      }
     ],
-    integrity_verification: {
-      algorithm: "SHA-256",
-      signature_mode: "SHA-256 Manifest Digest",
-      publisher_signature_status: "VERIFIED: Built from certified clean source",
-    },
+    changelog: [
+      "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction",
+      "Token Compression Inteligente: poda selectiva sin eliminar errores ni stack traces (sanitizeAndPrune, compactFormatter, smartTruncate)",
+      "Motor de Terminal Windows 11 Production-Grade: detección pwsh/powershell/cmd, UTF-8 estricto sin mojibake, drenado continuo de streams y terminación de árboles",
+      "Sandbox Inteligente: smart whitelist (CWD, Desktop, Documents, Downloads, Temp) con fs.realpathSync.native(), bloqueo ADS y dispositivos reservados",
+      "Descubrimiento Ultrarrápido: acción search_tools para que cualquier IA encuentre herramientas en <15ms",
+      "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor"
+    ]
   };
 
   const manifestPath = path.join(DIST_DIR, "release-manifest.json");
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
-  console.log(`  ✓ Manifest generado en: ${manifestPath}`);
+  console.log(`  ✓ Release manifest generado en: ${manifestPath}`);
 
   // Limpiar staging temporal
   await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
 
   console.log(`\n🎉 Paquetes generados exitosamente:`);
-  console.log(`  - Motor Completo:       ${zipPath}`);
-  console.log(`  - Instalador Ligero:    ${installerZipPath}`);
-  console.log(`  - Script BAT directo:   ${directBatPath}`);
-  console.log(`  - Manifest:             ${manifestPath}`);
-  console.log(`  - Checksums:            ${checksumFilePath}\n`);
-  console.log(`  - ZIP:       ${zipPath}`);
-  console.log(`  - CHECKSUM:  ${checksumFilePath}`);
-  console.log(`  - MANIFEST:  ${manifestPath}\n`);
+  console.log(`  - Motor Completo (Portable): ${zipPath}`);
+  console.log(`  - Alias Compatibilidad:      ${compatZipPath}`);
+  console.log(`  - Instalador BAT directo:    ${directBatPath}`);
+  console.log(`  - Instalador PS1 directo:    ${directPs1Path}`);
+  console.log(`  - Manifest Oficial:          ${manifestPath}`);
+  console.log(`  - Checksums SHA-256:         ${checksumFilePath}\n`);
 
   return { zipPath, sha256, manifestPath };
 }

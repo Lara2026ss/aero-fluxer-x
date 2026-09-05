@@ -1203,6 +1203,11 @@ Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, 
   actions.system_info = actions.get_system_snapshot;
   actions.snapshot = actions.get_system_snapshot;
   actions.free_ram = actions.clean_ram;
+  actions.search_tools = async ({ query, domain: dom, limit = 10 } = {}) => {
+    if (!runtime._registry) return { ok: false, error: "Registry no disponible." };
+    const matches = runtime._registry.searchTools(query, { domain: dom, limit });
+    return { ok: true, query, count: matches.length, matches };
+  };
 
   const permissions = {
     kill_process_tree: "poweruser",
@@ -1215,6 +1220,7 @@ Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, 
     clean_ram: "user",
     inspect_port_owner: "user",
     process_tree: "user",
+    search_tools: "user",
   };
 
   return domain(

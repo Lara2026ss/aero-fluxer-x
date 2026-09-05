@@ -100,9 +100,9 @@ async function runFeedbackTests() {
     args: { path: unauthorizedSystemFile }
   });
   assert.strictEqual(readOutsideRes.ok, false, "Reading outside sandbox must fail");
-  assert.strictEqual(readOutsideRes.code, "PERMISSION_DENIED", "Must return PERMISSION_DENIED");
+  assert.ok(readOutsideRes.code === "PERMISSION_DENIED" || readOutsideRes.code === "SANDBOX_BOUNDARY", "Must return PERMISSION_DENIED or SANDBOX_BOUNDARY");
 
-  const tempSandboxFolder = path.join(os.tmpdir(), "fluxer_sandbox_allowed_test");
+  const tempSandboxFolder = path.join(process.env.SystemDrive || "C:\\", "_fluxer_sandbox_allowed_test");
   await fs.mkdir(tempSandboxFolder, { recursive: true });
 
   // Elevamos a poweruser para poder gestionar allowed directories
@@ -139,7 +139,7 @@ async function runFeedbackTests() {
     args: { path: sandboxAllowedFile }
   });
   assert.strictEqual(readAfterRemoveRes.ok, false, "Reading after directory removed from whitelist must fail");
-  assert.strictEqual(readAfterRemoveRes.code, "PERMISSION_DENIED", "Must return PERMISSION_DENIED");
+  assert.ok(readAfterRemoveRes.code === "PERMISSION_DENIED" || readAfterRemoveRes.code === "SANDBOX_BOUNDARY", "Must return PERMISSION_DENIED or SANDBOX_BOUNDARY");
 
   await fs.unlink(sandboxAllowedFile).catch(() => {});
   await fs.rmdir(tempSandboxFolder).catch(() => {});

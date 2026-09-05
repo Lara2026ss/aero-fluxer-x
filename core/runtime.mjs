@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { assertWindows, killProcessTree, cleanCliXml, buildUtf8PowerShellScript } from "./platform/windows.mjs";
+import { executeWindowsTerminal } from "./terminal-manager.mjs";
 import { normalizeWindowsPath, getWindowsPathext, getToolchainSnapshot, resolveBinary } from "./toolchain.mjs";
 import { Logger } from "./logger.mjs";
 import { MemoryStore } from "./memory.mjs";
@@ -228,80 +229,12 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
     const execute = async () => {
       if (signal?.aborted) throw signal.reason ?? new Error("aborted");
 
-      const systemRoot = process.env.SystemRoot || "C:\\Windows";
-      let spawnBin = path.join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-      if (!existsSync(spawnBin)) spawnBin = "powershell.exe";
-      let spawnArgs = [];
-
-      if (requestedShell === "cmd") {
-        spawnBin = path.join(systemRoot, "System32", "cmd.exe");
-        if (!existsSync(spawnBin)) spawnBin = "cmd.exe";
-        spawnArgs = ["/d", "/s", "/c", `chcp 65001 >nul && ${command}`];
-      } else if (requestedShell === "direct") {
-        const parts = command.trim().split(/\s+/);
-        spawnBin = parts[0];
-        spawnArgs = parts.slice(1);
-      } else {
-        // PowerShell por defecto con UTF-8 estricto e inyección de PATH/PATHEXT
-        const wrapped = buildUtf8PowerShellScript(command, env.PATH, env.PATHEXT);
-        const encoded = Buffer.from(wrapped, "utf16le").toString("base64");
-        spawnArgs = [
-          "-NoProfile",
-          "-NonInteractive",
-          "-ExecutionPolicy", "Bypass",
-          "-EncodedCommand", encoded
-        ];
-      }
-
-      return new Promise((resolve, reject) => {
-        const proc = spawn(spawnBin, spawnArgs, {
-          cwd: effectiveCwd,
-          env: { ...env, ...(options.env || {}) },
-          windowsHide: true,
-          stdio: ["ignore", "pipe", "pipe"],
-          ...(signal ? { signal } : {}),
-        });
-
-        let stdoutChunks = [];
-        let stderrChunks = [];
-        let timer = null;
-
-        if (timeout) {
-          timer = setTimeout(() => {
-            try {
-              if (proc.pid) killProcessTree(proc.pid);
-              proc.kill();
-            } catch {}
-            const err = new Error(`Command timed out after ${timeout}ms`);
-            err.name = "AbortError";
-            reject(err);
-          }, timeout);
-        }
-
-        proc.stdout?.on("data", (chunk) => stdoutChunks.push(chunk));
-        proc.stderr?.on("data", (chunk) => stderrChunks.push(chunk));
-
-        proc.on("close", (code) => {
-          if (timer) clearTimeout(timer);
-          const rawStdout = Buffer.concat(stdoutChunks).toString("utf8").trim();
-          const rawStderr = Buffer.concat(stderrChunks).toString("utf8").trim();
-          const stdout = cleanCliXml(rawStdout);
-          const stderr = cleanCliXml(rawStderr);
-          if (code !== 0) {
-            const err = new Error(stderr || stdout || `Command failed with exit code ${code}`);
-            err.code = code;
-            err.stdout = stdout;
-            err.stderr = stderr;
-            reject(err);
-          } else {
-            resolve({ stdout, stderr, code: 0 });
-          }
-        });
-
-        proc.on("error", (err) => {
-          if (timer) clearTimeout(timer);
-          reject(err);
-        });
+      return await executeWindowsTerminal(command, {
+        cwd: effectiveCwd,
+        env: { ...env, ...(options.env || {}) },
+        shell: requestedShell,
+        timeout,
+        signal,
       });
     };
 
@@ -310,15 +243,10 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
         options.queue === false
           ? await execute()
           : await taskQueue.run(execute, { priority, signal });
+
       return {
-        ok: true,
-        stdout: cleanCliXml(String(result.stdout ?? "")).trim(),
-        stderr: cleanCliXml(String(result.stderr ?? "")).trim(),
-        code: 0,
-        exitCode: 0,
+        ...result,
         durationMs: Date.now() - startTime,
-        effectiveShell: requestedShell,
-        effectiveCwd,
         resolvedCommand: command,
         effectiveEnvPath: env.PATH,
         encoding: "utf-8",
@@ -335,6 +263,7 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
         stderr: cleanErr,
         error: cleanErr || cleanOut || error.message,
         code: error.code ?? 1,
+        exit_code: error.code ?? 1,
         exitCode: error.code ?? 1,
         durationMs: Date.now() - startTime,
         effectiveShell: requestedShell,
