@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.1.0",
-  "description": "Fluxer X MCP v10.1.0 (Project X) — Core Optimization & Advanced Tooling para Windows 11",
+  "version": "10.1.5",
+  "description": "Fluxer Core MCP v10.1.5 (Experimental Public Release) para Windows 11",
   "type": "module",
   "main": "server.js",
   "bin": {

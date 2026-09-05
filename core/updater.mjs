@@ -95,6 +95,8 @@ function downloadFileWithHash(url, destinationPath, options = {}) {
     const client = url.startsWith("https") ? https : http;
     const headers = {
       "User-Agent": `Aeron-Fluxer-X-Updater/v${CURRENT_VERSION}`,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
       ...(options.headers || {}),
     };
 
@@ -228,7 +230,8 @@ export async function checkForUpdates(options = {}) {
       latestVersion = (ghRelease.tag_name || "").replace(/^v/, "").trim();
       releaseNotes = ghRelease.body || ghRelease.name || "";
       
-      const zipAsset = (ghRelease.assets || []).find((a) => a.name.endsWith(".zip"));
+      const portableAsset = (ghRelease.assets || []).find((a) => a.name.toLowerCase().includes("portable") && a.name.endsWith(".zip"));
+      const zipAsset = portableAsset || (ghRelease.assets || []).find((a) => a.name.endsWith(".zip"));
       if (zipAsset) {
         downloadUrl = zipAsset.browser_download_url || "";
         assetName = zipAsset.name;
@@ -504,6 +507,7 @@ export async function executeAutoUpdate(options = {}) {
 
   await fs.mkdir(stagingDir, { recursive: true });
   await fs.rm(extractedDir, { recursive: true, force: true }).catch(() => {});
+  await fs.rm(archivePath, { force: true }).catch(() => {});
 
   let backupInfo = null;
 
