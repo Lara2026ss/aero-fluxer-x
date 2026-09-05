@@ -168,6 +168,7 @@ async function packageRelease() {
       }
     ],
     changelog: [
+      "v10.2.1 — Granular Read Permissions, Neutral Human Confirmation, Deep Path Sanitization & Clean Win32 Architecture",
       "v10.2.0 Project X — Public Release Ready: Granular Permissions, Neutral Human Confirmation & Sanitized Paths",
       "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction",
       "Token Compression Inteligente: poda selectiva sin eliminar errores ni stack traces (sanitizeAndPrune, compactFormatter, smartTruncate)",

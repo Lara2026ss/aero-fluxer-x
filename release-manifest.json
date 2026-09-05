@@ -1,9 +1,9 @@
 {
-  "version": "10.1.5",
-  "tag": "v10.1.5",
+  "version": "10.2.1",
+  "tag": "v10.2.1",
   "channel": "experimental-public",
   "product": "Fluxer Core",
-  "release_date": "2026-09-05T02:37:58.712Z",
+  "release_date": "2026-09-05T06:43:18.076Z",
   "release_type": "experimental-public",
   "minimum_node_version": ">=18.0.0",
   "platform_support": [
@@ -19,9 +19,9 @@
       "description": "Instalador automático en 1 clic para Windows 11 con pre-flight checks y auto-test."
     },
     "portable": {
-      "name": "FluxerX-v10.1.5-Portable.zip",
-      "sha256": "9b460b1902d8677d4d8a868a5c40a6a882c8ada8ac8d0106e4eb828c4b9bd0ef",
-      "size_bytes": 406932,
+      "name": "FluxerX-v10.2.1-Portable.zip",
+      "sha256": "2843a868d5e82121b69bd2402542d92c6f9986f263cedfc8984d55f660761361",
+      "size_bytes": 408961,
       "description": "Paquete portable completo para despliegues manuales y servidores MCP."
     }
   },
@@ -42,11 +42,14 @@
     }
   ],
   "changelog": [
+    "v10.2.1 — Granular Read Permissions, Neutral Human Confirmation, Deep Path Sanitization & Clean Win32 Architecture",
+    "v10.2.0 Project X — Public Release Ready: Granular Permissions, Neutral Human Confirmation & Sanitized Paths",
     "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction",
     "Token Compression Inteligente: poda selectiva sin eliminar errores ni stack traces (sanitizeAndPrune, compactFormatter, smartTruncate)",
     "Motor de Terminal Windows 11 Production-Grade: detección pwsh/powershell/cmd, UTF-8 estricto sin mojibake, drenado continuo de streams y terminación de árboles",
     "Sandbox Inteligente: smart whitelist (CWD, Desktop, Documents, Downloads, Temp) con fs.realpathSync.native(), bloqueo ADS y dispositivos reservados",
     "Descubrimiento Ultrarrápido: acción search_tools para que cualquier IA encuentre herramientas en <15ms",
-    "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor"
+    "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor",
+    "Doctor Engine ampliado a 20 invariantes de auto-integridad activas (INV-001..INV-020)"
   ]
 }
