@@ -4,7 +4,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import { getStorageStructure } from "../core/storage-paths.mjs";
-import { CURRENT_VERSION } from "../core/version.mjs";
+import { CURRENT_VERSION, compareSemVer } from "../core/version.mjs";
 import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
 import { getClientRestartNotice } from "../core/client-restart.mjs";
 import { unwrapArgs } from "../core/json-utils.mjs";
@@ -1050,12 +1050,18 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       let verdict = "UNKNOWN";
       let isGenuinelyUpdated = false;
 
+      const semverCmp = latestRemote ? compareSemVer(runningVersion, latestRemote) : 0;
+      const isAheadOfRemote = semverCmp > 0;
+
       if (isRunningUpdated && isDiskUpdated && versionsMatch) {
         verdict = "GENUINE_UPDATE_VERIFIED";
         isGenuinelyUpdated = true;
       } else if (isDiskUpdated && !isRunningUpdated) {
         verdict = "UPDATE_APPLIED_PENDING_RESTART";
         isGenuinelyUpdated = false;
+      } else if (isAheadOfRemote) {
+        verdict = "AHEAD_OF_REMOTE";
+        isGenuinelyUpdated = true;
       } else {
         verdict = "NOT_LATEST_VERSION";
         isGenuinelyUpdated = false;
@@ -1065,6 +1071,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         ok: true,
         verdict,
         is_genuinely_updated: isGenuinelyUpdated,
+        is_ahead_of_remote: isAheadOfRemote,
         running_version: runningVersion,
         disk_version: diskVersion,
         package_version: packageVersion,
@@ -1074,11 +1081,13 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         files_verified: fileModTimes,
         latest_backup: latestBackup,
         recent_updater_events: lastUpdaterLogs,
-        status_message: isGenuinelyUpdated
+        status_message: isGenuinelyUpdated && verdict === "GENUINE_UPDATE_VERIFIED"
           ? `✅ Verificación exitosa: El MCP está ejecutando y tiene instalado en disco la versión más reciente (v${runningVersion}). Sin simulación.`
           : verdict === "UPDATE_APPLIED_PENDING_RESTART"
             ? `⚠️ Los archivos en disco fueron actualizados a v${diskVersion}, pero el proceso MCP en memoria aún corre v${runningVersion}. Reinicia tu cliente MCP para cargar la nueva versión.`
-            : `ℹ️ El MCP instalado actualmente está en v${runningVersion} (disco: v${diskVersion}, remoto: v${latestRemote}). Se requiere ejecutar 'upd' para actualizar.`
+            : verdict === "AHEAD_OF_REMOTE"
+              ? `🚀 El MCP instalado actualmente corre una versión más avanzada (v${runningVersion}) que la última versión pública remota (v${latestRemote}). Compilación de desarrollo/pre-lanzamiento verificada.`
+              : `ℹ️ El MCP instalado actualmente está en v${runningVersion} (disco: v${diskVersion}, remoto: v${latestRemote}). Se requiere ejecutar 'upd' para actualizar.`
       };
     },
 

@@ -165,6 +165,25 @@ async function runFeedbackTests() {
   assert.match(anonRes.hostname, /^host-[a-f0-9]{8}$/, "hostname must be anonymized hash");
   assert.strictEqual(anonRes.workspaceRoot, undefined, "workspaceRoot must not be exposed when anonymized");
 
+  // 10. AFX-FB-43DY8F: Deep anonymization without username leak in effectivePath or toolchain
+  console.log("-> 10. AFX-FB-43DY8F: Deep anonymization check (zero username leaks)...");
+  const username = os.userInfo?.()?.username || process.env.USERNAME || "";
+  if (username) {
+    const fullAnonDump = JSON.stringify(anonRes).toLowerCase();
+    assert.strictEqual(fullAnonDump.includes(username.toLowerCase()), false, "health_check output must not leak username anywhere");
+  }
+
+  // 11. AFX-FB-DFVZHS: developer.upd_data ahead of remote handling
+  console.log("-> 11. AFX-FB-DFVZHS: developer.upd_data verdict when ahead of remote...");
+  const updDataRes = await runtime.router.execute({
+    tool: "developer",
+    action: "upd_data",
+    args: {}
+  });
+  assert.strictEqual(updDataRes.ok, true, "upd_data should succeed");
+  assert.ok(updDataRes.verdict, "upd_data must have a valid verdict");
+  assert.notStrictEqual(updDataRes.verdict, "UNKNOWN", "verdict must not be UNKNOWN");
+
   console.log("=== PASS: All Feedback Tests Passed 100% ===");
 }
 

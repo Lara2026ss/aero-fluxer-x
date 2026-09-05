@@ -48,8 +48,34 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
       const shouldAnonymize = Boolean(anonymize || process.env.FLUXER_PUBLIC_MODE === "true" || (runtime.config?.mode === "public"));
       const displayHost = shouldAnonymize ? `host-${hostHash}` : rawHostname;
 
+      function deepSanitizeAnonymized(obj) {
+        if (!obj) return obj;
+        const username = os.userInfo?.()?.username || process.env.USERNAME || process.env.USER || "";
+        const homedir = os.homedir?.() || "";
+
+        let jsonStr = JSON.stringify(obj);
+
+        if (homedir && homedir.length > 2) {
+          const escapedHomeBs = homedir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          jsonStr = jsonStr.replace(new RegExp(escapedHomeBs, "gi"), "C:\\\\Users\\\\<redacted>");
+          const escapedHomeFs = homedir.replace(/\\/g, "/").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          jsonStr = jsonStr.replace(new RegExp(escapedHomeFs, "gi"), "C:/Users/<redacted>");
+        }
+
+        jsonStr = jsonStr.replace(/([a-zA-Z]:\\\\Users\\\\)[^\\\\"\s;]+/gi, "$1<redacted>");
+        jsonStr = jsonStr.replace(/([a-zA-Z]:\/Users\/)[^\/"\s;]+/gi, "$1<redacted>");
+        jsonStr = jsonStr.replace(/(\/home\/)[^\/"\s;]+/gi, "$1<redacted>");
+
+        if (username && username.length > 1) {
+          const escapedUser = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          jsonStr = jsonStr.replace(new RegExp(escapedUser, "gi"), "<redacted>");
+        }
+
+        return JSON.parse(jsonStr);
+      }
+
       if (compact) {
-        return {
+        const compactRes = {
           ok: true,
           status: "HEALTHY",
           platform: "win32",
@@ -60,11 +86,8 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
           workflow: runtime.permissions?.getWorkflow ? runtime.permissions.getWorkflow("default") : null,
           checks: { pass: 11, fail: 0, status: "ALL_SYSTEMS_OPERATIONAL" }
         };
+        return shouldAnonymize ? deepSanitizeAnonymized(compactRes) : compactRes;
       }
-
-      const effectivePathSanitized = shouldAnonymize
-        ? (snapshot.effectivePath || "").replace(/C:[\\/]Users[\\/][^\\/;\\]+/gi, "C:\\Users\\<redacted>")
-        : snapshot.effectivePath;
 
       const result = {
         ok: true,
@@ -80,7 +103,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         npmVersion: snapshot.binaries.npm.version || "N/A",
         gitVersion: snapshot.binaries.git.version || "N/A",
         pythonVersion: snapshot.binaries.python.version || "N/A",
-        effectivePath: effectivePathSanitized,
+        effectivePath: snapshot.effectivePath,
         securityMode: runtime.permissions?.currentLevel() || "NORMAL",
         workflow: runtime.permissions?.getWorkflow ? runtime.permissions.getWorkflow("default") : null,
         toolchain: snapshot.binaries,
@@ -89,7 +112,7 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
 
       if (expose_host_info && !shouldAnonymize) result.workspaceRoot = runtime.root;
 
-      return result;
+      return shouldAnonymize ? deepSanitizeAnonymized(result) : result;
     },
 
     compact_status: async ({ anonymize = false } = {}) => actions.health_check({ compact: true, anonymize }),
