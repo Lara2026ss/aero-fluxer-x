@@ -38,11 +38,15 @@ export const LEVEL_ALIASES = {
   power: "advanced",
   operator: "advanced",
   elevated: "advanced",
+  workspace_dev: "advanced",
+  workspace_developer: "advanced",
 
   // Maintainer aliases
   admin: "maintainer",
   maintainer: "maintainer",
   supervisor: "maintainer",
+  system_admin: "maintainer",
+  sys_admin: "maintainer",
 
   // Developer aliases
   dev: "developer",
@@ -57,6 +61,8 @@ export const LEVEL_ALIASES = {
   master: "system_root",
   full_control: "system_root",
   total_admin: "system_root",
+  root_elevated: "system_root",
+  elevated_root: "system_root",
 };
 
 export function normalizeLevel(level) {
@@ -84,8 +90,12 @@ export const LEVEL_RANK = {
   power: 2,
   operator: 2,
   elevated: 2,
+  workspace_dev: 2,
+  workspace_developer: 2,
   admin: 3,
   supervisor: 3,
+  system_admin: 3,
+  sys_admin: 3,
   dev: 4,
   engineer: 4,
   admintotaluser: 5,
@@ -94,6 +104,8 @@ export const LEVEL_RANK = {
   master: 5,
   full_control: 5,
   total_admin: 5,
+  root_elevated: 5,
+  elevated_root: 5,
 };
 
 /**

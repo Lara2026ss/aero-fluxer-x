@@ -33,16 +33,22 @@ async function runV10_3_Tests() {
   assert.strictEqual(normalizeLevel("standard"), "standard");
   assert.strictEqual(normalizeLevel("poweruser"), "advanced");
   assert.strictEqual(normalizeLevel("advanced"), "advanced");
+  assert.strictEqual(normalizeLevel("workspace_dev"), "advanced");
   assert.strictEqual(normalizeLevel("admin"), "maintainer");
   assert.strictEqual(normalizeLevel("maintainer"), "maintainer");
+  assert.strictEqual(normalizeLevel("system_admin"), "maintainer");
   assert.strictEqual(normalizeLevel("admintotaluser"), "system_root");
   assert.strictEqual(normalizeLevel("system_root"), "system_root");
+  assert.strictEqual(normalizeLevel("root_elevated"), "system_root");
 
   assert.ok(LEVEL_RANK["standard"] > LEVEL_RANK["visitor"]);
   assert.ok(LEVEL_RANK["advanced"] > LEVEL_RANK["standard"]);
   assert.ok(LEVEL_RANK["maintainer"] > LEVEL_RANK["advanced"]);
   assert.ok(LEVEL_RANK["developer"] > LEVEL_RANK["maintainer"]);
   assert.ok(LEVEL_RANK["system_root"] > LEVEL_RANK["developer"]);
+  assert.strictEqual(LEVEL_RANK["workspace_dev"], LEVEL_RANK["advanced"]);
+  assert.strictEqual(LEVEL_RANK["system_admin"], LEVEL_RANK["maintainer"]);
+  assert.strictEqual(LEVEL_RANK["root_elevated"], LEVEL_RANK["system_root"]);
 
   // 3. packages.check_manager does NOT require poweruser/advanced
   console.log("-> 3. packages.check_manager en nivel standard...");
