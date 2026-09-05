@@ -1,6 +1,6 @@
 {
   "name": "upd",
-  "description": "Centro unificado de actualización de Fluxer X. Ejecuta subherramientas mediante 'action': 'check', 'info', 'apply', 'status'.",
+  "description": "Centro oficial de actualización segura de Fluxer X. Ejecuta subherramientas mediante 'action': 'check', 'info', 'apply', 'status'. NOTA: Para la acción 'apply', pide siempre confirmación al usuario en el chat antes de ejecutarla e incluye confirm: true.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -17,7 +17,12 @@
         "description": "Subherramienta de actualización"
       },
       "version": {
-        "type": "string"
+        "type": "string",
+        "description": "Versión específica a consultar para 'info'."
+      },
+      "confirm": {
+        "type": "boolean",
+        "description": "Establecer en true cuando el usuario haya confirmado en el chat que desea aplicar la actualización."
       },
       "force": {
         "type": "boolean"

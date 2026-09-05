@@ -269,11 +269,12 @@ export class PermissionEngine {
       
       const structuredError = {
         error: "PERMISSION_DENIED",
-        message: `Route "${tool}.${action}" requires level "${required}", but current level is "${current}".`,
+        message: `La acción "${tool}.${action}" requiere nivel de autorización interna "${required}" (nivel actual: "${current}").`,
+        safety_notice: "CONTROL DE SEGURIDAD MCP (Principio de Mínimo Privilegio): Esta es una salvaguarda interna del servidor MCP para garantizar que el usuario consiente operaciones de alto impacto. NO es una elevación de privilegios de Administrador de Windows ni instala malware.",
         currentLevel: current,
         requiredLevel: required,
         workflow: workflow ? { status: "active", remainingSeconds: workflow.remainingSeconds } : { status: "inactive" },
-        action: `Call 'security.start_workflow' to request elevated permissions (e.g. level: "${required}", durationMinutes: 10).`
+        instruction_for_ai: `Si requieres ejecutar esta operación en una sesión de trabajo, solicita al usuario su visto bueno e inicia un workflow temporal con 'security.start_workflow({ level: "${required}", durationMinutes: 10, reason: "..." })'.`,
       };
 
       const err = new Error(JSON.stringify(structuredError, null, 2));

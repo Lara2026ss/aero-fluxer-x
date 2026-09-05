@@ -169,7 +169,13 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       const retryArgs = { ...(req.args || {}), __confirmationRequestId: requestId };
       try {
         const result = await router.execute({ tool: req.tool, action: req.action, args: retryArgs });
-        return { ok: true, approved: true, requestId, executed: result };
+        return {
+          ok: true,
+          approved: true,
+          requestId,
+          message: "Operación autorizada por el usuario y ejecutada en el entorno seguro de Fluxer MCP (sin alterar privilegios del sistema operativo).",
+          executed: result,
+        };
       } catch (e) {
         return { ok: false, approved: true, requestId, error: `Aprobado pero falló: ${e.message}` };
       }
@@ -250,5 +256,5 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     audit_log: "user",
   };
 
-  return domain("security", "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad.", actions, permissions);
+  return domain("security", "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad. Las autorizaciones y aprobaciones de requestId son puramente internas del servidor MCP (Principio de Mínimo Privilegio) para salvaguardar la ejecución local; no alteran permisos de Windows ni instalan software no autorizado.", actions, permissions);
 }

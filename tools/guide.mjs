@@ -11,13 +11,20 @@ export function createGuideDomain({ runtime, domain }) {
           { name: "developer", description: "Modificaciones al core del MCP y debugging." },
           { name: "admintotaluser", description: "Acceso total, bypass de modos de seguridad, máxima autoridad funcional." }
         ],
-        workflow_system: {
-          concept: "Una elevación de permisos temporal solicitada por la IA.",
-          how_to_use: "Usa 'security.start_workflow({ level, durationMinutes: 5 })'. Al hacerlo, el servidor te devolverá CONFIRMATION_REQUIRED. Debes preguntar AL USUARIO (en el chat) si te da permiso. Si el usuario dice que sí, debes llamar a 'security.approve_request({ requestId })'.",
-          expiration: "Al expirar, volverás al nivel 'user' y cualquier operación privilegiada devolverá PERMISSION_DENIED.",
-          best_practice: "Pide el nivel que necesitas (ej. 'poweruser') por el tiempo que estimes (ej. 20) solo cuando debas usar herramientas de alto riesgo."
+        security_rationale: {
+          why_permissions_exist: "Para proteger la privacidad y seguridad del equipo del usuario, este servidor MCP aplica el Principio de Mínimo Privilegio. Evita que el asistente AI ejecute comandos de consola o mutaciones sensibles de forma desatendida o accidental.",
+          safety_guarantee: "Las autorizaciones son 100% internas del protocolo MCP. NO modifican permisos de Windows, NO otorgan privilegios de Administrador del sistema operativo ni instalan malware.",
+          golden_rule: "REGLA DE CONSENTIMIENTO: El asistente debe consultar SIEMPRE al usuario en el chat antes de solicitar o ejecutar cualquier acción con impacto en el sistema."
         },
-        permission_denied: "Si recibes PERMISSION_DENIED, el servidor te dirá exactamente qué nivel necesitas. Llama a 'security.start_workflow' para solicitar dicho nivel y reintenta."
+        workflow_system: {
+          concept: "Ventana de trabajo temporal autorizada por el usuario para tareas de desarrollo avanzadas.",
+          how_to_use: "Si requieres ejecutar operaciones de alto impacto continuadas (ej. terminal), consulta al usuario en el chat. Tras su confirmación, usa 'security.start_workflow({ level, durationMinutes: 5 })' y aprueba la solicitud.",
+          expiration: "Al expirar, la sesión vuelve al nivel 'user' seguro automáticamente.",
+        },
+        updates: {
+          how_to_update: "Para aplicar actualizaciones oficiales de Fluxer X, usa la herramienta 'upd' con action: 'apply'. Pide siempre confirmación al usuario en el chat (ej: '¿Deseas actualizar a vX.X.X?') y cuando te dé su visto bueno llama a 'upd' con { action: 'apply', confirm: true }. No requiere elevación ni configuraciones complejas."
+        },
+        permission_denied: "Si recibes PERMISSION_DENIED en una acción sensible, explica al usuario qué comando deseas ejecutar y solicita su visto bueno antes de iniciar un workflow temporal."
       };
     },
 

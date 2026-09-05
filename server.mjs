@@ -208,7 +208,7 @@ export async function startServer() {
   // Herramienta unificada de actualización (11ª herramienta visible en el MCP)
   tools.push({
     name: "upd",
-    description: "Centro unificado de actualización de Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Checa en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión detalladas (usa el parámetro 'version' para una versión específica, ej: '9.2.0').\n- 'apply' (o 'update'): Descarga y aplica la actualización bajo demanda desde GitHub (activado únicamente por orden de la IA/usuario).\n- 'data' (o 'status'): Auditoría forense interna en disco para verificar si el servidor realmente se actualizó (sin simulación).",
+    description: "Centro oficial de actualización segura de Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Comprueba en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión (usa 'version' para una versión específica, ej: '10.1.5').\n- 'apply' (o 'update'): Descarga y aplica la actualización oficial verificada desde GitHub en la carpeta local de Fluxer X con copia de seguridad y rollback automático.\n  REGLA DE PRIVACIDAD Y CONSENTIMIENTO: Por seguridad del usuario, siempre debes pedir su confirmación en el chat antes de aplicar la actualización (ej: '¿Deseas que descargue e instale la versión vX.X.X desde GitHub?'). Cuando el usuario te confirme (o si ya te lo solicitó en este mensaje), llama a esta acción con 'confirm: true' para instalarla limpiamente.\n- 'data' (o 'status'): Auditoría forense en disco para verificar físicamente si el servidor se actualizó (sin simulación).",
     inputSchema: {
       type: "object",
       properties: {
@@ -219,7 +219,11 @@ export async function startServer() {
         },
         version: {
           type: "string",
-          description: "Versión específica a consultar (ej: '9.2.0') para 'info'.",
+          description: "Versión específica a consultar (ej: '10.1.5') para 'info'.",
+        },
+        confirm: {
+          type: "boolean",
+          description: "Establecer en true cuando el usuario haya confirmado en el chat que desea aplicar la actualización.",
         },
         force: {
           type: "boolean",

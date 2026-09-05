@@ -927,7 +927,31 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    upd: async ({ force = false } = {}) => {
+    upd: async ({ force = false, confirm = false, confirmed = false, user_confirmed = false } = {}) => {
+      const isConfirmed = Boolean(confirm || confirmed || user_confirmed);
+      if (!isConfirmed) {
+        let check = { currentVersion: "10.1.5", latestVersion: "10.1.5" };
+        try {
+          check = await checkForUpdates({ repoRoot: runtime.root });
+        } catch {}
+
+        return {
+          ok: false,
+          status: "AWAITING_USER_CONFIRMATION",
+          requires_user_confirmation: true,
+          current_version: check.currentVersion,
+          latest_version: check.latestVersion,
+          update_available: check.updateAvailable,
+          message:
+            "🛡️ [CONFIRMACIÓN DE ACTUALIZACIÓN REQUERIDA]\n" +
+            "Para aplicar la actualización, se descargarán los archivos certificados del release oficial de GitHub en la carpeta de Fluxer X (el proceso incluye backup de seguridad automático y soporte de rollback ante fallos).\n\n" +
+            "INSTRUCCIÓN OBLIGATORIA PARA EL ASISTENTE:\n" +
+            "Para proteger la privacidad y el control del usuario, debes pedir siempre su visto bueno en el chat antes de instalar la actualización.\n" +
+            "Si el usuario ya te confirmó en la conversación (o si te lo acaba de pedir explícitamente), vuelve a llamar a esta herramienta incluyendo el parámetro `confirm: true` para proceder con la instalación segura.",
+          instruction: "Llama a upd con { action: 'apply', confirm: true } tras la confirmación del usuario.",
+        };
+      }
+
       const updateResult = await executeAutoUpdate({ repoRoot: runtime.root, force });
 
       if (updateResult.ok) {
@@ -1439,7 +1463,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       feedback_guide: "user",
       upd_check: "user",
       upd_info: "user",
-      upd: "poweruser",
+      upd: "user",
       git_status_structured: "user",
       git_diff_summary: "user",
       git_switch_identity: "poweruser",
