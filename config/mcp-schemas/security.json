@@ -1,6 +1,6 @@
 {
   "name": "security",
-  "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId } | audit_log { limit, tool, action, result } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_elevation_status {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | get_workflow { principal } | grant_elevation { durationMinutes, reason } | grant_permission { scope, role, level, minutes, args } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | permissions_active {} | request_status { requestId } | revoke_elevation {} | revoke_permission { scope } | revoke_workflow { principal } | scan_file { path } | set_security_mode { mode } | start_workflow { level, durationMinutes, reason, principal } | verify_hash { text, hash, algorithm }",
+  "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId, confirmationCode, user_confirmed, confirmed, grantMinutes, minutes } | audit_log { limit, tool, action, result } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_elevation_status {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | get_workflow { principal } | grant_elevation { durationMinutes, reason } | grant_permission { scope, role, level, minutes, args } | grant_visual_capture { durationMinutes } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | list_allowed_directories { revealPath, allow_user_path } | list_granted_permissions { limit } | list_permission_levels {} | permissions_active {} | request_status { requestId } | revoke_elevation {} | revoke_permission { scope } | revoke_workflow { principal } | scan_file { path } | set_security_mode { mode } | start_workflow { level, durationMinutes, reason, principal } | verify_hash { text, hash, algorithm }",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -22,9 +22,13 @@
           "get_workflow",
           "grant_elevation",
           "grant_permission",
+          "grant_visual_capture",
           "hash_file",
           "hash_text",
           "health",
+          "list_allowed_directories",
+          "list_granted_permissions",
+          "list_permission_levels",
           "permissions_active",
           "request_status",
           "revoke_elevation",

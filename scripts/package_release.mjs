@@ -153,36 +153,33 @@ async function packageRelease() {
     },
     breakingChanges: [
       {
-        action: "run_project_tests",
-        domain: "developer",
-        oldLevel: "user",
-        newLevel: "poweruser",
-        migration: "Usar security.start_workflow({ level: 'poweruser', durationMinutes: 5 }) antes de ejecutar tests."
-      },
-      {
-        action: "run_command",
-        domain: "terminal",
-        oldLevel: "user",
-        newLevel: "poweruser",
-        migration: "Usar security.start_workflow({ level: 'poweruser', durationMinutes: 5 }) antes de ejecutar comandos arbitrarios."
+        action: "permissions_hierarchy_evolution",
+        domain: "security",
+        oldLevel: "user, poweruser, admin, admintotaluser",
+        newLevel: "standard, advanced, maintainer, system_root",
+        migration: "Nuevos nombres canónicos introducidos. Todos los nombres antiguos son totalmente retrocompatibles mediante alias transparentes."
       }
     ],
     changelog: [
+      "v10.3.0 — Modern Permission Tiers, Dynamic Lease Approvals, Robust GitHub Updater & User Path Privacy",
+      "Nuevo sistema canónico de permisos: visitor, standard, advanced, maintainer, developer, system_root con soporte transparente de alias (guest, user, poweruser, admin, admintotaluser)",
+      "Dynamic Window Approvals: security.approve_request soporta grantMinutes (ej. 5 min o más) y confirmationCode de 4 caracteres para evitar re-preguntas constantes manteniendo el principio de menor privilegio",
+      "Actualizador GitHub Robusto: upd_check / upd check ahora inspecciona GitHub con token de autenticación para evitar rate limits 403, consulta package.json remoto en main, tags y git local, con fallback a archive zip",
+      "Privacidad de Rutas de Usuario: Rutas locales de Windows ofuscadas por defecto (~ / <user>) con opción revealPath: true / allow_user_path: true para visualización autorizada por el usuario",
+      "Mensajes de Seguridad Educativos: Notificaciones amigables y pedagógicas para la IA y el usuario durante errores y solicitudes de confirmación",
+      "Resolución Feedback AFX-FB-2RZUPT: packages.check_manager y consultas de paquetes rebajadas a nivel standard sin requerir elevación",
       "v10.2.1 — Granular Read Permissions, Neutral Human Confirmation, Deep Path Sanitization & Clean Win32 Architecture",
       "v10.2.0 Project X — Public Release Ready: Granular Permissions, Neutral Human Confirmation & Sanitized Paths",
-      "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction",
-      "Token Compression Inteligente: poda selectiva sin eliminar errores ni stack traces (sanitizeAndPrune, compactFormatter, smartTruncate)",
-      "Motor de Terminal Windows 11 Production-Grade: detección pwsh/powershell/cmd, UTF-8 estricto sin mojibake, drenado continuo de streams y terminación de árboles",
-      "Sandbox Inteligente: smart whitelist (CWD, Desktop, Documents, Downloads, Temp) con fs.realpathSync.native(), bloqueo ADS y dispositivos reservados",
-      "Descubrimiento Ultrarrápido: acción search_tools para que cualquier IA encuentre herramientas en <15ms",
-      "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor",
-      "Doctor Engine ampliado a 20 invariantes de auto-integridad activas (INV-001..INV-020)"
+      "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction"
     ]
   };
 
   const manifestPath = path.join(DIST_DIR, "release-manifest.json");
-  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
-  console.log(`  ✓ Release manifest generado en: ${manifestPath}`);
+  const rootManifestPath = path.join(ROOT, "release-manifest.json");
+  const manifestJson = JSON.stringify(manifest, null, 2);
+  await fs.writeFile(manifestPath, manifestJson, "utf8");
+  await fs.writeFile(rootManifestPath, manifestJson, "utf8");
+  console.log(`  ✓ Release manifest generado en: ${manifestPath} y ${rootManifestPath}`);
 
   // Limpiar staging temporal
   await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});

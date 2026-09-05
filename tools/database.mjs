@@ -388,12 +388,12 @@ export function createDatabaseDomain({ runtime, path, fs, domain, splitLines }) 
   actions.script = actions.execute_script;
 
   const permissions = {
-    delete_database: "poweruser",
-    restore_database: "poweruser",
-    execute_query: "user",
-    explain_query: "user",
-    remember_note: "user",
-    search_notes: "user",
+    delete_database: "advanced",
+    restore_database: "advanced",
+    execute_query: "standard",
+    explain_query: "standard",
+    remember_note: "standard",
+    search_notes: "standard",
   };
 
   return domain("database", "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL).", actions, permissions);

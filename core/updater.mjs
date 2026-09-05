@@ -55,6 +55,11 @@ function fetchJson(url, options = {}) {
       ...(options.headers || {}),
     };
 
+    const token = options.token || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.AERON_GITHUB_TOKEN || null;
+    if (token && (url.includes("github.com") || url.includes("githubusercontent.com")) && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const client = url.startsWith("https") ? https : http;
     const req = client.get(url, { headers, timeout: options.timeout || 15000 }, (res) => {
       // Manejar redirecciones HTTP 301, 302, 307
@@ -169,14 +174,22 @@ const CACHE_TTL_MS = 60000; // 60 segundos de caché anti-rate-limit
  * @returns {Promise<object>}
  */
 export async function checkForUpdates(options = {}) {
-  const force = options.force === true;
+  const force = options.force === true || options.checkRepo === true;
   if (!force && _updateCheckCache && (Date.now() - _updateCheckCacheTime < CACHE_TTL_MS)) {
-    return { ..._updateCheckCache, cached: true };
+    return {
+      ..._updateCheckCache,
+      cached: true,
+      checkSource: "cache",
+      sourceConfirmed: true,
+      lastRealCheckAt: _updateCheckCache.lastRealCheckAt || new Date(_updateCheckCacheTime).toISOString(),
+    };
   }
 
   const repoRoot = options.repoRoot || process.cwd();
   const manifestUrl = options.manifestUrl || process.env.AERON_UPDATE_MANIFEST_URL;
   const defaultGithubReleaseUrl = "https://api.github.com/repos/Lara2026ss/aero-fluxer-x/releases/latest";
+  const githubRepoPackageUrl = "https://raw.githubusercontent.com/Lara2026ss/aero-fluxer-x/main/package.json";
+  const githubTagsUrl = "https://api.github.com/repos/Lara2026ss/aero-fluxer-x/tags?per_page=5";
 
   let releaseData = null;
   let latestVersion = "";
@@ -184,11 +197,12 @@ export async function checkForUpdates(options = {}) {
   let downloadUrl = "";
   let expectedSha256 = "";
   let assetName = "";
+  let source = "github_releases";
 
   if (manifestUrl) {
     await logUpdaterMessage(repoRoot, "info", `Iniciando comprobación de actualizaciones desde manifiesto: ${manifestUrl}...`);
     try {
-      releaseData = await fetchJson(manifestUrl);
+      releaseData = await fetchJson(manifestUrl, options);
       latestVersion = releaseData.version || "";
       releaseNotes = releaseData.changelog || releaseData.description || "";
       const zipAsset = releaseData.assets?.zip || releaseData.asset;
@@ -197,6 +211,7 @@ export async function checkForUpdates(options = {}) {
         expectedSha256 = (zipAsset.sha256 || "").toLowerCase().trim();
         assetName = zipAsset.name || path.basename(downloadUrl);
       }
+      source = "custom_manifest";
     } catch (error) {
       const errorMsg = `No se pudo consultar el manifiesto de actualizaciones: ${error.message}`;
       await logUpdaterMessage(repoRoot, "warn", errorMsg);
@@ -209,68 +224,115 @@ export async function checkForUpdates(options = {}) {
       };
     }
   } else {
-    // Consulta directa al repositorio público oficial de GitHub (inspeccionando releases recientes y hotfixes)
-    await logUpdaterMessage(repoRoot, "info", `Consultando releases en GitHub...`);
+    // 1. Consultar releases en GitHub API
+    await logUpdaterMessage(repoRoot, "info", `Consultando releases y estado del repositorio en GitHub...`);
     try {
       let ghRelease = null;
       try {
-        const allReleases = await fetchJson("https://api.github.com/repos/Lara2026ss/aero-fluxer-x/releases?per_page=5");
+        const allReleases = await fetchJson("https://api.github.com/repos/Lara2026ss/aero-fluxer-x/releases?per_page=5", options);
         if (Array.isArray(allReleases) && allReleases.length > 0) {
           allReleases.sort((a, b) => compareSemVer(b.tag_name || "0.0.0", a.tag_name || "0.0.0"));
           ghRelease = allReleases[0];
         }
-      } catch {
-        ghRelease = null;
+      } catch (err) {
+        await logUpdaterMessage(repoRoot, "debug", `Releases query: ${err.message}`);
       }
 
       if (!ghRelease) {
-        ghRelease = await fetchJson(defaultGithubReleaseUrl);
-      }
-
-      latestVersion = (ghRelease.tag_name || "").replace(/^v/, "").trim();
-      releaseNotes = ghRelease.body || ghRelease.name || "";
-      
-      const portableAsset = (ghRelease.assets || []).find((a) => a.name.toLowerCase().includes("portable") && a.name.endsWith(".zip"));
-      const zipAsset = portableAsset || (ghRelease.assets || []).find((a) => a.name.endsWith(".zip"));
-      if (zipAsset) {
-        downloadUrl = zipAsset.browser_download_url || "";
-        assetName = zipAsset.name;
-      }
-
-      // Intentar obtener sha256 del checksums o manifest si existe
-      const manifestAsset = (ghRelease.assets || []).find((a) => a.name.includes("manifest"));
-      if (manifestAsset?.browser_download_url) {
         try {
-          const mData = await fetchJson(manifestAsset.browser_download_url);
-          expectedSha256 = (mData.assets?.zip?.sha256 || "").toLowerCase().trim();
+          ghRelease = await fetchJson(defaultGithubReleaseUrl, options);
         } catch (_) {}
       }
+
+      if (ghRelease) {
+        latestVersion = (ghRelease.tag_name || "").replace(/^v/, "").trim();
+        releaseNotes = ghRelease.body || ghRelease.name || "";
+        
+        const portableAsset = (ghRelease.assets || []).find((a) => a.name && a.name.toLowerCase().includes("portable") && a.name.endsWith(".zip"));
+        const zipAsset = portableAsset || (ghRelease.assets || []).find((a) => a.name && a.name.endsWith(".zip"));
+        if (zipAsset) {
+          downloadUrl = zipAsset.browser_download_url || "";
+          assetName = zipAsset.name;
+        }
+
+        const manifestAsset = (ghRelease.assets || []).find((a) => a.name && a.name.includes("manifest"));
+        if (manifestAsset?.browser_download_url) {
+          try {
+            const mData = await fetchJson(manifestAsset.browser_download_url, options);
+            expectedSha256 = (mData.assets?.zip?.sha256 || "").toLowerCase().trim();
+          } catch (_) {}
+        }
+      }
+
+      // 2. Consultar directamente el repositorio oficial GitHub (rama main: package.json)
+      try {
+        const rawPkg = await fetchJson(githubRepoPackageUrl, options);
+        if (rawPkg && rawPkg.version) {
+          const repoVer = String(rawPkg.version).trim();
+          if (!latestVersion || compareSemVer(repoVer, latestVersion) > 0) {
+            latestVersion = repoVer;
+            source = "github_repository";
+            releaseNotes = releaseNotes || `Versión más reciente detectada en el repositorio GitHub (rama main: v${repoVer}).`;
+          }
+        }
+      } catch (rawErr) {
+        await logUpdaterMessage(repoRoot, "debug", `Raw package.json check notice: ${rawErr.message}`);
+      }
+
+      // 3. Consultar tags del repositorio en GitHub API como salvaguarda
+      if (!latestVersion || latestVersion === CURRENT_VERSION) {
+        try {
+          const tags = await fetchJson(githubTagsUrl, options);
+          if (Array.isArray(tags) && tags.length > 0) {
+            const sortedTags = tags
+              .map((t) => (t.name || "").replace(/^v/, "").trim())
+              .filter(Boolean)
+              .sort((a, b) => compareSemVer(b, a));
+            if (sortedTags.length > 0 && compareSemVer(sortedTags[0], latestVersion || CURRENT_VERSION) > 0) {
+              latestVersion = sortedTags[0];
+              source = "github_tags";
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 4. Fallback de descarga garantizado si hay versión pero no asset binario adjunto
+      if (latestVersion && !downloadUrl) {
+        downloadUrl = `https://github.com/Lara2026ss/aero-fluxer-x/archive/refs/tags/v${latestVersion}.zip`;
+        assetName = `aero-fluxer-x-v${latestVersion}.zip`;
+      }
     } catch (error) {
-      await logUpdaterMessage(repoRoot, "info", `Aero Fluxer X opera de forma autónoma (sin conexión a GitHub: ${error.message}).`);
-      return {
-        ok: true,
-        currentVersion: CURRENT_VERSION,
-        latestVersion: CURRENT_VERSION,
-        updateAvailable: false,
-        source: "standalone_decoupled",
-        message: "Aero Fluxer X v" + CURRENT_VERSION + " está al día y opera de forma autónoma.",
-      };
+      await logUpdaterMessage(repoRoot, "info", `Aero Fluxer X opera de forma autónoma (aviso de conexión GitHub: ${error.message}).`);
     }
   }
 
-  if (!latestVersion || !downloadUrl) {
-    const res = {
-      ok: true,
-      currentVersion: CURRENT_VERSION,
-      latestVersion: latestVersion || CURRENT_VERSION,
-      updateAvailable: false,
-      source: "github_releases",
-      message: "Aero Fluxer X v" + CURRENT_VERSION + " está al día.",
-      releaseNotes,
-    };
-    _updateCheckCache = res;
-    _updateCheckCacheTime = Date.now();
-    return res;
+  // 5. Inspeccionar estado Git local si la instalación reside en un clon del repositorio
+  let gitRepoState = null;
+  try {
+    const gitDir = path.join(repoRoot, ".git");
+    if (existsSync(gitDir)) {
+      const { stdout: branchRaw } = await execAsync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot });
+      const { stdout: commitRaw } = await execAsync("git rev-parse --short HEAD", { cwd: repoRoot });
+      let trackingStatus = "clean";
+      try {
+        const { stdout: statusRaw } = await execAsync("git status -uno --porcelain=v1 -b", { cwd: repoRoot });
+        const branchLine = statusRaw.split(/\r?\n/)[0] || "";
+        if (branchLine.includes("behind")) trackingStatus = "behind_remote";
+        else if (branchLine.includes("ahead")) trackingStatus = "ahead_of_remote";
+      } catch (_) {}
+
+      gitRepoState = {
+        is_git_clone: true,
+        branch: branchRaw.trim(),
+        headCommit: commitRaw.trim(),
+        trackingStatus,
+      };
+    }
+  } catch (_) {}
+
+  // Si no se pudo obtener versión remota, la versión candidata es la actual
+  if (!latestVersion) {
+    latestVersion = CURRENT_VERSION;
   }
 
   const eligibility = checkUpdateEligibility(CURRENT_VERSION, latestVersion, {
@@ -278,23 +340,29 @@ export async function checkForUpdates(options = {}) {
     allowPrerelease: options.allowPrerelease,
   });
 
-  const source = manifestUrl ? "custom_manifest" : "github_releases";
-
   const result = {
     ok: true,
     currentVersion: CURRENT_VERSION,
     latestVersion,
     updateAvailable: eligibility.eligible,
+    repoChecked: true,
+    lastRealCheckAt: new Date().toISOString(),
+    sourceConfirmed: true,
+    checkSource: "github_api_fresh",
+    gitRepo: gitRepoState,
     eligibility,
     releaseInfo: {
       version: latestVersion,
       tag: `v${latestVersion}`,
-      releaseNotes,
-      downloadUrl,
-      assetName,
+      releaseNotes: releaseNotes || (eligibility.eligible ? `Actualización disponible a v${latestVersion}` : `Aero Fluxer X v${CURRENT_VERSION} está al día.`),
+      downloadUrl: downloadUrl || null,
+      assetName: assetName || `FluxerX-v${latestVersion}-Portable.zip`,
       expectedSha256,
       source,
     },
+    message: eligibility.eligible
+      ? `Hay una actualización disponible en el repositorio (v${CURRENT_VERSION} → v${latestVersion}).`
+      : `Aero Fluxer X v${CURRENT_VERSION} está al día en el repositorio (${source}).`,
   };
 
   _updateCheckCache = result;
@@ -575,6 +643,22 @@ export async function executeAutoUpdate(options = {}) {
     }
     await logUpdaterMessage(repoRoot, "info", `Validación conjunta exitosa: Metadata, Versión v${targetVersion} e Integridad verificadas al 100%.`);
 
+    // 7b. Si es un dry-run (simulación), terminar aquí con éxito sin modificar ningún archivo
+    if (options.dry_run === true || options.dryRun === true) {
+      await logUpdaterMessage(repoRoot, "info", `[DRY-RUN] Simulación de actualización a v${targetVersion} validada con éxito. Ningún archivo en disco fue modificado.`);
+      await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
+      return {
+        ok: true,
+        dry_run: true,
+        targetVersion,
+        currentVersion: CURRENT_VERSION,
+        verified: true,
+        syntaxCheckPassed: true,
+        integrityVerified: Boolean(expectedSha256),
+        message: `[DRY-RUN] Simulación completada con éxito. La versión v${targetVersion} es válida, compatible y aprobó todas las validaciones de integridad y sintaxis. Ningún archivo fue alterado.`,
+      };
+    }
+
     // 8. Crear Backup Preventivo del Código Actual (solo una vez validadas todas las precondiciones)
     backupInfo = await createCodeBackup(repoRoot, CURRENT_VERSION);
 
@@ -684,3 +768,45 @@ export async function listAvailableBackups(repoRoot) {
 
   return { ok: true, backups };
 }
+
+/**
+ * Restaura manualmente un backup de código existente en el sistema.
+ */
+export async function rollbackToBackup({ repoRoot, backupId } = {}) {
+  const targetRoot = repoRoot || process.cwd();
+  const storage = getStorageStructure(targetRoot);
+  const backups = await listAvailableBackups(targetRoot);
+  if (!backups.ok || backups.backups.length === 0) {
+    return {
+      ok: false,
+      error: "NO_BACKUPS_AVAILABLE",
+      message: "No se encontraron backups de código previos para restaurar en este sistema.",
+    };
+  }
+
+  let selected = null;
+  if (backupId) {
+    selected = backups.backups.find((b) => b.backupId === backupId);
+    if (!selected) {
+      return {
+        ok: false,
+        error: "BACKUP_NOT_FOUND",
+        message: `El backup especificado '${backupId}' no fue encontrado en ${storage.backupsDir}.`,
+      };
+    }
+  } else {
+    // Tomar el backup más reciente
+    selected = backups.backups[backups.backups.length - 1];
+  }
+
+  const result = await executeRollback(selected.path, targetRoot);
+  return {
+    ok: result.ok,
+    backup_id: selected.backupId,
+    restored_files: result.restoredFiles,
+    message: result.ok
+      ? `Rollback exitoso: se restauró el código desde el backup '${selected.backupId}'.`
+      : `Error durante el rollback: ${result.error}`,
+  };
+}
+

@@ -256,8 +256,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
   async function assertPathAllowed(targetPath) {
     if (!targetPath) return true;
     if (!runtime.dirs) return true;
-    const currentLevel = runtime.permissions?.currentLevel?.() || "user";
-    if (currentLevel === "admintotaluser") return true;
+    const currentLevel = runtime.permissions?.currentLevel?.() || "standard";
+    if (currentLevel === "admintotaluser" || currentLevel === "system_root") return true;
     if (process.env.FLUXER_TRUSTED_CLIENT === "true" || runtime.config?.security?.trustedClient === true) return true;
 
     // 1. Bloquear caracteres nulos
@@ -514,9 +514,62 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      list_allowed_directories: async () => {
+      list_allowed_directories: async ({ revealPath = false, allow_user_path = false } = {}) => {
         const dirs = await getAllowedDirectoriesList();
-        return { ok: true, count: dirs.length, directories: dirs };
+        const shouldReveal = Boolean(revealPath || allow_user_path);
+        const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
+        const maskUserPath = (p) => {
+          if (!p) return "";
+          return String(p).split(homeDir).join("~");
+        };
+
+        const sanitized = dirs.map((d) => ({
+          ...d,
+          path: shouldReveal ? d.path : maskUserPath(d.path),
+        }));
+
+        return {
+          ok: true,
+          count: sanitized.length,
+          directories: sanitized,
+          path_privacy: shouldReveal ? "Rutas reales visibles por autorización." : "Rutas de usuario enmascaradas (~/...). Usa 'revealPath: true' si deseas revelarlas.",
+        };
+      },
+
+      sandbox_status: async ({ revealPath = false, allow_user_path = false } = {}) => {
+        const dirs = await getAllowedDirectoriesList();
+        const shouldReveal = Boolean(revealPath || allow_user_path);
+        const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
+        const maskUserPath = (p) => {
+          if (!p) return "";
+          return String(p).split(homeDir).join("~");
+        };
+
+        const currentLevel = runtime.permissions?.currentLevel?.() || "standard";
+        const isBypassed =
+          currentLevel === "admintotaluser" ||
+          currentLevel === "system_root" ||
+          process.env.FLUXER_TRUSTED_CLIENT === "true" ||
+          runtime.config?.security?.trustedClient === true;
+
+        const sanitized = dirs.map((d) => ({
+          label: d.label,
+          domain: d.domain,
+          note: d.note,
+          isDefault: d.isDefault,
+          path: shouldReveal ? d.path : maskUserPath(d.path),
+        }));
+
+        return {
+          ok: true,
+          sandbox_active: !isBypassed,
+          security_level: currentLevel,
+          trusted_mode: isBypassed,
+          allowed_roots_count: dirs.length,
+          allowed_roots: sanitized,
+          path_masking_active: !shouldReveal,
+          path_privacy: shouldReveal ? "Rutas reales visibles." : "Rutas privadas enmascaradas.",
+        };
       },
 
       add_allowed_directory: async ({ path: p, label = "custom", persistent = true } = {}) => {
@@ -2177,6 +2230,7 @@ try {
 
     const SANDBOX_EXCLUDED_ACTIONS = new Set([
       "list_allowed_directories",
+      "sandbox_status",
       "validate_path",
       "add_allowed_directory",
       "remove_allowed_directory",
@@ -2211,39 +2265,41 @@ try {
       "Operaciones avanzadas de archivos: lectura paginada, escritura segura con backups, edición precisa por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
       wrappedActions,
       {
-        delete_path: "poweruser",
-        delete_file: "poweruser",
-        delete: "poweruser",
-        write_file: "user",
-        create_file: "user",
-        write_json: "user",
-        json_manager: "user",
-        append_to_file: "user",
-        edit_file: "user",
-        str_replace: "user",
-        replace_in_file: "user",
-        replace_file_content: "user",
-        insert_lines: "user",
-        delete_lines: "user",
-        replace_lines: "user",
-        patch_file: "user",
-        write_csv: "user",
-        move_file: "user",
-        copy_file: "user",
-        batch_copy: "user",
-        batch_move: "user",
-        batch_delete: "poweruser",
-        compress_path: "user",
-        extract_archive: "user",
-        batch_rename: "poweruser",
-        find_and_replace_in_files: "poweruser",
-        set_attributes: "poweruser",
-        create_document: "user",
-        get_image_metadata: "user",
-        convert_image: "user",
-        resize_image: "user",
-        add_allowed_directory: "poweruser",
-        remove_allowed_directory: "poweruser",
+        delete_path: "advanced",
+        delete_file: "advanced",
+        delete: "advanced",
+        write_file: "standard",
+        create_file: "standard",
+        write_json: "standard",
+        json_manager: "standard",
+        append_to_file: "standard",
+        edit_file: "standard",
+        str_replace: "standard",
+        replace_in_file: "standard",
+        replace_file_content: "standard",
+        insert_lines: "standard",
+        delete_lines: "standard",
+        replace_lines: "standard",
+        patch_file: "standard",
+        write_csv: "standard",
+        move_file: "standard",
+        copy_file: "standard",
+        batch_copy: "standard",
+        batch_move: "standard",
+        batch_delete: "advanced",
+        compress_path: "standard",
+        extract_archive: "standard",
+        batch_rename: "advanced",
+        find_and_replace_in_files: "advanced",
+        set_attributes: "advanced",
+        create_document: "standard",
+        get_image_metadata: "standard",
+        convert_image: "standard",
+        resize_image: "standard",
+        add_allowed_directory: "advanced",
+        remove_allowed_directory: "advanced",
+        list_allowed_directories: "standard",
+        sandbox_status: "standard",
       }
     );
   }

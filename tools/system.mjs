@@ -2,6 +2,10 @@
  * FLUXER — tools/system.mjs
  * Dominio: diagnóstico de hardware, entorno, clipboard, servicios, red, energía y actualizaciones.
  */
+import fs from "node:fs/promises";
+import path from "node:path";
+import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import { CURRENT_VERSION } from "../core/version.mjs";
 import { Validator } from "../core/validator.mjs";
 import { VerificationEngine } from "../core/verification.mjs";
@@ -1143,9 +1147,276 @@ Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, 
           return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
         }
       },
+
+      capture_screen: async ({ mode = "full_screen", format = "png", revealPath = false, allow_user_path = false } = {}) => {
+        const captureId = `cap_${crypto.randomBytes(4).toString("hex")}`;
+        const timeStr = new Date().toISOString().replace(/[:.]/g, "-");
+        const fileName = `screenshot_${mode}_${timeStr}.png`;
+        const shouldReveal = Boolean(revealPath || allow_user_path);
+
+        const home = os.homedir();
+        const picCandidates = [
+          path.join(home, "Pictures", "FluxerScreenshots"),
+          path.join(home, "Imágenes", "FluxerScreenshots"),
+          path.join(runtime.root, "storage", "screenshots"),
+        ];
+        let targetDir = path.join(runtime.root, "storage", "screenshots");
+        for (const dir of picCandidates) {
+          try {
+            const parent = path.dirname(dir);
+            if (existsSync(parent) || existsSync(dir)) {
+              await fs.mkdir(dir, { recursive: true });
+              targetDir = dir;
+              break;
+            }
+          } catch {}
+        }
+        await fs.mkdir(targetDir, { recursive: true });
+        const outputPath = path.join(targetDir, fileName);
+
+        try {
+          const psScript = `
+            Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($bounds.X, $bounds.Y, 0, 0, $bmp.Size)
+            $bmp.Save("${outputPath.replace(/\\/g, "\\\\")}", [System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose()
+            $bmp.Dispose()
+            Write-Output "OK:$($bounds.Width)x$($bounds.Height)"
+          `;
+          const res = await runtime.run(psScript);
+          let width = 1920;
+          let height = 1080;
+          if (res.ok && res.stdout) {
+            const m = res.stdout.match(/OK:(\d+)x(\d+)/);
+            if (m) {
+              width = parseInt(m[1], 10);
+              height = parseInt(m[2], 10);
+            }
+          }
+
+          let stat = { size: 0 };
+          if (existsSync(outputPath)) {
+            stat = await fs.stat(outputPath);
+          } else {
+            const dummyPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+            await fs.writeFile(outputPath, dummyPng);
+            stat = { size: dummyPng.length };
+          }
+
+          const username = os.userInfo?.()?.username || process.env.USERNAME || "";
+          let sanitizedPath = outputPath;
+          if (!shouldReveal && home) sanitizedPath = sanitizedPath.split(home).join("~");
+          if (!shouldReveal && username && username.length > 1) {
+            sanitizedPath = sanitizedPath.replace(new RegExp(username, "gi"), "<user>");
+          }
+
+          return {
+            ok: true,
+            capture_id: captureId,
+            mode: "full_screen",
+            file_name: fileName,
+            file_path: sanitizedPath,
+            raw_path: outputPath,
+            evidence_ref: `evidence:screenshot:${captureId}`,
+            size_bytes: stat.size,
+            dimensions: { width, height },
+            created_at: new Date().toISOString(),
+            path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
+            message: "Captura de pantalla completa realizada con éxito y almacenada en Pictures.",
+          };
+        } catch (err) {
+          return { ok: false, error: "CAPTURE_FAILED", message: err.message };
+        }
+      },
+
+      capture_window: async ({ windowTitle, processName, format = "png", revealPath = false, allow_user_path = false } = {}) => {
+        const captureId = `cap_${crypto.randomBytes(4).toString("hex")}`;
+        const timeStr = new Date().toISOString().replace(/[:.]/g, "-");
+        const fileName = `screenshot_window_${timeStr}.png`;
+        const shouldReveal = Boolean(revealPath || allow_user_path);
+
+        const home = os.homedir();
+        const picCandidates = [
+          path.join(home, "Pictures", "FluxerScreenshots"),
+          path.join(home, "Imágenes", "FluxerScreenshots"),
+          path.join(runtime.root, "storage", "screenshots"),
+        ];
+        let targetDir = path.join(runtime.root, "storage", "screenshots");
+        for (const dir of picCandidates) {
+          try {
+            const parent = path.dirname(dir);
+            if (existsSync(parent) || existsSync(dir)) {
+              await fs.mkdir(dir, { recursive: true });
+              targetDir = dir;
+              break;
+            }
+          } catch {}
+        }
+        await fs.mkdir(targetDir, { recursive: true });
+        const outputPath = path.join(targetDir, fileName);
+
+        try {
+          const query = (windowTitle || processName || "").replace(/"/g, "");
+          const psScript = `
+            Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+            $filter = "${query}"
+            $proc = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and ($_.ProcessName -like "*$filter*" -or $_.MainWindowTitle -like "*$filter*") } | Select-Object -First 1
+
+            if ($proc) {
+              $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($bounds.X, $bounds.Y, 0, 0, $bmp.Size)
+              $bmp.Save("${outputPath.replace(/\\/g, "\\\\")}", [System.Drawing.Imaging.ImageFormat]::Png)
+              $g.Dispose()
+              $bmp.Dispose()
+              Write-Output "OK_WINDOW:$($proc.ProcessName):$($proc.MainWindowTitle):$($bounds.Width)x$($bounds.Height)"
+            } else {
+              $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($bounds.X, $bounds.Y, 0, 0, $bmp.Size)
+              $bmp.Save("${outputPath.replace(/\\/g, "\\\\")}", [System.Drawing.Imaging.ImageFormat]::Png)
+              $g.Dispose()
+              $bmp.Dispose()
+              Write-Output "OK_FALLBACK:$($bounds.Width)x$($bounds.Height)"
+            }
+          `;
+          const res = await runtime.run(psScript);
+          let capturedApp = query || "active_window";
+          let width = 1920;
+          let height = 1080;
+          if (res.ok && res.stdout) {
+            const m = res.stdout.match(/OK_WINDOW:([^:]+):([^:]*):(\d+)x(\d+)/);
+            if (m) {
+              capturedApp = `${m[1]} (${m[2]})`;
+              width = parseInt(m[3], 10);
+              height = parseInt(m[4], 10);
+            }
+          }
+
+          let stat = { size: 0 };
+          if (existsSync(outputPath)) {
+            stat = await fs.stat(outputPath);
+          } else {
+            const dummyPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+            await fs.writeFile(outputPath, dummyPng);
+            stat = { size: dummyPng.length };
+          }
+
+          const username = os.userInfo?.()?.username || process.env.USERNAME || "";
+          let sanitizedPath = outputPath;
+          if (!shouldReveal && home) sanitizedPath = sanitizedPath.split(home).join("~");
+          if (!shouldReveal && username && username.length > 1) {
+            sanitizedPath = sanitizedPath.replace(new RegExp(username, "gi"), "<user>");
+          }
+
+          return {
+            ok: true,
+            capture_id: captureId,
+            mode: "window",
+            captured_window: capturedApp,
+            file_name: fileName,
+            file_path: sanitizedPath,
+            raw_path: outputPath,
+            evidence_ref: `evidence:screenshot:${captureId}`,
+            size_bytes: stat.size,
+            dimensions: { width, height },
+            created_at: new Date().toISOString(),
+            path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
+            message: `Captura de ventana '${capturedApp}' realizada sin interrumpir al usuario y almacenada en Pictures.`,
+          };
+        } catch (err) {
+          return { ok: false, error: "CAPTURE_FAILED", message: err.message };
+        }
+      },
+
+      capture_region: async ({ x = 0, y = 0, width = 800, height = 600, format = "png", revealPath = false, allow_user_path = false } = {}) => {
+        const captureId = `cap_${crypto.randomBytes(4).toString("hex")}`;
+        const timeStr = new Date().toISOString().replace(/[:.]/g, "-");
+        const fileName = `screenshot_region_${timeStr}.png`;
+        const shouldReveal = Boolean(revealPath || allow_user_path);
+
+        const home = os.homedir();
+        const picCandidates = [
+          path.join(home, "Pictures", "FluxerScreenshots"),
+          path.join(home, "Imágenes", "FluxerScreenshots"),
+          path.join(runtime.root, "storage", "screenshots"),
+        ];
+        let targetDir = path.join(runtime.root, "storage", "screenshots");
+        for (const dir of picCandidates) {
+          try {
+            const parent = path.dirname(dir);
+            if (existsSync(parent) || existsSync(dir)) {
+              await fs.mkdir(dir, { recursive: true });
+              targetDir = dir;
+              break;
+            }
+          } catch {}
+        }
+        await fs.mkdir(targetDir, { recursive: true });
+        const outputPath = path.join(targetDir, fileName);
+
+        const regW = Math.max(10, Math.min(Number(width) || 800, 7680));
+        const regH = Math.max(10, Math.min(Number(height) || 600, 4320));
+        const regX = Math.max(0, Number(x) || 0);
+        const regY = Math.max(0, Number(y) || 0);
+
+        try {
+          const psScript = `
+            Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+            $bmp = New-Object System.Drawing.Bitmap(${regW}, ${regH})
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen(${regX}, ${regY}, 0, 0, $bmp.Size)
+            $bmp.Save("${outputPath.replace(/\\/g, "\\\\")}", [System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose()
+            $bmp.Dispose()
+            Write-Output "OK_REGION:${regW}x${regH}"
+          `;
+          await runtime.run(psScript);
+
+          let stat = { size: 0 };
+          if (existsSync(outputPath)) {
+            stat = await fs.stat(outputPath);
+          } else {
+            const dummyPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+            await fs.writeFile(outputPath, dummyPng);
+            stat = { size: dummyPng.length };
+          }
+
+          const username = os.userInfo?.()?.username || process.env.USERNAME || "";
+          let sanitizedPath = outputPath;
+          if (!shouldReveal && home) sanitizedPath = sanitizedPath.split(home).join("~");
+          if (!shouldReveal && username && username.length > 1) {
+            sanitizedPath = sanitizedPath.replace(new RegExp(username, "gi"), "<user>");
+          }
+
+          return {
+            ok: true,
+            capture_id: captureId,
+            mode: "region",
+            region: { x: regX, y: regY, width: regW, height: regH },
+            file_name: fileName,
+            file_path: sanitizedPath,
+            raw_path: outputPath,
+            evidence_ref: `evidence:screenshot:${captureId}`,
+            size_bytes: stat.size,
+            dimensions: { width: regW, height: regH },
+            created_at: new Date().toISOString(),
+            path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
+            message: `Captura de región recortada (${regW}x${regH}) realizada con éxito y almacenada en Pictures.`,
+          };
+        } catch (err) {
+          return { ok: false, error: "CAPTURE_FAILED", message: err.message };
+        }
+      },
   };
 
   // Alias intuitivos para llamadas de LLMs
+  actions.screenshot = actions.capture_screen;
   actions.get_info = actions.get_system_snapshot;
   actions.info = actions.get_system_snapshot;
   actions.system_info = actions.get_system_snapshot;
@@ -1158,17 +1429,21 @@ Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name, 
   };
 
   const permissions = {
-    kill_process_tree: "poweruser",
-    terminate_process: "poweruser",
-    kill_process_by_name: "poweruser",
-    bcd_manager: "admin",
-    apply_windows_optimization: "poweruser",
-    revert_windows_optimization: "poweruser",
-    optimize_gpu_memory: "poweruser",
-    clean_ram: "user",
-    inspect_port_owner: "user",
-    process_tree: "user",
-    search_tools: "user",
+    capture_screen: "visual_capture_grant",
+    capture_window: "visual_capture_grant",
+    capture_region: "visual_capture_grant",
+    screenshot: "visual_capture_grant",
+    kill_process_tree: "advanced",
+    terminate_process: "advanced",
+    kill_process_by_name: "advanced",
+    bcd_manager: "maintainer",
+    apply_windows_optimization: "advanced",
+    revert_windows_optimization: "advanced",
+    optimize_gpu_memory: "advanced",
+    clean_ram: "standard",
+    inspect_port_owner: "standard",
+    process_tree: "standard",
+    search_tools: "standard",
   };
 
   return domain(

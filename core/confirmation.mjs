@@ -57,10 +57,12 @@ export class ConfirmationStore {
   request({ tool, action, args, required, current }) {
     this.prune();
     const requestId = crypto.randomUUID();
+    const confirmationCode = crypto.randomBytes(2).toString("hex").toUpperCase();
     const now = Date.now();
 
     const entry = {
       requestId,
+      confirmationCode,
       tool,
       action,
       args,
@@ -74,6 +76,7 @@ export class ConfirmationStore {
     this.pending.set(requestId, entry);
     this.logger?.info("confirmation_requested", {
       requestId,
+      confirmationCode,
       tool,
       action,
       required,
@@ -81,7 +84,7 @@ export class ConfirmationStore {
       expiresAt: new Date(entry.expiresAt).toISOString(),
     });
 
-    return { requestId, entry };
+    return { requestId, confirmationCode, entry };
   }
 
   get(requestId) {
@@ -89,14 +92,26 @@ export class ConfirmationStore {
     return this.pending.get(requestId) ?? null;
   }
 
-  approve(requestId) {
+  approve(requestId, options = {}) {
     const req = this.get(requestId);
-    if (!req) throw new Error(`confirmation_not_found: ${requestId}`);
+    if (!req) {
+      const err = new Error(`confirmation_not_found: ${requestId}`);
+      err.code = "CONFIRMATION_NOT_FOUND";
+      throw err;
+    }
     if (req.status !== "pending") {
-      throw new Error(`confirmation_already_${req.status}: ${requestId}`);
+      const err = new Error(`confirmation_already_${req.status}: ${requestId}`);
+      err.code = `CONFIRMATION_ALREADY_${req.status.toUpperCase()}`;
+      throw err;
+    }
+    if (options.confirmationCode && String(options.confirmationCode).trim().toUpperCase() !== req.confirmationCode) {
+      const err = new Error(`confirmation_code_mismatch: El código de confirmación no coincide con la solicitud.`);
+      err.code = "CONFIRMATION_CODE_MISMATCH";
+      throw err;
     }
     req.status = "approved";
-    this.logger?.info("confirmation_approved", { requestId, tool: req.tool, action: req.action });
+    req.grantMinutes = Number(options.grantMinutes || 0);
+    this.logger?.info("confirmation_approved", { requestId, tool: req.tool, action: req.action, grantMinutes: req.grantMinutes });
     return req;
   }
 
@@ -116,6 +131,7 @@ export class ConfirmationStore {
     this.prune();
     return [...this.pending.values()].map((req) => ({
       requestId: req.requestId,
+      confirmationCode: req.confirmationCode,
       tool: req.tool,
       action: req.action,
       required: req.required,

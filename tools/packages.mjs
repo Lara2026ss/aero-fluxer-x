@@ -1,3 +1,5 @@
+import os from "node:os";
+
 export function createPackagesDomain({ runtime, domain, parsePkgLines: externalParser, buildPkgCmd: externalBuilder, detectPkgManager: externalDetect }) {
   function detectPkg() {
     return "winget";
@@ -197,7 +199,61 @@ export function createPackagesDomain({ runtime, domain, parsePkgLines: externalP
       const res = await runtime.run(cmd);
       const repos = parseOutput(res.stdout);
       return { ok: res.ok || repos.length > 0, repositories: repos };
-    }
+    },
+
+    audit_vulnerabilities: async ({ path: targetPath, manager = "npm" } = {}) => {
+      const mgr = String(manager || "npm").toLowerCase();
+      if (mgr !== "npm" && mgr !== "pnpm") {
+        return {
+          ok: false,
+          error: `Auditoría de vulnerabilidades disponible para 'npm' o 'pnpm' (solicitado: '${mgr}').`,
+        };
+      }
+      const cwd = targetPath ? (runtime.hp ? runtime.hp(targetPath) : targetPath) : process.cwd();
+      const cmd = mgr === "pnpm" ? "pnpm audit --json" : "npm audit --json";
+      const res = await runtime.run(cmd, { cwd, timeout: 30000 });
+
+      const homeDir = os.homedir();
+      const sanitize = (val) => {
+        if (typeof val === "string") return val.split(homeDir).join("~");
+        return val;
+      };
+
+      let auditData = null;
+      try {
+        auditData = JSON.parse(res.stdout);
+      } catch {}
+
+      if (auditData) {
+        const vulns = auditData.vulnerabilities || auditData.metadata?.vulnerabilities || {};
+        return {
+          ok: true,
+          manager: mgr,
+          audit_passed: Boolean(
+            auditData.metadata?.vulnerabilities?.total === 0 ||
+              (!auditData.error && Object.keys(vulns).length === 0)
+          ),
+          summary: auditData.metadata?.vulnerabilities || vulns,
+          advisories_count: Object.keys(vulns).length,
+          advisories: Object.values(vulns)
+            .slice(0, 10)
+            .map((v) => ({
+              name: v.name,
+              severity: v.severity,
+              range: v.range,
+              fixAvailable: v.fixAvailable,
+            })),
+          privacy_sanitized: true,
+        };
+      }
+
+      return {
+        ok: res.ok,
+        manager: mgr,
+        raw_output: sanitize((res.stdout || res.stderr || "").slice(0, 1000)),
+        privacy_sanitized: true,
+      };
+    },
   };
 
   // Alias intuitivos para llamadas de LLMs
@@ -211,16 +267,31 @@ export function createPackagesDomain({ runtime, domain, parsePkgLines: externalP
   actions.uninstall = actions.remove_package;
   actions.update = actions.update_package;
   actions.upgrade = actions.update_package;
+  actions.audit = actions.audit_vulnerabilities;
 
   const permissions = {
-    install_package: "admin",
-    install: "admin",
-    remove_package: "admin",
-    remove: "admin",
-    uninstall: "admin",
-    update_package: "admin",
-    update: "admin",
-    upgrade: "admin"
+    check_manager: "standard",
+    audit_vulnerabilities: "standard",
+    audit: "standard",
+    list_installed: "standard",
+    list_installed_packages: "standard",
+    list_packages: "standard",
+    list: "standard",
+    list_repositories: "standard",
+    search_package: "standard",
+    search: "standard",
+    package_info: "standard",
+    info: "standard",
+    install_package: "advanced",
+    install: "advanced",
+    remove_package: "advanced",
+    remove: "advanced",
+    uninstall: "advanced",
+    update_package: "advanced",
+    update: "advanced",
+    upgrade: "advanced",
+    add_repository: "advanced",
+    remove_repository: "advanced",
   };
 
   return domain("packages", "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).", actions, permissions);

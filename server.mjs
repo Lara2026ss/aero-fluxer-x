@@ -227,7 +227,23 @@ export async function startServer() {
         },
         force: {
           type: "boolean",
-          description: "Forzar actualización si ya está al día (solo para 'apply').",
+          description: "Forzar actualización o comprobación si ya está al día.",
+        },
+        checkRepo: {
+          type: "boolean",
+          description: "Comprobar directamente el repositorio GitHub/Git además de releases (para 'check').",
+        },
+        repoRoot: {
+          type: "string",
+          description: "Ruta opcional al repositorio Git local para auditar su estado.",
+        },
+        revealPath: {
+          type: "boolean",
+          description: "Permitir mostrar la ruta real del usuario de Windows sin ofuscar (default false para privacidad).",
+        },
+        allow_user_path: {
+          type: "boolean",
+          description: "Alias de revealPath para permitir mostrar rutas de usuario.",
         },
         args: {
           type: "object",

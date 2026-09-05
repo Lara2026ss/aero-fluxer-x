@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.2.1",
-  "description": "Fluxer Core MCP v10.2.1 (Public Release) — Granular Permissions, Deep Sanitization & Safe Public Tooling para Windows 11",
+  "version": "10.3.0",
+  "description": "Fluxer Core MCP v10.3.0 (System & Security Hotfix) — Modern Permission Hierarchy, Dynamic Window Approvals, Path Privacy & Resilient Updater for Windows 11",
   "type": "module",
   "main": "server.js",
   "bin": {

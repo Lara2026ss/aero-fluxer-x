@@ -5,6 +5,65 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v10.3.0] - 2026-09-05 (Modern Permission Tiers, Dynamic Lease Approvals, Robust GitHub Updater & User Path Privacy)
+
+### 🌟 Destacados de la Versión
+- **Actualizador GitHub Fiable y Resiliente (`upd check` / `upd_check`)**:
+  - Se corrigió la lógica que devolvía falsos positivos de "latest" sin inspeccionar el repositorio remoto.
+  - Soporte de autenticación mediante variables de entorno de token de GitHub (`GITHUB_TOKEN` o `GH_TOKEN`), evitando caídas silenciosas por HTTP 403 (Rate Limiting).
+  - Consulta multi-fuente: Releases oficiales, tags de Git, lectura en tiempo real del `package.json` remoto en la rama principal (`main`) e inspección directa del estado de clon Git local (`repoRoot`).
+  - Fallback automático al archivo comprimido zip del código fuente (`archive/refs/tags/vX.X.X.zip`) cuando un release publicado aún no tiene compilado o adjuntado el activo binario.
+  - Parámetros ampliados: `checkRepo` (forzar inspección profunda de repo), `force` (ignorar caché), `repoRoot` y `revealPath`.
+
+- **Privacidad y Control de Rutas de Usuario**:
+  - Las rutas locales de Windows se protegen y ofuscan automáticamente (`~` o `<user>`) para prevenir filtraciones involuntarias en chats, logs o repositorios públicos.
+  - Mecanismo explícito de revelado: el usuario puede autorizar la visualización de rutas completas pasando `revealPath: true` o `allow_user_path: true` en las herramientas de desarrollo y git (`upd_check`, `git_status_structured`, `git_diff_summary`, `git_switch_identity`, `git_log_compact`), eliminando confusiones o falsas alarmas de seguridad.
+
+- **Jerarquía Moderna de Permisos y Compatibilidad Total**:
+  - Reemplazo y modernización de los niveles de autorización con nombres canónicos claros y estándar en la industria:
+    - `visitor` (antes `guest`): Acceso mínimo de solo lectura exploratorio.
+    - `standard` (antes `user`): Nivel predeterminado seguro para lectura, escritura en workspace e inspección de estado.
+    - `advanced` (antes `poweruser`): Operaciones de desarrollo avanzado, terminal controlado y gestión de paquetes.
+    - `maintainer` (antes `admin`): Administración de red, servicios del sistema y scripts de mantenimiento.
+    - `developer`: Depuración y diagnóstico profundo del núcleo del MCP.
+    - `system_root` (antes `admintotaluser`): Máxima autoridad y bypass de restricciones bajo autorización explícita.
+  - Retrocompatibilidad transparente al 100%: mapeo y normalización automática de alias clásicos (`guest`, `user`, `poweruser`, `admin`, `admintotaluser`).
+
+- **Ventanas de Aprobación Dinámicas (Timed Leases)**:
+  - `security.approve_request` incorpora `grantMinutes: 5` (o el tiempo que el usuario designe), creando una sesión temporal segura que evita la molestia de pedir confirmación una y otra vez para cada comando individual.
+  - Incorporación de `confirmationCode` dinámico de 4 caracteres generado en el contexto de confirmación para validar la intención y trazabilidad de la aprobación.
+  - El arrendamiento temporal queda estrictamente limitado al nivel solicitado (`actionLevel`), impidiendo escalaciones no autorizadas a niveles superiores.
+
+- **Experiencia de Usuario Educativa y Familiar**:
+  - Respuestas de seguridad transparentes, claras y didácticas cuando se requiere confirmación (`CONFIRMATION_REQUIRED`) o se deniega una acción (`PERMISSION_DENIED`).
+  - Guía interna actualizada (`guide.permissions_info` y `guide.best_practices`) con documentación exhaustiva del nuevo modelo de permisos y políticas de privacidad.
+
+- **Sistema de Capturas Visuales y Consentimiento (`system.capture_screen`, `system.capture_window`, `system.capture_region`)**:
+  - Soporte de 3 modalidades de captura directa en Windows mediante GDI+/System.Drawing sin dependencias externas pesadas.
+  - Guardado en la carpeta de imágenes del usuario (`~/Pictures/FluxerScreenshots/` o `Imágenes/FluxerScreenshots`), retornando `capture_id`, `evidence_ref` y dimensiones.
+  - Salvaguarda de privacidad mediante permiso específico e independiente `visual_capture_grant`.
+  - Integración nativa como evidencia visual en `developer.submit_feedback`.
+
+- **Nuevas Subherramientas y Mejoras de Usabilidad**:
+  - `security.list_permission_levels`: Consulta pedagógica de solo lectura sobre la jerarquía canónica y el alcance de cada nivel.
+  - `files.sandbox_status` y `files.list_allowed_directories`: Consulta de estado y raíces permitidas del sandbox con enmascaramiento automático de privacidad de rutas de usuario (`~`).
+  - `upd` con `dry_run: true`: Simulación y validación completa de actualizaciones de código sin modificar ningún archivo del sistema.
+  - `developer.upd_rollback` y `developer.upd_backups`: Restauración controlada ante fallos y consulta de backups locales existentes.
+  - `developer.feedback_outbox_status` (AFX-FB-D3RAUV): Reporte abstracto de sincronización de la cola fuera de línea con estricta privacidad (cero exposición de rutas, identificadores personales ni payloads).
+  - `packages.audit_vulnerabilities`: Auditoría de seguridad de dependencias con `npm audit` sanitizado.
+
+- **Resolución de Feedback AFX-FB-2RZUPT**:
+  - Las consultas y verificaciones de solo lectura de paquetes (`packages.check_manager`, `packages.list_installed`, `packages.package_info`, `packages.search`) se ajustaron al nivel `standard` (antes requerían elevación `poweruser`), permitiendo inspecciones ágiles sin fricción.
+
+- **Resolución de Feedbacks AFX-FB-WF3EQH, AFX-FB-SRCWRM, AFX-FB-HTXL25, AFX-FB-MHYVV3, AFX-FB-FFQMK6**:
+  - `security.list_granted_permissions`: Auditoría de workflows, concesión de captura visual y leases activos.
+  - `developer.upd_info`: Aislamiento estricto de changelog a la versión consultada.
+  - Notificación amigable de expiración temporal (`permission_expires_in_seconds`) cuando restan <= 30 segundos.
+  - `developer.upd_check`: Metadatos de consulta fresca en tiempo real (`last_real_check_at`, `source_confirmed`, `check_source`).
+  - `developer.upd_data`: Aislamiento de eventos de actualización únicamente a la versión instalada.
+
+---
+
 ## [v10.1.5] - 2026-09-05 (Experimental Public Release — 10/10 Enterprise Polish)
 
 ### ⚠️ Breaking Changes en v10.x

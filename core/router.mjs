@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { unwrapArgs } from "./json-utils.mjs";
+import { normalizeLevel } from "./permissions.mjs";
 
 function classifyError(error, tool, action) {
   const msg = String(error?.message || error || "").toLowerCase();
@@ -98,7 +99,7 @@ export class Router {
     return this;
   }
 
-  buildConfirmationContext({ tool, action, originalTool, originalAction, args, required, current, requestId }) {
+  buildConfirmationContext({ tool, action, originalTool, originalAction, args, required, current, requestId, confirmationCode }) {
     const rawTool = String(originalTool || tool || "").toLowerCase();
     const rawAction = String(originalAction || action || "").toLowerCase();
 
@@ -119,46 +120,55 @@ export class Router {
       (action.includes("delete") || action.includes("write") || action.includes("edit") || action.includes("remove"));
     const isWorkflow =
       tool === "security" && ["start_workflow", "grant_permission", "grant_elevation"].includes(action);
+    const isVisualCapture =
+      (tool === "system" && ["capture_screen", "capture_window", "capture_region", "screenshot"].includes(action)) ||
+      required === "visual_capture_grant";
 
     let operationTitle = `Acción ${originalTool || tool}.${action}`;
     let purpose = `Esta operación requiere autorización previa por tener impacto en el entorno local.`;
-    let safetyNotice = `Control de seguridad MCP: Salvaguarda interna del servidor para asegurar que toda operación con impacto en el entorno cuente con el consentimiento informado del usuario.`;
-    let aiGuidance = `Esta operación requiere confirmación explícita del usuario en el chat. Explica la acción y solicita su visto bueno antes de continuar.`;
+    let safetyNotice = `Control amigable de seguridad MCP: Salvaguarda en Windows 11 para asegurar que toda operación cuente con el consentimiento informado del usuario.`;
+    let aiGuidance = `Por favor consulta al usuario en el chat explicándole qué acción vas a ejecutar y solicita la confirmación explícita del usuario antes de continuar. Si el usuario te autoriza una sesión de trabajo de varios minutos, se puede habilitar una ventana temporal para realizar tareas de este nivel sin interrupciones repetitivas.`;
 
-    if (isUpdate) {
-      operationTitle = "Actualización Oficial de Fluxer X (GitHub Releases)";
-      purpose = "Descargar e instalar la actualización oficial desde GitHub en el directorio de Fluxer X, con copia de seguridad y verificación de integridad previa.";
-      safetyNotice = "Descarga oficial verificada: La actualización se obtiene del repositorio oficial y se aplica exclusivamente en la carpeta local de Fluxer X.";
-      aiGuidance = `La actualización requiere confirmación explícita del usuario en el chat. Solicita su visto bueno antes de aplicar los cambios.`;
+    if (isVisualCapture) {
+      operationTitle = "Captura Visual de Pantalla (Protección de Privacidad Visual)";
+      purpose = `Se solicita capturar visualmente la pantalla del usuario (${action.replace(/_/g, " ")}) y almacenarla de forma segura en el directorio Pictures/FluxerScreenshots del usuario.`;
+      safetyNotice = "Protección de Privacidad Visual: Las capturas de pantalla pueden contener información confidencial del usuario. Este permiso es independiente ('visual_capture_grant') y requiere consentimiento explícito.";
+      aiGuidance = "La captura de pantalla puede exponer información privada del usuario. Por favor solicita amablemente la confirmación explícita del usuario en el chat antes de capturar su pantalla.";
+    } else if (isUpdate) {
+      operationTitle = "Actualización Oficial de Fluxer X (GitHub Releases / Repositorio)";
+      purpose = "Descargar e instalar la actualización oficial desde GitHub en el directorio local de Fluxer X, con copia de seguridad y verificación de integridad previa.";
+      safetyNotice = "Descarga oficial verificada: La actualización se obtiene del repositorio oficial y se aplica exclusivamente en la carpeta local de Fluxer X sin alterar otros archivos.";
+      aiGuidance = `La actualización requiere la confirmación explícita del usuario en el chat. Solicita amablemente su visto bueno antes de aplicar los cambios.`;
     } else if (isTerminal) {
-      operationTitle = "Ejecución de Comando en Terminal Local";
+      operationTitle = "Ejecución de Comando en Terminal Local (Windows 11)";
       purpose = `Se solicita ejecutar el comando '${args?.command || "especificado"}' en la consola local del usuario.`;
-      safetyNotice = "CONTROL DE SEGURIDAD: Salvaguarda interna para confirmar que el usuario aprueba los comandos ejecutados en su entorno. No otorga acceso permanente a la consola.";
-      aiGuidance = `La ejecución de comandos de terminal requiere confirmación explícita del usuario en el chat. Muestra el comando exacto y solicita su visto bueno.`;
+      safetyNotice = "Control amigable de seguridad: Salvaguarda interna para confirmar que el usuario aprueba los comandos en su entorno. No modifica permisos permanentes de Windows.";
+      aiGuidance = `Muestra amablemente el comando al usuario y solicita la confirmación explícita del usuario en el chat. Si el usuario te autoriza una sesión (ej. 5 o 10 minutos), se puede habilitar una ventana autorizada de trabajo con el tiempo solicitado.`;
     } else if (isTestOrBuild) {
-      operationTitle = "Ejecución de Pruebas / Build del Proyecto";
+      operationTitle = "Ejecución de Pruebas o Compilación del Proyecto";
       purpose = `Se van a ejecutar los tests o la compilación del proyecto en el entorno de desarrollo local.`;
-      safetyNotice = "CONTROL DE SEGURIDAD: Salvaguarda interna para asegurar que los procesos de build y tests son supervisados.";
-      aiGuidance = `La ejecución de pruebas o compilación requiere confirmación del usuario en el chat. Solicita su autorización.`;
+      safetyNotice = "Control amigable de seguridad: Salvaguarda para asegurar que los procesos de build y tests cuenten con la debida supervisión.";
+      aiGuidance = `Solicita la confirmación explícita del usuario en el chat antes de compilar o probar. Si aprueba una sesión, se puede habilitar una ventana autorizada.`;
     } else if (isFileMod) {
       operationTitle = "Modificación o Eliminación de Archivos";
       purpose = `Se solicita modificar o eliminar archivos en la ruta: '${args?.path || args?.target || "especificada"}'.`;
-      safetyNotice = "CONTROL DE SEGURIDAD: Salvaguarda interna para prevenir pérdida o sobreescritura accidental de datos.";
-      aiGuidance = `La modificación o eliminación de archivos requiere confirmación explícita del usuario en el chat. Informa de las rutas y solicita su visto bueno.`;
+      safetyNotice = "Control de seguridad: Salvaguarda para prevenir pérdida o sobreescritura accidental de datos.";
+      aiGuidance = `Informa al usuario sobre los archivos que se modificarán y solicita la confirmación explícita del usuario antes de proceder.`;
     } else if (isWorkflow) {
-      const targetLevel = args?.level || args?.role || "poweruser";
+      const targetLevel = args?.level || args?.role || "advanced";
       const dur = args?.durationMinutes || args?.minutes || 5;
-      operationTitle = `Habilitación de Flujo de Trabajo Temporal (${targetLevel})`;
-      purpose = `Se solicita habilitar temporalmente una ventana de trabajo con nivel interno '${targetLevel}' durante ${dur} minutos para realizar tareas avanzadas.`;
-      safetyNotice = "CONTROL DE SEGURIDAD: La elevación es temporal y estrictamente interna del protocolo MCP (no modifica permisos de Windows ni del sistema operativo).";
-      aiGuidance = `La elevación temporal de permisos requiere confirmación explícita del usuario en el chat. Solicita su autorización antes de continuar.`;
+      operationTitle = `Habilitación de Ventana de Trabajo Temporal (${targetLevel})`;
+      purpose = `Se solicita habilitar temporalmente una ventana de trabajo con nivel interno '${targetLevel}' durante ${dur} minutos para realizar tareas de desarrollo.`;
+      safetyNotice = "Control de seguridad: La elevación es temporal y estrictamente interna del protocolo MCP (no modifica permisos de Windows ni del sistema operativo).";
+      aiGuidance = `La habilitación de una ventana de trabajo requiere la confirmación explícita del usuario en el chat. Explica el motivo y solicita su visto bueno.`;
     }
 
     const message = [
       `🛡️ [AUTORIZACIÓN REQUERIDA — CONTROL DE SEGURIDAD MCP]`,
-      `La acción "${tool}.${action}" requiere nivel de permisos "${required}" (nivel actual: "${current}"). Esta operación requiere confirmación explícita del usuario para ejecutarse.`,
+      `La acción "${tool}.${action}" requiere nivel de permisos "${required}" (nivel actual: "${current}").`,
       `Operación: ${operationTitle}`,
       `Finalidad: ${purpose}`,
+      `Código de confirmación: ${confirmationCode || "N/A"}`,
       `Nota de Seguridad: ${safetyNotice}`,
       `Instrucción para el Asistente AI: ${aiGuidance}`,
     ].join("\n\n");
@@ -257,14 +267,30 @@ export class Router {
         action = "upd_info";
       } else if (requestedAction === "data" || requestedAction === "status" || requestedAction === "upd_data") {
         action = "upd_data";
+      } else if (requestedAction === "rollback" || requestedAction === "upd_rollback" || requestedAction === "revert") {
+        action = "upd_rollback";
+      } else if (requestedAction === "backups" || requestedAction === "upd_backups" || requestedAction === "list_backups") {
+        action = "upd_backups";
+      } else if (requestedAction === "dry_run" || requestedAction === "dryrun" || requestedAction === "simulate") {
+        action = "upd";
+        args.dry_run = true;
       } else if (requestedAction === "apply" || requestedAction === "update" || requestedAction === "upd" || !requestedAction) {
         action = "upd";
       } else {
         action = "upd";
       }
-    } else if (["upd_check", "upd_info", "upd_data"].includes(tool.toLowerCase())) {
+    } else if (["upd_check", "upd_info", "upd_data", "upd_rollback", "upd_backups", "feedback_outbox_status"].includes(tool.toLowerCase())) {
       action = tool.toLowerCase();
       tool = "developer";
+    } else if (["sandbox_status"].includes(tool.toLowerCase())) {
+      action = "sandbox_status";
+      tool = "files";
+    } else if (["list_permission_levels"].includes(tool.toLowerCase())) {
+      action = "list_permission_levels";
+      tool = "security";
+    } else if (["audit_vulnerabilities"].includes(tool.toLowerCase())) {
+      action = "audit_vulnerabilities";
+      tool = "packages";
     }
 
     // Soporte nativo para skills invocados directamente como tool
@@ -326,9 +352,22 @@ export class Router {
       action = "revoke_elevation";
       tool = "security";
     }
+    // Soporte nativo para capturas visuales de pantalla
+    if (["capture_screen", "capture_window", "capture_region", "screenshot", "screen_capture", "captura_pantalla"].includes(tool.toLowerCase())) {
+      action = (tool.toLowerCase() === "screenshot" || tool.toLowerCase() === "screen_capture" || tool.toLowerCase() === "captura_pantalla")
+        ? "capture_screen"
+        : tool.toLowerCase();
+      tool = "system";
+    }
 
     // Mapeo exhaustivo de alias para compatibilidad total con llamadas de LLMs
     const DOMAIN_ACTION_ALIASES = {
+      system: {
+        screenshot: "capture_screen",
+        take_screenshot: "capture_screen",
+        screen_capture: "capture_screen",
+        captura_pantalla: "capture_screen",
+      },
       files: {
         read_file: "read_text_file",
         create_file: "write_file",
@@ -547,12 +586,23 @@ export class Router {
       // Si el nivel solicitado supera al nivel actual, o se pide admintotaluser, o no hay elevación activa previa,
       // se exige CONFIRMATION_REQUIRED puntual.
       if (tool === "security" && ["start_workflow", "grant_permission", "grant_elevation"].includes(action)) {
-        const requestedTargetLevel = args.level || args.role || "poweruser";
+        const requestedTargetLevel = normalizeLevel(args.level || args.role || "advanced");
         const currentRank = this.runtime.permissions.levelRank(current);
         const targetRank = this.runtime.permissions.levelRank(requestedTargetLevel);
-        if (targetRank > currentRank || requestedTargetLevel === "admintotaluser" || !this.runtime.permissions.isElevationActive?.()) {
+        if (targetRank > currentRank || requestedTargetLevel === "system_root" || !this.runtime.permissions.isElevationActive?.()) {
           needsMoreLevel = true;
           required = requestedTargetLevel;
+        }
+      }
+
+      // Requerimiento de Captura Visual: Permiso explícito e independiente 'visual_capture_grant'
+      const isVisualCapture = (tool === "system" && ["capture_screen", "capture_window", "capture_region", "screenshot"].includes(action)) ||
+        ["capture_screen", "capture_window", "capture_region", "screenshot"].includes(originalRequestedTool);
+      if (isVisualCapture) {
+        const hasVisualGrant = this.runtime.permissions.hasVisualCaptureGrant?.();
+        if (!hasVisualGrant) {
+          needsMoreLevel = true;
+          required = "visual_capture_grant";
         }
       }
 
@@ -573,9 +623,9 @@ export class Router {
       );
 
       if (!trustedBypass && needsMoreLevel && !wasJustConfirmed) {
-        const { requestId } = this.runtime.confirmations.request({ tool, action, args, required, current });
+        const { requestId, confirmationCode } = this.runtime.confirmations.request({ tool, action, args, required, current });
         const durationMs = Math.round(performance.now() - started);
-        this.runtime.logger.warn("confirmation_required", { request_id: requestId, tool, action, required, current });
+        this.runtime.logger.warn("confirmation_required", { request_id: requestId, confirmationCode, tool, action, required, current });
         // Audit log — acción requirió confirmación
         this.runtime.auditLog?.record({
           agent: this.runtime.client?.name,
@@ -594,6 +644,7 @@ export class Router {
           required,
           current,
           requestId,
+          confirmationCode,
         });
 
         return {
@@ -602,6 +653,7 @@ export class Router {
           tool,
           action,
           requestId,
+          confirmationCode,
           required,
           current,
           operation: context.operationTitle,
@@ -693,6 +745,15 @@ export class Router {
           durationMs,
           data: innerData,
         };
+      }
+
+      // AFX-FB-HTXL25: En respuestas bajo permisos temporales activos, incluir permission_expires_in_seconds y aviso si <= 30s
+      const activeWf = this.runtime.permissions?.getWorkflow?.("default");
+      if (activeWf && activeWf.status === "active") {
+        response.permission_expires_in_seconds = activeWf.remainingSeconds;
+        if (activeWf.remainingSeconds <= 30 && activeWf.remainingSeconds > 0) {
+          response.permission_warning = `Aviso amigable: La ventana autorizada de permisos expira en ${activeWf.remainingSeconds} segundos. Al expirar volverá automáticamente al nivel seguro 'standard'.`;
+        }
       }
 
       if (isOk) {

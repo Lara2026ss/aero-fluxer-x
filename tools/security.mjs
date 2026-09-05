@@ -100,7 +100,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, activeLevel: runtime.permissions?.currentLevel() || "user" };
     },
     
-    start_workflow: async ({ level = "poweruser", durationMinutes = 5, reason = "Solicitado por IA", principal = "default" } = {}) => {
+    start_workflow: async ({ level = "advanced", durationMinutes = 5, reason = "Solicitado amablemente por IA", principal = "default" } = {}) => {
       try {
         // Validación estricta
         if (typeof durationMinutes !== 'number' || isNaN(durationMinutes) || !isFinite(durationMinutes) || durationMinutes <= 0) {
@@ -111,7 +111,12 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
         }
         
         const wf = runtime.permissions.startWorkflow({ level, durationMinutes, reason, principal });
-        return { ok: true, ...wf, message: `Workflow temporal activado exitosamente por ${durationMinutes} minutos. Mantén un buen uso.` };
+        return {
+          ok: true,
+          ...wf,
+          message: `Sesión de trabajo temporal activada exitosamente por ${durationMinutes} minutos (nivel: ${wf.level}).`,
+          notice: `Durante este período podrás ejecutar operaciones hasta el nivel '${wf.level}'. Acciones que requieran un nivel superior seguirán solicitando confirmación puntual.`,
+        };
       } catch (e) {
         return { ok: false, error: e.message };
       }
@@ -136,7 +141,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     },
 
     // DEPRECATED: redirect to start_workflow (manteniendo firmas para compatibilidad)
-    grant_permission: async ({ scope = "*", role = "poweruser", level, minutes = 5, ...args } = {}) => {
+    grant_permission: async ({ scope = "*", role = "advanced", level, minutes = 5, ...args } = {}) => {
       try {
         return runtime.permissions.grant({ scope, level: level || role, minutes, ...args });
       } catch (e) {
@@ -162,10 +167,31 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, pending: runtime.confirmations.list() };
     },
 
-    approve_request: async ({ requestId } = {}, rt, router) => {
+    approve_request: async ({ requestId, confirmationCode, user_confirmed, confirmed, grantMinutes, minutes } = {}, rt, router) => {
       if (!requestId) return { ok: false, error: "El parámetro 'requestId' es requerido." };
       let req;
-      try { req = runtime.confirmations.approve(requestId); } catch (e) { return { ok: false, error: e.message }; }
+      try {
+        req = runtime.confirmations.approve(requestId, { confirmationCode });
+      } catch (e) {
+        return { ok: false, code: e.code || "CONFIRMATION_ERROR", error: e.message };
+      }
+
+      // Soporte dinámico para autorizaciones temporales por minutos (ej: 5 minutos o más)
+      const requestedMinutes = Number(grantMinutes || minutes || 0);
+      let sessionWindow = null;
+      if (req.required === "visual_capture_grant") {
+        sessionWindow = runtime.permissions.grantVisualCapture({ durationMinutes: requestedMinutes || 5 });
+      } else if (requestedMinutes > 0 && runtime.permissions?.startWorkflow) {
+        const allowedMinutes = Math.max(1, Math.min(requestedMinutes, 240));
+        const actionLevel = req.required || "advanced";
+        sessionWindow = runtime.permissions.startWorkflow({
+          level: actionLevel,
+          durationMinutes: allowedMinutes,
+          reason: `Ventana de trabajo de ${allowedMinutes} min aprobada por el usuario para nivel '${actionLevel}'`,
+          principal: "default",
+        });
+      }
+
       const retryArgs = { ...(req.args || {}), __confirmationRequestId: requestId };
       try {
         const result = await router.execute({ tool: req.tool, action: req.action, args: retryArgs });
@@ -173,7 +199,18 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
           ok: true,
           approved: true,
           requestId,
-          message: "Operación autorizada por el usuario y ejecutada en el entorno seguro de Fluxer MCP (sin alterar privilegios del sistema operativo).",
+          workflow_granted: Boolean(sessionWindow),
+          grantMinutes: sessionWindow?.durationMinutes || 0,
+          session_window: sessionWindow ? {
+            active: true,
+            level: sessionWindow.level,
+            durationMinutes: sessionWindow.durationMinutes,
+            expiresAt: sessionWindow.expiresAt,
+            notice: `Ventana temporal activa por ${sessionWindow.durationMinutes} min para nivel '${sessionWindow.level}'. Comandos de nivel superior seguirán requiriendo confirmación.`,
+          } : { active: false, type: "single_use" },
+          message: sessionWindow
+            ? `Operación autorizada y ventana temporal de ${sessionWindow.durationMinutes} min activada para nivel '${sessionWindow.level}'.`
+            : "Operación autorizada por el usuario y ejecutada de forma segura en Fluxer MCP.",
           executed: result,
         };
       } catch (e) {
@@ -230,30 +267,141 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     revoke_elevation: async () => {
       return runtime.permissions.revokeElevation();
     },
+
+    list_granted_permissions: async ({ limit = 20 } = {}) => {
+      const activeWf = runtime.permissions?.getWorkflow?.("default") || null;
+      const allActive = runtime.permissions?.active?.() || [];
+      const hasVisualGrant = runtime.permissions?.hasVisualCaptureGrant?.("default") || false;
+      const history = (await runtime.auditLog?.search?.({ limit: Math.min(Number(limit) || 20, 100) })) || [];
+      
+      const grantsHistory = history.filter(item => 
+        ["elevation_requested", "workflow_started", "workflow_revoked", "confirmation_approved", "permission_granted", "visual_capture_granted"].includes(item.action)
+      );
+
+      return {
+        ok: true,
+        active_workflow: activeWf,
+        visual_capture_grant_active: hasVisualGrant,
+        current_permissions: allActive.map(p => ({
+          level: p.level,
+          canonical_level: p.canonicalLevel || p.level,
+          workflow_id: p.workflowId,
+          expires_at: p.expiresAt,
+          reason: p.reason,
+          scope: p.scope,
+        })),
+        recent_grants: grantsHistory,
+        summary: activeWf 
+          ? `Sesión activa con nivel '${activeWf.level}' (${activeWf.remainingSeconds}s restantes).`
+          : "No hay ninguna sesión temporal de elevación activa actualmente.",
+      };
+    },
+
+    grant_visual_capture: async ({ durationMinutes = 5 } = {}) => {
+      return runtime.permissions.grantVisualCapture({ durationMinutes });
+    },
+
+    list_permission_levels: async () => {
+      const levels = [
+        {
+          level: "visitor",
+          rank: 0,
+          description: "Acceso mínimo de consulta pública o introspección sin privilegios.",
+          risk_tier: "LOW",
+          allowed_operations: ["Lectura básica", "Consultas pedagógicas"],
+          legacy_aliases: [],
+        },
+        {
+          level: "standard",
+          rank: 1,
+          description: "Operaciones cotidianas de lectura, hashing, utilidades no destructivas y edición controlada dentro del workspace.",
+          risk_tier: "LOW",
+          allowed_operations: ["Lectura de archivos", "Consultas de paquetes", "Hashes", "Auditoría de logs", "Comprobación de updates"],
+          legacy_aliases: ["user"],
+        },
+        {
+          level: "advanced",
+          rank: 2,
+          description: "Modificaciones de sistema, instalación de paquetes, ejecuciones terminal no-root y operaciones de mayor impacto.",
+          risk_tier: "MEDIUM",
+          allowed_operations: ["Instalación/eliminación de paquetes", "Borrado de archivos", "Ejecución terminal supervisada"],
+          legacy_aliases: ["poweruser"],
+        },
+        {
+          level: "maintainer",
+          rank: 3,
+          description: "Gestión de políticas de seguridad, otorgamiento temporal de permisos y administración local de la plataforma.",
+          risk_tier: "HIGH",
+          allowed_operations: ["Configuración de modo de seguridad", "Gestión de permisos de workflows"],
+          legacy_aliases: ["admin"],
+        },
+        {
+          level: "developer",
+          rank: 4,
+          description: "Desarrollo profundo del motor, depuración interna y operaciones avanzadas de ingeniería.",
+          risk_tier: "HIGH",
+          allowed_operations: ["Gestión interna de skills", "Feedback de diagnóstico", "Hotfixing"],
+          legacy_aliases: [],
+        },
+        {
+          level: "system_root",
+          rank: 5,
+          description: "Privilegios absolutos sobre el host. Bypass completo de límites de sandbox y control total supervisado.",
+          risk_tier: "CRITICAL",
+          allowed_operations: ["Acceso a cualquier ruta del sistema", "Elevación total de comandos", "Operaciones destructivas globales"],
+          legacy_aliases: ["admintotaluser"],
+        },
+      ];
+
+      return {
+        ok: true,
+        total_levels: levels.length,
+        canonical_levels: levels,
+        active_current_level: runtime.permissions?.currentLevel?.() || "standard",
+        alias_mapping: {
+          user: "standard",
+          poweruser: "advanced",
+          admin: "maintainer",
+          admintotaluser: "system_root",
+        },
+        note: "La jerarquía es estrictamente ascendente (visitor < standard < advanced < maintainer < developer < system_root). Se admiten alias heredados de forma transparente.",
+      };
+    },
+
+    list_allowed_directories: async ({ revealPath = false, allow_user_path = false } = {}) => {
+      if (runtime.tools?.files?.list_allowed_directories) {
+        return runtime.tools.files.list_allowed_directories({ revealPath, allow_user_path });
+      }
+      return { ok: true, note: "Sandbox activo con protección de privacidad de rutas." };
+    },
   };
 
   const permissions = {
-    start_workflow: "poweruser",
-    get_workflow: "user",
-    revoke_workflow: "user",
-    grant_permission: "admin",
-    revoke_permission: "admin",
-    grant_elevation: "user",
-    get_elevation_status: "user",
-    revoke_elevation: "user",
-    approve_request: "user",
-    deny_request: "user",
-    request_status: "user",
-    hash_file: "user",
-    hash_text: "user",
-    generate_uuid: "user",
-    generate_token: "user",
-    encrypt_text: "user",
-    decrypt_text: "user",
-    set_security_mode: "admin",
-    get_security_mode: "user",
-    health: "user",
-    audit_log: "user",
+    start_workflow: "advanced",
+    get_workflow: "standard",
+    revoke_workflow: "standard",
+    list_granted_permissions: "standard",
+    list_permission_levels: "standard",
+    list_allowed_directories: "standard",
+    grant_visual_capture: "standard",
+    grant_permission: "maintainer",
+    revoke_permission: "maintainer",
+    grant_elevation: "standard",
+    get_elevation_status: "standard",
+    revoke_elevation: "standard",
+    approve_request: "standard",
+    deny_request: "standard",
+    request_status: "standard",
+    hash_file: "standard",
+    hash_text: "standard",
+    generate_uuid: "standard",
+    generate_token: "standard",
+    encrypt_text: "standard",
+    decrypt_text: "standard",
+    set_security_mode: "maintainer",
+    get_security_mode: "standard",
+    health: "standard",
+    audit_log: "standard",
   };
 
   return domain("security", "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.", actions, permissions);

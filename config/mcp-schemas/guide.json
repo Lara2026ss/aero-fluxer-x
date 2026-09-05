@@ -1,6 +1,6 @@
 {
   "name": "guide",
-  "description": "Documentación oficial interna, reglas y mejores prácticas para IAs que operan este MCP.\nAcciones y argumentos (usar en args): best_practices {} | permissions_info { level, durationMinutes } | search_tools { query, domain, limit } | tool_usage { tool_name }",
+  "description": "Documentación oficial interna, reglas y mejores prácticas para IAs que operan este MCP.\nAcciones y argumentos (usar en args): best_practices {} | permissions_info { requestId, confirmationCode, grantMinutes } | search_tools { query, domain, limit } | tool_usage { tool_name }",
   "inputSchema": {
     "type": "object",
     "properties": {

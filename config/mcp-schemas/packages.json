@@ -1,6 +1,6 @@
 {
   "name": "packages",
-  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones y argumentos (usar en args): add_repository { manager, url, name } | check_manager { manager } | info { manager, name } | install { manager, name } | install_package { manager, name } | list { manager } | list_installed { manager } | list_installed_packages { manager } | list_packages { manager } | list_repositories {} | package_info { manager, name } | remove { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search { manager, query } | search_package { manager, query } | uninstall { manager, name } | update { manager, name } | update_package { manager, name } | upgrade { manager, name }",
+  "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak).\nAcciones y argumentos (usar en args): add_repository { manager, url, name } | audit { path, manager } | audit_vulnerabilities { path, manager } | check_manager { manager } | info { manager, name } | install { manager, name } | install_package { manager, name } | list { manager } | list_installed { manager } | list_installed_packages { manager } | list_packages { manager } | list_repositories {} | package_info { manager, name } | remove { manager, name } | remove_package { manager, name } | remove_repository { manager, name } | search { manager, query } | search_package { manager, query } | uninstall { manager, name } | update { manager, name } | update_package { manager, name } | upgrade { manager, name }",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -8,6 +8,8 @@
         "type": "string",
         "enum": [
           "add_repository",
+          "audit",
+          "audit_vulnerabilities",
           "check_manager",
           "info",
           "install",

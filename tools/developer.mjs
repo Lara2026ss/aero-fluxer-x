@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import { getStorageStructure } from "../core/storage-paths.mjs";
 import { CURRENT_VERSION, compareSemVer } from "../core/version.mjs";
-import { checkForUpdates, executeAutoUpdate } from "../core/updater.mjs";
+import { checkForUpdates, executeAutoUpdate, rollbackToBackup, listAvailableBackups } from "../core/updater.mjs";
 import { getClientRestartNotice } from "../core/client-restart.mjs";
 import { unwrapArgs } from "../core/json-utils.mjs";
 
@@ -57,8 +57,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     return { frontmatter, body };
   }
 
-  function sanitizeUserPath(inputPath) {
+  function sanitizeUserPath(inputPath, options = {}) {
     if (!inputPath || typeof inputPath !== "string") return inputPath;
+    if (options.revealPath === true || options.allow_user_path === true || runtime.config?.security?.revealPaths === true) {
+      return inputPath;
+    }
     const username = os.userInfo?.()?.username || process.env.USERNAME || process.env.USER || "";
     const homedir = os.homedir?.() || process.env.USERPROFILE || process.env.HOME || runtime.home || "";
 
@@ -728,23 +731,27 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
       // 4. Validar y procesar captura de pantalla (tamaño bounded max 2MB)
       let attachmentPayload = null;
-      if (screenshot) {
+      const targetAttachment = screenshot || attachmentPath || attachment_path;
+      if (targetAttachment) {
         try {
           let buffer = null;
           let mime = "image/png";
-          if (typeof screenshot === "string" && screenshot.startsWith("data:image")) {
-            const match = screenshot.match(/^data:(image\/\w+);base64,(.*)$/);
+          if (typeof targetAttachment === "string" && targetAttachment.startsWith("data:image")) {
+            const match = targetAttachment.match(/^data:(image\/\w+);base64,(.*)$/);
             if (match) {
               mime = match[1];
               buffer = Buffer.from(match[2], "base64");
             } else {
-              buffer = Buffer.from(screenshot.replace(/^data:image\/\w+;base64,/, ""), "base64");
+              buffer = Buffer.from(targetAttachment.replace(/^data:image\/\w+;base64,/, ""), "base64");
             }
-          } else if (typeof screenshot === "string" && (await fs.access(screenshot).then(() => true).catch(() => false))) {
-            buffer = await fs.readFile(screenshot);
-            const ext = path.extname(screenshot).toLowerCase();
-            if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
-            else if (ext === ".webp") mime = "image/webp";
+          } else if (typeof targetAttachment === "string") {
+            const actualPath = resolveSanitizedPath(targetAttachment);
+            if (await fs.access(actualPath).then(() => true).catch(() => false)) {
+              buffer = await fs.readFile(actualPath);
+              const ext = path.extname(actualPath).toLowerCase();
+              if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
+              else if (ext === ".webp") mime = "image/webp";
+            }
           }
 
           if (buffer) {
@@ -924,34 +931,51 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    upd_check: async () => {
-      const check = await checkForUpdates({ repoRoot: runtime.root });
+    upd_check: async ({ repoRoot, force = false, checkRepo = true, revealPath = false, allow_user_path = false } = {}) => {
+      const targetRoot = repoRoot ? runtime.hp(repoRoot) : runtime.root;
+      const shouldReveal = Boolean(revealPath || allow_user_path);
+      const check = await checkForUpdates({
+        repoRoot: targetRoot,
+        force: Boolean(force),
+        checkRepo: Boolean(checkRepo),
+      });
+
       return {
         ok: check.ok,
         current_version: check.currentVersion,
         latest_version: check.latestVersion,
         update_available: check.updateAvailable,
+        repo_checked: true,
+        last_real_check_at: check.lastRealCheckAt || new Date().toISOString(),
+        source_confirmed: Boolean(check.sourceConfirmed ?? true),
+        check_source: check.checkSource || (check.cached ? "cache" : "github_api_fresh"),
+        git_repo: check.gitRepo || null,
+        source: check.releaseInfo?.source || "github_repository",
+        download_url: check.releaseInfo?.downloadUrl || null,
         status: check.updateAvailable
-          ? `Hay una actualización disponible (v${check.currentVersion} → v${check.latestVersion}). Usa 'upd_info' para ver los cambios o 'upd' para actualizar.`
-          : `Aeron Fluxer X está al día (v${check.currentVersion}).`,
-        source: check.releaseInfo?.source || "github_releases",
+          ? `Hay una actualización disponible en el repositorio (v${check.currentVersion} → v${check.latestVersion}). Usa 'upd_info' para ver los cambios o 'upd' con action: 'apply' para actualizar.`
+          : `Aeron Fluxer X está al día en el repositorio GitHub (v${check.currentVersion}).`,
+        details: check.eligibility?.reason || check.message,
+        path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
       };
     },
 
-    upd_info: async ({ version } = {}) => {
+    upd_info: async ({ version, full_history = false, include_full_history = false } = {}) => {
       const check = await checkForUpdates({ repoRoot: runtime.root });
       let localChangelog = "";
+      let fullChangelogText = "";
+      const targetVer = String(version || (check.updateAvailable ? check.latestVersion : check.currentVersion)).replace(/^v/, "").trim();
       try {
         const clPath = path.join(runtime.root, "CHANGELOG.md");
         if (existsSync(clPath)) {
-          const fullText = await fs.readFile(clPath, "utf8");
-          const targetVer = version || (check.updateAvailable ? check.latestVersion : check.currentVersion);
-          const regex = new RegExp(`##\\s*\\[${String(targetVer).replace(/\./g, "\\.")}\\][\\s\\S]*?(?=\\n##\\s*\\[|$)`, "i");
-          const match = fullText.match(regex);
+          fullChangelogText = await fs.readFile(clPath, "utf8");
+          // Aislamiento estricto: extraer únicamente la sección de la versión consultada
+          const regex = new RegExp(`##\\s*\\[v?${targetVer.replace(/\./g, "\\.")}\\][\\s\\S]*?(?=\\n##\\s*\\[|$)`, "i");
+          const match = fullChangelogText.match(regex);
           if (match) {
             localChangelog = match[0].trim();
           } else {
-            const firstMatch = fullText.match(/##\s*\[[^\]]+\][\s\S]*?(?=\n##\s*\[|$)/);
+            const firstMatch = fullChangelogText.match(/##\s*\[[^\]]+\][\s\S]*?(?=\n##\s*\[|$)/);
             if (firstMatch) localChangelog = firstMatch[0].trim();
           }
         }
@@ -961,23 +985,40 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         ? check.releaseInfo.releaseNotes
         : (localChangelog || "Sin notas de versión disponibles.");
 
+      const wantFull = Boolean(full_history || include_full_history);
+
       return {
         ok: check.ok,
+        version: targetVer,
         current_version: check.currentVersion,
         latest_version: check.latestVersion,
         update_available: check.updateAvailable,
-        release_tag: check.releaseInfo?.tag || `v${check.latestVersion}`,
+        release_tag: `v${targetVer}`,
         release_notes: releaseNotes,
         changelog: localChangelog || undefined,
+        is_isolated_version: true,
+        ...(wantFull ? { full_history: fullChangelogText } : {}),
         download_url: check.releaseInfo?.downloadUrl || null,
         source: check.releaseInfo?.source || "github_releases",
       };
     },
 
-    upd: async ({ force = false, confirm = false, confirmed = false, user_confirmed = false } = {}) => {
+    upd: async ({ force = false, confirm = false, confirmed = false, user_confirmed = false, dry_run = false, dryRun = false, action = "apply", backup_id, backupId } = {}) => {
+      const isDryRun = Boolean(dry_run || dryRun || action === "dry_run");
+      if (action === "rollback" || action === "revert") {
+        return actions.upd_rollback({ backup_id: backup_id || backupId, confirm, confirmed, user_confirmed });
+      }
+      if (action === "backups" || action === "list_backups") {
+        return actions.upd_backups();
+      }
+
+      if (isDryRun) {
+        return executeAutoUpdate({ repoRoot: runtime.root, force: true, dry_run: true });
+      }
+
       const isConfirmed = Boolean(confirm || confirmed || user_confirmed);
       if (!isConfirmed) {
-        let check = { currentVersion: "10.1.5", latestVersion: "10.1.5" };
+        let check = { currentVersion: "10.3.0", latestVersion: "10.3.0" };
         try {
           check = await checkForUpdates({ repoRoot: runtime.root });
         } catch {}
@@ -994,8 +1035,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             "Para aplicar la actualización, se descargarán los archivos certificados del release oficial de GitHub en la carpeta de Fluxer X (el proceso incluye backup de seguridad automático y soporte de rollback ante fallos).\n\n" +
             "INSTRUCCIÓN OBLIGATORIA PARA EL ASISTENTE:\n" +
             "Para proteger la privacidad y el control del usuario, debes pedir siempre su visto bueno en el chat antes de instalar la actualización.\n" +
-            "Si el usuario ya te confirmó en la conversación (o si te lo acaba de pedir explícitamente), vuelve a llamar a esta herramienta incluyendo el parámetro `confirm: true` para proceder con la instalación segura.",
-          instruction: "Llama a upd con { action: 'apply', confirm: true } tras la confirmación del usuario.",
+            "Si el usuario ya te confirmó en la conversación (o si te lo acaba de pedir explícitamente), vuelve a llamar a esta herramienta incluyendo el parámetro `confirm: true` para proceder con la instalación segura.\n" +
+            "Nota: Puedes simular previamente la actualización sin alterar ningún archivo llamando con `dry_run: true`.",
+          instruction: "Llama a upd con { action: 'apply', confirm: true } tras la confirmación del usuario, o { dry_run: true } para simulación previa.",
         };
       }
 
@@ -1044,6 +1086,60 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
+    upd_rollback: async ({ backup_id, backupId, confirm = false, confirmed = false, user_confirmed = false } = {}) => {
+      const isConfirmed = Boolean(confirm || confirmed || user_confirmed);
+      const bId = backup_id || backupId;
+      if (!isConfirmed) {
+        const backups = await listAvailableBackups(runtime.root);
+        return {
+          ok: false,
+          status: "AWAITING_USER_CONFIRMATION",
+          requires_user_confirmation: true,
+          available_backups: (backups.backups || []).map((b) => b.backupId),
+          target_backup: bId || (backups.backups?.[backups.backups.length - 1]?.backupId || null),
+          message:
+            "🛡️ [CONFIRMACIÓN DE ROLLBACK REQUERIDA]\n" +
+            "El rollback restaurará el código del sistema desde un backup previo guardado localmente.\n" +
+            "Para proceder con la restauración segura, confirma la operación ejecutando nuevamente con `confirm: true`.",
+          instruction: "Llama a upd_rollback con { confirm: true } tras la confirmación del usuario.",
+        };
+      }
+      return rollbackToBackup({ repoRoot: runtime.root, backupId: bId });
+    },
+
+    upd_backups: async () => {
+      const backups = await listAvailableBackups(runtime.root);
+      return {
+        ok: true,
+        count: backups.backups?.length || 0,
+        backups: (backups.backups || []).map((b) => ({
+          backupId: b.backupId,
+          createdAt: b.manifest?.createdAt || null,
+          version: b.manifest?.version || null,
+        })),
+      };
+    },
+
+    feedback_outbox_status: async () => {
+      try {
+        const storage = getStorageStructure(runtime.root);
+        let pendingCount = 0;
+        if (existsSync(storage.feedbackOutboxDir)) {
+          const files = (await fs.readdir(storage.feedbackOutboxDir)).filter((f) => f.endsWith(".json"));
+          pendingCount = files.length;
+        }
+        return {
+          ok: true,
+          status: pendingCount === 0 ? "Entregado (sin elementos pendientes)" : `${pendingCount} elemento(s) pendiente(s) de sincronización`,
+          pending_count: pendingCount,
+          privacy_mode: "Strict Abstract (cero exposición de payloads, contenido ni rutas personales)",
+          service: "Aeron Feedback Gateway",
+        };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    },
+
     upd_data: async () => {
       // 1. Leer en tiempo real desde disco la versión física actual en core/version.mjs y package.json
       let diskVersion = null;
@@ -1086,7 +1182,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         if (existsSync(storage.updaterLog)) {
           const rawLogs = await fs.readFile(storage.updaterLog, "utf8");
           const lines = rawLogs.split(/\r?\n/).filter(Boolean);
-          lastUpdaterLogs = lines.slice(-5);
+          // AFX-FB-FFQMK6: Aislar eventos a la versión instalada real
+          const verRegex = new RegExp(`v?${CURRENT_VERSION.replace(/\./g, "\\.")}`, "i");
+          const matched = lines.filter(l => verRegex.test(l));
+          lastUpdaterLogs = (matched.length > 0 ? matched : lines).slice(-5);
         }
       } catch {}
 
@@ -1307,8 +1406,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       return { ok: false, error: "Dominio diagnostics no disponible." };
     },
 
-    git_status_structured: async ({ path: repoPath = "." } = {}) => {
+    git_status_structured: async ({ path: repoPath = ".", revealPath = false, allow_user_path = false } = {}) => {
       const targetDir = runtime.hp(repoPath);
+      const shouldReveal = Boolean(revealPath || allow_user_path);
       try {
         const { stdout: isRepo } = await execAsync("git rev-parse --is-inside-work-tree", { cwd: targetDir });
         if (isRepo.trim() !== "true") {
@@ -1351,7 +1451,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         return {
           ok: true,
-          repoRoot: sanitizeUserPath(topLevel.trim()),
+          repoRoot: sanitizeUserPath(topLevel.trim(), { revealPath: shouldReveal }),
           branch,
           isDetached,
           isClean: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,
@@ -1360,15 +1460,17 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           staged,
           unstaged,
           untracked,
-          summary: `${staged.length} staged, ${unstaged.length} unstaged, ${untracked.length} untracked.`
+          summary: `${staged.length} staged, ${unstaged.length} unstaged, ${untracked.length} untracked.`,
+          path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
         };
       } catch (e) {
         return { ok: false, error: "GIT_FAILED", message: e.message };
       }
     },
 
-    git_diff_summary: async ({ staged = false, path: repoPath = "." } = {}) => {
+    git_diff_summary: async ({ staged = false, path: repoPath = ".", revealPath = false, allow_user_path = false } = {}) => {
       const targetDir = runtime.hp(repoPath);
+      const shouldReveal = Boolean(revealPath || allow_user_path);
       try {
         const cmd = staged ? "git diff --cached --numstat" : "git diff --numstat";
         const { stdout: raw } = await execAsync(cmd, { cwd: targetDir });
@@ -1397,15 +1499,17 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           filesChanged: files.length,
           totalInsertions,
           totalDeletions,
-          files
+          files,
+          path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
         };
       } catch (e) {
         return { ok: false, error: "GIT_DIFF_FAILED", message: e.message };
       }
     },
 
-    git_switch_identity: async ({ account, name, email, path: repoPath = "." } = {}) => {
+    git_switch_identity: async ({ account, name, email, path: repoPath = ".", revealPath = false, allow_user_path = false } = {}) => {
       const targetDir = runtime.hp(repoPath);
+      const shouldReveal = Boolean(revealPath || allow_user_path);
       let targetName = name;
       let targetEmail = email;
 
@@ -1450,15 +1554,17 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           ok: true,
           activeIdentity: { name: targetName, email: targetEmail },
           verified: true,
-          repoPath: targetDir
+          repoPath: sanitizeUserPath(targetDir, { revealPath: shouldReveal }),
+          path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
         };
       } catch (e) {
         return { ok: false, error: "GIT_CONFIG_FAILED", message: e.message };
       }
     },
 
-    git_log_compact: async ({ maxCount = 10, path: repoPath = "." } = {}) => {
+    git_log_compact: async ({ maxCount = 10, path: repoPath = ".", revealPath = false, allow_user_path = false } = {}) => {
       const targetDir = runtime.hp(repoPath);
+      const shouldReveal = Boolean(revealPath || allow_user_path);
       const limit = Math.max(1, Math.min(Number(maxCount) || 10, 100));
       try {
         const { stdout: raw } = await execAsync(
@@ -1480,7 +1586,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         return {
           ok: true,
           count: commits.length,
-          commits
+          commits,
+          path_privacy: shouldReveal ? "Ruta visible por autorización explícita." : "Ruta protegida para privacidad (~/...). Usa 'revealPath: true' si deseas ver la ruta absoluta.",
         };
       } catch (e) {
         return { ok: false, error: "GIT_LOG_FAILED", message: e.message };
@@ -1493,31 +1600,34 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.",
     actions,
     {
-      create_skill: "user",
-      edit_skill: "user",
-      delete_skill: "user",
-      validate_skill: "user",
-      list_skills: "user",
-      get_skill: "user",
-      verify_html_integrity: "user",
-      detect_project: "user",
-      inspect_project: "user",
-      run_project_tests: "poweruser",
-      run_project_build: "poweruser",
-      diagnose_service: "user",
-      refresh_service_state: "user",
-      submit_feedback: "user",
-      feedback_guide: "user",
-      upd_check: "user",
-      upd_info: "user",
-      upd: "user",
-      git_status_structured: "user",
-      git_diff_summary: "user",
-      git_switch_identity: "poweruser",
-      git_log_compact: "user",
-      list_feedbacks: "user",
-      read_feedback: "user",
-      delete_feedback: "poweruser",
+      create_skill: "standard",
+      edit_skill: "standard",
+      delete_skill: "standard",
+      validate_skill: "standard",
+      list_skills: "standard",
+      get_skill: "standard",
+      verify_html_integrity: "standard",
+      detect_project: "standard",
+      inspect_project: "standard",
+      run_project_tests: "advanced",
+      run_project_build: "advanced",
+      diagnose_service: "standard",
+      refresh_service_state: "standard",
+      submit_feedback: "standard",
+      feedback_guide: "standard",
+      upd_check: "standard",
+      upd_info: "standard",
+      upd: "standard",
+      upd_rollback: "standard",
+      upd_backups: "standard",
+      feedback_outbox_status: "standard",
+      git_status_structured: "standard",
+      git_diff_summary: "standard",
+      git_switch_identity: "advanced",
+      git_log_compact: "standard",
+      list_feedbacks: "standard",
+      read_feedback: "standard",
+      delete_feedback: "advanced",
     }
   );
 }
