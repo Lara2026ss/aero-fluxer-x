@@ -2208,7 +2208,7 @@ try {
 
     return domain(
       "files",
-      "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
+      "Operaciones avanzadas de archivos: lectura paginada, escritura segura con backups, edición precisa por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
       wrappedActions,
       {
         delete_path: "poweruser",

@@ -62,7 +62,7 @@ export async function buildElevatedCommand(command) {
   if (agent === "powershell-runas") {
     // Windows UAC: lanza un nuevo PowerShell elevado que ejecuta el comando
     const escaped = command.replace(/'/g, "''");
-    return `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command','${escaped}'"`;
+    return `powershell -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-NonInteractive','-ExecutionPolicy','RemoteSigned','-Command','${escaped}'"`;
   }
 
   const inner = `bash -c ${JSON.stringify(command)}`;
@@ -86,8 +86,8 @@ export async function runElevated(runtime, command, options = {}) {
   if (process.platform === "win32") {
     const tmpOut = path.join(os.tmpdir(), `fluxer_elevated_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.log`);
     const escapedCmd = command.replace(/'/g, "''");
-    const script = `Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command','& { ${escapedCmd} } *>&1 | Out-File -FilePath ''${tmpOut}'' -Encoding utf8'; if (Test-Path '${tmpOut}') { Get-Content -Raw '${tmpOut}'; Remove-Item '${tmpOut}' -Force -ErrorAction SilentlyContinue }`;
-    const wrapped = `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "${script}"`;
+    const script = `Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-NonInteractive','-ExecutionPolicy','RemoteSigned','-Command','& { ${escapedCmd} } *>&1 | Out-File -FilePath ''${tmpOut}'' -Encoding utf8'; if (Test-Path '${tmpOut}') { Get-Content -Raw '${tmpOut}'; Remove-Item '${tmpOut}' -Force -ErrorAction SilentlyContinue }`;
+    const wrapped = `powershell -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -Command "${script}"`;
     const result = await runtime.run(wrapped, {
       ...options,
       queue: options.queue ?? true,

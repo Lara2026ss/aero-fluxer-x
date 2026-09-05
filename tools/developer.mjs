@@ -57,6 +57,41 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     return { frontmatter, body };
   }
 
+  function sanitizeUserPath(inputPath) {
+    if (!inputPath || typeof inputPath !== "string") return inputPath;
+    const username = os.userInfo?.()?.username || process.env.USERNAME || process.env.USER || "";
+    const homedir = os.homedir?.() || process.env.USERPROFILE || process.env.HOME || runtime.home || "";
+
+    let res = inputPath;
+    if (homedir && homedir.length > 2) {
+      const escapedHomeBs = homedir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      res = res.replace(new RegExp(escapedHomeBs, "gi"), "~");
+      const escapedHomeFs = homedir.replace(/\\/g, "/").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      res = res.replace(new RegExp(escapedHomeFs, "gi"), "~");
+    }
+
+    res = res.replace(/([a-zA-Z]:\\Users\\)[^\\]+/gi, "$1<user>");
+    res = res.replace(/([a-zA-Z]:\/Users\/)[^\/]+/gi, "$1<user>");
+    res = res.replace(/(\/home\/)[^\/]+/gi, "$1<user>");
+
+    if (username && username.length > 1) {
+      const escapedUser = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      res = res.replace(new RegExp(escapedUser, "gi"), "<user>");
+    }
+
+    return res;
+  }
+
+  function resolveSanitizedPath(inputPath) {
+    if (!inputPath || typeof inputPath !== "string") return inputPath;
+    let resolved = inputPath;
+    if (resolved.includes("<user>") || resolved.includes("<redacted>")) {
+      const username = os.userInfo?.()?.username || process.env.USERNAME || process.env.USER || "";
+      resolved = resolved.replace(/<user>|<redacted>/g, username);
+    }
+    return runtime.hp(resolved);
+  }
+
   const actions = {
     detect_project: async ({ path: p = "." } = {}) => {
       const target = runtime.hp(p);
@@ -201,7 +236,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       let skillDir;
 
       if (targetPath) {
-        const resolved = runtime.hp(targetPath);
+        const resolved = resolveSanitizedPath(targetPath);
         if (resolved.toLowerCase().endsWith(".md")) {
           skillFile = resolved;
           skillDir = path.dirname(resolved);
@@ -303,8 +338,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         return {
           ok: true,
           skillName: cleanName,
-          skillFile,
-          skillDirectory: skillDir,
+          skillFile: sanitizeUserPath(skillFile),
+          skillDirectory: sanitizeUserPath(skillDir),
           sizeBytes: buf.length,
           linesCount: md.split(/\r?\n/).length,
           resourcesCreated: createdResources,
@@ -316,7 +351,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
     validate_skill: async ({ path: p } = {}) => {
       if (!p) return { ok: false, error: "El parámetro 'path' es requerido para validar una skill." };
-      const target = runtime.hp(p);
+      const target = resolveSanitizedPath(p);
       try {
         let skillFile = target;
         const stat = await fs.stat(target).catch(() => null);
@@ -330,7 +365,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             skillFile = path.join(target, "skill.md");
             const fStat2 = await fs.stat(skillFile).catch(() => null);
             if (!fStat2) {
-              return { ok: true, valid: false, errors: ["No se encontró SKILL.md dentro del directorio."], warnings: [], path: target };
+              return { ok: true, valid: false, errors: ["No se encontró SKILL.md dentro del directorio."], warnings: [], path: sanitizeUserPath(target) };
             }
           }
         }
@@ -365,7 +400,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         return {
           ok: true,
           valid,
-          skillFile,
+          skillFile: sanitizeUserPath(skillFile),
+          path: sanitizeUserPath(target),
           metadata: frontmatter || {},
           instructionsLinesCount: (body || "").split(/\r?\n/).length,
           errors,
@@ -401,22 +437,26 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
                   foundSkills.push({
                     name: frontmatter?.name || entry.name,
                     description: frontmatter?.description || "",
-                    file: skillMdPath,
-                    directory: full,
+                    file: sanitizeUserPath(skillMdPath),
+                    rawFile: skillMdPath,
+                    directory: sanitizeUserPath(full),
+                    rawDirectory: full,
                   });
                 } catch {}
               }
               await scanDirectory(full, maxDepth, depth + 1);
             } else if (entry.isFile() && (entry.name === "SKILL.md" || entry.name === "skill.md")) {
-              if (!foundSkills.some((s) => s.file.toLowerCase() === full.toLowerCase())) {
+              if (!foundSkills.some((s) => (s.rawFile || s.file).toLowerCase() === full.toLowerCase())) {
                 try {
                   const raw = await fs.readFile(full, "utf8");
                   const { frontmatter } = parseSkillFrontmatter(raw);
                   foundSkills.push({
                     name: frontmatter?.name || path.basename(resolved),
                     description: frontmatter?.description || "",
-                    file: full,
-                    directory: resolved,
+                    file: sanitizeUserPath(full),
+                    rawFile: full,
+                    directory: sanitizeUserPath(resolved),
+                    rawDirectory: resolved,
                   });
                 } catch {}
               }
@@ -450,9 +490,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       const uniqueSkills = [];
       const seenFiles = new Set();
       for (const sk of foundSkills) {
-        if (!seenFiles.has(sk.file.toLowerCase())) {
-          seenFiles.add(sk.file.toLowerCase());
-          uniqueSkills.push(sk);
+        const fileKey = (sk.rawFile || sk.file).toLowerCase();
+        if (!seenFiles.has(fileKey)) {
+          seenFiles.add(fileKey);
+          uniqueSkills.push({
+            name: sk.name,
+            description: sk.description,
+            file: sk.file,
+            directory: sk.directory,
+          });
         }
       }
 
@@ -460,9 +506,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         ok: true,
         count: uniqueSkills.length,
         scope: "ai_skills",
-        directories_scanned: searchGlobal
+        directories_scanned: (searchGlobal
           ? [target, ...(typeof globalLocations !== "undefined" ? globalLocations : [])]
-          : [target],
+          : [target]
+        ).map((d) => sanitizeUserPath(d)),
         skills: uniqueSkills,
       };
     },
@@ -470,7 +517,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     get_skill: async ({ name, path: p } = {}) => {
       let targetFile = null;
       if (p) {
-        const resolved = runtime.hp(p);
+        const resolved = resolveSanitizedPath(p);
         const stat = await fs.stat(resolved).catch(() => null);
         if (stat?.isDirectory()) {
           targetFile = path.join(resolved, "SKILL.md");
@@ -480,7 +527,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       } else if (name) {
         const listRes = await actions.list_skills({ searchGlobal: true });
         const match = listRes.skills.find((s) => s.name.toLowerCase() === String(name).toLowerCase());
-        if (match) targetFile = match.file;
+        if (match) targetFile = resolveSanitizedPath(match.file);
       }
 
       if (!targetFile) {
@@ -501,8 +548,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         return {
           ok: true,
-          file: targetFile,
-          directory: skillDir,
+          file: sanitizeUserPath(targetFile),
+          directory: sanitizeUserPath(skillDir),
           metadata: frontmatter || {},
           instructions: body.trim(),
           subResources,
@@ -522,7 +569,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       let skillName = name || "";
 
       if (p) {
-        const resolved = runtime.hp(p);
+        const resolved = resolveSanitizedPath(p);
         const stat = await fs.stat(resolved).catch(() => null);
         if (!stat) {
           return { ok: false, error: `La ruta especificada '${p}' no existe.` };
@@ -538,8 +585,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         const listRes = await actions.list_skills({ searchGlobal: true });
         const match = listRes.skills?.find((s) => s.name.toLowerCase() === String(name).toLowerCase().trim());
         if (match) {
-          targetFile = match.file;
-          targetDir = match.directory;
+          targetFile = resolveSanitizedPath(match.file);
+          targetDir = resolveSanitizedPath(match.directory);
           skillName = match.name;
         }
       }
@@ -1468,8 +1515,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       git_diff_summary: "user",
       git_switch_identity: "poweruser",
       git_log_compact: "user",
-      list_feedbacks: "poweruser",
-      read_feedback: "poweruser",
+      list_feedbacks: "user",
+      read_feedback: "user",
       delete_feedback: "poweruser",
     }
   );

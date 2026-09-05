@@ -5,10 +5,10 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "10.1.5";
+export const CURRENT_VERSION = "10.2.0";
 export const APP_NAME = "fluxer-core";
 export const BRAND_NAME = "Fluxer Core";
-export const CHANNEL = "experimental-public";
+export const CHANNEL = "public-release";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
 export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 

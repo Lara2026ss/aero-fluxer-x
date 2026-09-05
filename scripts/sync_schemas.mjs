@@ -9,19 +9,24 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { createRuntime } from "../core/runtime.mjs";
 import { Registry } from "../core/registry.mjs";
+import { CURRENT_VERSION, BRAND_NAME } from "../core/version.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SCHEMAS_DIR = path.join(ROOT, "config", "mcp-schemas");
 const CONTRACTS_DIR = path.join(ROOT, "contracts");
-const AGY_MCP_DIR = process.env.ANTIGRAVITY_MCP_DIR || path.join(os.homedir(), ".gemini", "antigravity", "mcp", "fluxer");
+const AGY_MCP_DIRS = [
+  process.env.ANTIGRAVITY_MCP_DIR,
+  path.join(os.homedir(), ".gemini", "antigravity", "mcp", "Aeron_Fluxer_X"),
+  path.join(os.homedir(), ".gemini", "antigravity", "mcp", "fluxer"),
+].filter(Boolean);
 
 async function sync() {
   console.log("=== Sincronizando esquemas de Fluxer MCP ===");
   await fs.mkdir(SCHEMAS_DIR, { recursive: true });
   await fs.mkdir(CONTRACTS_DIR, { recursive: true });
 
-  const runtime = await createRuntime({ root: ROOT, version: "6.5.0", brand: "FLUXER" });
+  const runtime = await createRuntime({ root: ROOT, version: CURRENT_VERSION, brand: BRAND_NAME });
   const registry = new Registry(runtime);
   await registry.load();
 
@@ -64,18 +69,21 @@ async function sync() {
     const schemaFile = path.join(SCHEMAS_DIR, `${name}.json`);
     await fs.writeFile(schemaFile, JSON.stringify(toolDef, null, 2), "utf8");
 
-    // Guardar en Antigravity MCP directory si existe
-    try {
-      const agyFile = path.join(AGY_MCP_DIR, `${name}.json`);
-      await fs.writeFile(agyFile, JSON.stringify(toolDef, null, 2), "utf8");
-    } catch {}
+    // Guardar en Antigravity MCP directories si existen
+    for (const agyDir of AGY_MCP_DIRS) {
+      try {
+        await fs.mkdir(agyDir, { recursive: true });
+        const agyFile = path.join(agyDir, `${name}.json`);
+        await fs.writeFile(agyFile, JSON.stringify(toolDef, null, 2), "utf8");
+      } catch {}
+    }
 
     console.log(`✓ Sincronizado dominio: ${name} (${actions.length} acciones)`);
   }
 
   // Guardar contrato maestro
   const contractFile = path.join(CONTRACTS_DIR, "fluxer_mcp_tools.json");
-  await fs.writeFile(contractFile, JSON.stringify({ version: "6.5.0", tools: toolsContract }, null, 2), "utf8");
+  await fs.writeFile(contractFile, JSON.stringify({ version: CURRENT_VERSION, tools: toolsContract }, null, 2), "utf8");
   console.log(`✓ Contrato maestro guardado: ${contractFile}`);
 
   await runtime.shutdown();

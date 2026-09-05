@@ -18,13 +18,14 @@ export function createGuideDomain({ runtime, domain }) {
         },
         workflow_system: {
           concept: "Ventana de trabajo temporal autorizada por el usuario para tareas de desarrollo avanzadas.",
-          how_to_use: "Si requieres ejecutar operaciones de alto impacto continuadas (ej. terminal), consulta al usuario en el chat. Tras su confirmación, usa 'security.start_workflow({ level, durationMinutes: 5 })' y aprueba la solicitud.",
+          how_to_use: "Si requieres ejecutar operaciones de alto impacto continuadas (ej. terminal), consulta al usuario en el chat. Tras su confirmación explícita, usa 'security.start_workflow({ level, durationMinutes: 5 })'.",
           expiration: "Al expirar, la sesión vuelve al nivel 'user' seguro automáticamente.",
+          best_practice: "Pide el nivel que necesitas (ej. 'poweruser') por el tiempo que estimes (ej. 5 o 20 min) solo cuando debas usar herramientas de alto riesgo."
         },
         updates: {
           how_to_update: "Para aplicar actualizaciones oficiales de Fluxer X, usa la herramienta 'upd' con action: 'apply'. Pide siempre confirmación al usuario en el chat (ej: '¿Deseas actualizar a vX.X.X?') y cuando te dé su visto bueno llama a 'upd' con { action: 'apply', confirm: true }. No requiere elevación ni configuraciones complejas."
         },
-        permission_denied: "Si recibes PERMISSION_DENIED en una acción sensible, explica al usuario qué comando deseas ejecutar y solicita su visto bueno antes de iniciar un workflow temporal."
+        permission_denied: "Si recibes PERMISSION_DENIED o CONFIRMATION_REQUIRED en una acción sensible, explica al usuario qué operación deseas ejecutar y solicita su visto bueno antes de continuar."
       };
     },
 

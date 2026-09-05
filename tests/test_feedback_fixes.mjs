@@ -184,7 +184,44 @@ async function runFeedbackTests() {
   assert.ok(updDataRes.verdict, "upd_data must have a valid verdict");
   assert.notStrictEqual(updDataRes.verdict, "UNKNOWN", "verdict must not be UNKNOWN");
 
+  // 12. AFX-FB-READPERM: Granular read permissions for list_feedbacks & read_feedback (level: user)
+  console.log("-> 12. AFX-FB-READPERM: Read-only feedback queries do NOT require poweruser...");
+  const listFbRes = await runtime.router.execute({
+    tool: "developer",
+    action: "list_feedbacks",
+    args: {}
+  });
+  // Must NOT trigger CONFIRMATION_REQUIRED or PERMISSION_DENIED; should hit domain handler
+  assert.notStrictEqual(listFbRes.code, "CONFIRMATION_REQUIRED", "list_feedbacks must not require confirmation");
+  assert.notStrictEqual(listFbRes.code, "PERMISSION_DENIED", "list_feedbacks must not be denied for user");
+  assert.strictEqual(listFbRes.error, "ADMIN_KEY_REQUIRED", "Must execute handler reaching ADMIN_KEY check");
+
+  // 13. AFX-FB-NOAUTOAPPROVE: CONFIRMATION_REQUIRED does NOT instruct the model to auto-approve
+  console.log("-> 13. AFX-FB-NOAUTOAPPROVE: Neutral human-in-the-loop confirmation message...");
+  const dangerousCmdRes = await runtime.router.execute({
+    tool: "terminal",
+    action: "run_command",
+    args: { command: "echo test" }
+  });
+  assert.strictEqual(dangerousCmdRes.code, "CONFIRMATION_REQUIRED");
+  assert.strictEqual(dangerousCmdRes.message.includes("security.approve_request"), false, "Message must NOT instruct model to call approve_request");
+  assert.ok(dangerousCmdRes.message.includes("confirmación explícita del usuario"), "Message must specify user confirmation");
+
+  // 14. AFX-FB-SANITISKILLS: developer.list_skills sanitizes Windows user paths
+  console.log("-> 14. AFX-FB-SANITISKILLS: list_skills sanitizes raw user paths...");
+  const skillsRes = await runtime.router.execute({
+    tool: "developer",
+    action: "list_skills",
+    args: { searchGlobal: true }
+  });
+  assert.strictEqual(skillsRes.ok, true, "list_skills should succeed");
+  if (username) {
+    const rawDump = JSON.stringify(skillsRes);
+    assert.strictEqual(rawDump.toLowerCase().includes(username.toLowerCase()), false, "list_skills must not contain raw Windows username");
+  }
+
   console.log("=== PASS: All Feedback Tests Passed 100% ===");
+  await runtime.shutdown();
 }
 
 runFeedbackTests().catch((err) => {

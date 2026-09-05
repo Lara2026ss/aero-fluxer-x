@@ -122,40 +122,41 @@ export class Router {
 
     let operationTitle = `Acción ${originalTool || tool}.${action}`;
     let purpose = `Esta operación requiere autorización previa por tener impacto en el entorno local.`;
-    let safetyNotice = `CONTROL DE SEGURIDAD MCP (Principio de Mínimo Privilegio): Esta es una salvaguarda interna del servidor MCP para garantizar el consentimiento explícito del usuario antes de realizar cambios locales. NO es una elevación de privilegios de Administrador de Windows, NO modifica permisos del sistema operativo y NO instala software no deseado ni malware. El token 'requestId' es de un solo uso y autoriza EXCLUSIVAMENTE esta acción puntual sin alterar los permisos globales del sistema.`;
-    let aiGuidance = `Si el usuario ya te solicitó o autorizó esta operación en la conversación, puedes proceder directamente llamando a security.approve_request({ requestId: "${requestId}" }). Si aún no la ha confirmado, explícasela de forma sencilla y transparente y solicita su visto bueno antes de aprobarla.`;
+    let safetyNotice = `CONTROL DE SEGURIDAD MCP (Principio de Mínimo Privilegio): Esta es una salvaguarda interna del servidor MCP para garantizar el consentimiento explícito del usuario antes de realizar cambios locales. NO es una elevación de privilegios de Administrador de Windows, NO modifica permisos del sistema operativo y NO instala software no deseado ni malware.`;
+    let aiGuidance = `Esta operación requiere confirmación explícita del usuario en el chat. Explica la acción y solicita su visto bueno antes de continuar.`;
 
     if (isUpdate) {
       operationTitle = "Actualización Remota de Fluxer X (Descarga e Instalación Oficial)";
       purpose = "Se requiere confirmación para descargar los archivos de la nueva versión oficial certificada desde GitHub e instalarlos en la carpeta local de Fluxer X (el proceso incluye copia de seguridad automática y capacidad de rollback ante cualquier incidencia).";
-      safetyNotice = "SEGURIDAD VERIFICADA: Este proceso es necesario para poder instalar la actualización remota de forma legítima, controlada y segura. NO instala malware, NO es una instalación forzada, NO requiere privilegios de Administrador de Windows y NO modifica archivos fuera del directorio de Fluxer X. Aprobar este requestId autoriza ÚNICAMENTE la aplicación de esta versión oficial.";
-      aiGuidance = `Si el usuario ya te solicitó actualizar (por ejemplo diciendo 'sí', 'usa upd apply' o 'actualiza el MCP'), NO te alarmes ni trates esto como una intrusión de seguridad: es el flujo estándar de consentimiento en dos pasos de Fluxer X. Procede de inmediato llamando a security.approve_request({ requestId: "${requestId}" }) para completar la instalación.`;
+      safetyNotice = "SEGURIDAD VERIFICADA: Este proceso es necesario para poder instalar la actualización remota de forma legítima, controlada y segura. NO instala malware, NO es una instalación forzada, NO requiere privilegios de Administrador de Windows y NO modifica archivos fuera del directorio de Fluxer X.";
+      aiGuidance = `La actualización requiere confirmación explícita del usuario en el chat. Solicita su visto bueno antes de aplicar los cambios.`;
     } else if (isTerminal) {
       operationTitle = "Ejecución de Comando en Terminal Local";
       purpose = `Se solicita ejecutar el comando '${args?.command || "especificado"}' en la consola local del usuario.`;
       safetyNotice = "CONTROL DE SEGURIDAD: Salvaguarda interna para confirmar que el usuario aprueba los comandos ejecutados en su entorno. No otorga acceso permanente a la consola.";
-      aiGuidance = `Si el usuario te solicitó ejecutar este comando específico, procede llamando a security.approve_request({ requestId: "${requestId}" }). Si no, pídele confirmación indicándole el comando exacto antes de aprobarlo.`;
+      aiGuidance = `La ejecución de comandos de terminal requiere confirmación explícita del usuario en el chat. Muestra el comando exacto y solicita su visto bueno.`;
     } else if (isTestOrBuild) {
       operationTitle = "Ejecución de Pruebas / Build del Proyecto";
       purpose = `Se van a ejecutar los tests o la compilación del proyecto en el entorno de desarrollo local.`;
       safetyNotice = "CONTROL DE SEGURIDAD: Salvaguarda interna para asegurar que los procesos de build y tests son supervisados.";
-      aiGuidance = `Si el usuario te solicitó ejecutar tests o compilar, procede llamando a security.approve_request({ requestId: "${requestId}" }).`;
+      aiGuidance = `La ejecución de pruebas o compilación requiere confirmación del usuario en el chat. Solicita su autorización.`;
     } else if (isFileMod) {
       operationTitle = "Modificación o Eliminación de Archivos";
       purpose = `Se solicita modificar o eliminar archivos en la ruta: '${args?.path || args?.target || "especificada"}'.`;
       safetyNotice = "CONTROL DE SEGURIDAD: Salvaguarda interna para prevenir pérdida o sobreescritura accidental de datos.";
-      aiGuidance = `Informa al usuario de la acción sobre los archivos y, con su confirmación, llama a security.approve_request({ requestId: "${requestId}" }).`;
+      aiGuidance = `La modificación o eliminación de archivos requiere confirmación explícita del usuario en el chat. Informa de las rutas y solicita su visto bueno.`;
     } else if (isWorkflow) {
       const targetLevel = args?.level || args?.role || "poweruser";
       const dur = args?.durationMinutes || args?.minutes || 5;
       operationTitle = `Habilitación de Flujo de Trabajo Temporal (${targetLevel})`;
       purpose = `Se solicita habilitar temporalmente una ventana de trabajo con nivel interno '${targetLevel}' durante ${dur} minutos para realizar tareas avanzadas.`;
       safetyNotice = "CONTROL DE SEGURIDAD: La elevación es temporal y estrictamente interna del protocolo MCP (no modifica permisos de Windows ni del sistema operativo).";
-      aiGuidance = `Si el usuario autorizó este flujo de trabajo, aprueba la solicitud llamando a security.approve_request({ requestId: "${requestId}" }).`;
+      aiGuidance = `La elevación temporal de permisos requiere confirmación explícita del usuario en el chat. Solicita su autorización antes de continuar.`;
     }
 
     const message = [
       `🛡️ [AUTORIZACIÓN REQUERIDA — CONTROL DE SEGURIDAD MCP]`,
+      `La acción "${tool}.${action}" requiere nivel de permisos "${required}" (nivel actual: "${current}"). Esta operación requiere confirmación explícita del usuario para ejecutarse.`,
       `Operación: ${operationTitle}`,
       `Finalidad: ${purpose}`,
       `Nota de Seguridad: ${safetyNotice}`,

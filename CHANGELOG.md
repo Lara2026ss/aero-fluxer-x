@@ -35,6 +35,17 @@ Con el endurecimiento del motor de seguridad y permisos en v10.x:
 
 ---
 
+## [v10.2.0] - 2026-09-05 (Public Release Ready & Security Polish)
+### Security & Privacy
+- **Granularidad de Permisos de Solo Lectura**: Se redujo el nivel requerido para consultas de lectura en feedback (developer.list_feedbacks y developer.read_feedback) de poweruser a user, evitando solicitudes innecesarias de elevacion en operaciones inocuas de consulta.
+- **Remocion del Patron de Auto-Aprobacion en Respuestas**: En las respuestas CONFIRMATION_REQUIRED, se elimino cualquier texto o patron que instruyera al modelo de IA a llamar security.approve_request para autoaprobarse. El flujo ahora es estrictamente neutral y exige confirmacion explicita del usuario humano.
+- **Sanitizacion de Rutas de Usuario (list_skills y get_skill)**: Las rutas locales del sistema de archivos en developer.list_skills, get_skill, create_skill y validate_skill ahora enmascaran el directorio home y username de Windows (~ y <user>), evitando fugas de identidad y usernames crudos en respuestas de herramientas.
+- **Mitigacion de Sospechas de Malware y Antivirus**: Eliminacion del flag -ExecutionPolicy Bypass en invocaciones de PowerShell elevado en favor de -ExecutionPolicy RemoteSigned, y armonizacion de descripciones de herramientas para reflejar fielmente herramientas de productividad y desarrollo transparentes.
+
+### Changed
+- Sincronizacion completa de esquemas MCP en config/mcp-schemas/, contracts/fluxer_mcp_tools.json y directorio Antigravity.
+- Actualizacion de suite de pruebas de feedback (test_feedback_fixes.mjs) con casos 12, 13 y 14.
+
 ## [v10.0.0] - 2026-09-04
 ### Added
 - Nuevo Permission Engine con modelo de Workflow temporal.

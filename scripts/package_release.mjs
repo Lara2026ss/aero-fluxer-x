@@ -168,12 +168,14 @@ async function packageRelease() {
       }
     ],
     changelog: [
+      "v10.2.0 Project X — Public Release Ready: Granular Permissions, Neutral Human Confirmation & Sanitized Paths",
       "v10.1.5 Experimental Public Release — Enterprise Polish & Zero-Friction",
       "Token Compression Inteligente: poda selectiva sin eliminar errores ni stack traces (sanitizeAndPrune, compactFormatter, smartTruncate)",
       "Motor de Terminal Windows 11 Production-Grade: detección pwsh/powershell/cmd, UTF-8 estricto sin mojibake, drenado continuo de streams y terminación de árboles",
       "Sandbox Inteligente: smart whitelist (CWD, Desktop, Documents, Downloads, Temp) con fs.realpathSync.native(), bloqueo ADS y dispositivos reservados",
       "Descubrimiento Ultrarrápido: acción search_tools para que cualquier IA encuentre herramientas en <15ms",
-      "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor"
+      "Instalador Bat Dinámico: pre-flight checks amigables, descarga con retry y merge seguro de configuración para Claude Desktop, Antigravity y Cursor",
+      "Doctor Engine ampliado a 20 invariantes de auto-integridad activas (INV-001..INV-020)"
     ]
   };
 
