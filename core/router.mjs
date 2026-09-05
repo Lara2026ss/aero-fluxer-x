@@ -122,13 +122,13 @@ export class Router {
 
     let operationTitle = `Acción ${originalTool || tool}.${action}`;
     let purpose = `Esta operación requiere autorización previa por tener impacto en el entorno local.`;
-    let safetyNotice = `CONTROL DE SEGURIDAD MCP (Principio de Mínimo Privilegio): Esta es una salvaguarda interna del servidor MCP para garantizar el consentimiento explícito del usuario antes de realizar cambios locales. NO es una elevación de privilegios de Administrador de Windows, NO modifica permisos del sistema operativo y NO instala software no deseado ni malware.`;
+    let safetyNotice = `Control de seguridad MCP: Salvaguarda interna del servidor para asegurar que toda operación con impacto en el entorno cuente con el consentimiento informado del usuario.`;
     let aiGuidance = `Esta operación requiere confirmación explícita del usuario en el chat. Explica la acción y solicita su visto bueno antes de continuar.`;
 
     if (isUpdate) {
-      operationTitle = "Actualización Remota de Fluxer X (Descarga e Instalación Oficial)";
-      purpose = "Se requiere confirmación para descargar los archivos de la nueva versión oficial certificada desde GitHub e instalarlos en la carpeta local de Fluxer X (el proceso incluye copia de seguridad automática y capacidad de rollback ante cualquier incidencia).";
-      safetyNotice = "SEGURIDAD VERIFICADA: Este proceso es necesario para poder instalar la actualización remota de forma legítima, controlada y segura. NO instala malware, NO es una instalación forzada, NO requiere privilegios de Administrador de Windows y NO modifica archivos fuera del directorio de Fluxer X.";
+      operationTitle = "Actualización Oficial de Fluxer X (GitHub Releases)";
+      purpose = "Descargar e instalar la actualización oficial desde GitHub en el directorio de Fluxer X, con copia de seguridad y verificación de integridad previa.";
+      safetyNotice = "Descarga oficial verificada: La actualización se obtiene del repositorio oficial y se aplica exclusivamente en la carpeta local de Fluxer X.";
       aiGuidance = `La actualización requiere confirmación explícita del usuario en el chat. Solicita su visto bueno antes de aplicar los cambios.`;
     } else if (isTerminal) {
       operationTitle = "Ejecución de Comando en Terminal Local";

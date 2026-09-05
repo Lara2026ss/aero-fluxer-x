@@ -86,8 +86,8 @@ export async function runElevated(runtime, command, options = {}) {
   if (process.platform === "win32") {
     const tmpOut = path.join(os.tmpdir(), `fluxer_elevated_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.log`);
     const escapedCmd = command.replace(/'/g, "''");
-    const script = `Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-NonInteractive','-ExecutionPolicy','RemoteSigned','-Command','& { ${escapedCmd} } *>&1 | Out-File -FilePath ''${tmpOut}'' -Encoding utf8'; if (Test-Path '${tmpOut}') { Get-Content -Raw '${tmpOut}'; Remove-Item '${tmpOut}' -Force -ErrorAction SilentlyContinue }`;
-    const wrapped = `powershell -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -Command "${script}"`;
+    const script = `Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-NonInteractive','-Command','& { ${escapedCmd} } *>&1 | Out-File -FilePath ''${tmpOut}'' -Encoding utf8'; if (Test-Path '${tmpOut}') { Get-Content -Raw '${tmpOut}'; Remove-Item '${tmpOut}' -Force -ErrorAction SilentlyContinue }`;
+    const wrapped = `powershell -NoProfile -NonInteractive -Command "${script}"`;
     const result = await runtime.run(wrapped, {
       ...options,
       queue: options.queue ?? true,

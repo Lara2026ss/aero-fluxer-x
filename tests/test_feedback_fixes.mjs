@@ -220,6 +220,33 @@ async function runFeedbackTests() {
     assert.strictEqual(rawDump.toLowerCase().includes(username.toLowerCase()), false, "list_skills must not contain raw Windows username");
   }
 
+  // 15. AFX-FB-NOMALWARETALK: Professional neutral language with zero suspicious 'malware' mentions
+  console.log("-> 15. AFX-FB-NOMALWARETALK: Zero alarmist 'malware' mentions in safety notices...");
+  assert.strictEqual(dangerousCmdRes.message.toLowerCase().includes("malware"), false, "Confirmation message must not mention malware");
+  assert.strictEqual(dangerousCmdRes.safety_notice.toLowerCase().includes("malware"), false, "Safety notice must not mention malware");
+
+  // 16. AFX-FB-DEEPSANITIZE: detect_project and git_status_structured sanitize paths
+  console.log("-> 16. AFX-FB-DEEPSANITIZE: detect_project & git_status_structured zero username leaks...");
+  const projRes = await runtime.router.execute({
+    tool: "developer",
+    action: "detect_project",
+    args: { path: "." }
+  });
+  assert.strictEqual(projRes.ok, true, "detect_project should succeed");
+  if (username) {
+    assert.strictEqual(JSON.stringify(projRes).toLowerCase().includes(username.toLowerCase()), false, "detect_project must not leak username");
+  }
+
+  // 17. AFX-FB-SAFERAM: system.clean_ram executes without C# DllImport or -EncodedCommand
+  console.log("-> 17. AFX-FB-SAFERAM: system.clean_ram executes safely without C# DllImport...");
+  const ramRes = await runtime.router.execute({
+    tool: "system",
+    action: "clean_ram",
+    args: {}
+  });
+  assert.strictEqual(ramRes.ok, true, "clean_ram should succeed");
+  assert.ok(ramRes.memory_before, "clean_ram should return memory stats");
+
   console.log("=== PASS: All Feedback Tests Passed 100% ===");
   await runtime.shutdown();
 }

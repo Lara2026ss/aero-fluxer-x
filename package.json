@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.2.0",
-  "description": "Fluxer Core MCP v10.2.0 (Public Release) — Granular Permissions, Path Sanitization & Safe Tooling para Windows 11",
+  "version": "10.2.1",
+  "description": "Fluxer Core MCP v10.2.1 (Public Release) — Granular Permissions, Deep Sanitization & Safe Public Tooling para Windows 11",
   "type": "module",
   "main": "server.js",
   "bin": {

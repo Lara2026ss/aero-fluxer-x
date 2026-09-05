@@ -256,5 +256,5 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     audit_log: "user",
   };
 
-  return domain("security", "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad. Las autorizaciones y aprobaciones de requestId son puramente internas del servidor MCP (Principio de Mínimo Privilegio) para salvaguardar la ejecución local; no alteran permisos de Windows ni instalan software no autorizado.", actions, permissions);
+  return domain("security", "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.", actions, permissions);
 }

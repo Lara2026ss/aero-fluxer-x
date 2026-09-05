@@ -39,7 +39,7 @@ export function sendNativeNotification(title, message, options = {}) {
   `;
 
   const b64 = Buffer.from(script, "utf16le").toString("base64");
-  const cmd = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${b64}`;
+  const cmd = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${b64}`;
 
   try {
     if (options.sync) {

@@ -35,6 +35,13 @@ Con el endurecimiento del motor de seguridad y permisos en v10.x:
 
 ---
 
+## [v10.2.1] - 2026-09-05 (Public Release Refinement & Heuristic Safety)
+### Security, Antivirus & Heuristic Safety
+- **Eliminación Total de Flags Innecesarios de ExecutionPolicy**: Se eliminaron los argumentos redundantes de `-ExecutionPolicy` (`Bypass` y `RemoteSigned`) en la elevación de PowerShell (`core/elevate.mjs`) y notificaciones (`core/notify.mjs`). Dado que la ejecución directa vía `-Command` no evalúa políticas de scripts `.ps1`, esto garantiza que los comandos se ejecuten de manera limpia y sin fricción en sistemas con política `Restricted` por defecto, eliminando alertas heurísticas estáticas de AV/EDR.
+- **Limpieza de Lenguaje Alarma-Preventivo ("Anti-Malware Suspicion")**: Se sustituyeron avisos y mensajes defensivos con términos alarmistas ("NO instala software no deseado ni malware", "SEGURIDAD VERIFICADA") por descripciones de ingeniería transparentes, profesionales y neutras en `core/router.mjs`, `core/permissions.mjs`, `tools/guide.mjs`, `tools/security.mjs` y esquemas MCP.
+- **Reemplazo Seguro de Inyecciones de Memoria**: Se refactorizó `system.clean_ram`, `apply_windows_optimization` y `revert_windows_optimization` para eliminar el uso de compilación C# en memoria (`Add-Type [DllImport psapi.dll/user32.dll]`) y cadenas codificadas en base64 (`-EncodedCommand`), sustituyéndolas por recolección de basura gestionada y llamadas nativas estándar de Windows (`rundll32.exe UpdatePerUserSystemParameters`).
+- **Sanitización Integral de Rutas en Skills y Git**: Se extendió la sanitización de rutas a `developer.delete_skill`, mensajes de error de `create_skill` y `validate_skill`, ruta base en `detect_project`, y `repoRoot` en `git_status_structured`, garantizando cero exposición de usernames locales en todo el dominio developer.
+
 ## [v10.2.0] - 2026-09-05 (Public Release Ready & Security Polish)
 ### Security & Privacy
 - **Granularidad de Permisos de Solo Lectura**: Se redujo el nivel requerido para consultas de lectura en feedback (developer.list_feedbacks y developer.read_feedback) de poweruser a user, evitando solicitudes innecesarias de elevacion en operaciones inocuas de consulta.

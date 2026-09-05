@@ -270,7 +270,7 @@ export class PermissionEngine {
       const structuredError = {
         error: "PERMISSION_DENIED",
         message: `La acción "${tool}.${action}" requiere nivel de autorización interna "${required}" (nivel actual: "${current}").`,
-        safety_notice: "CONTROL DE SEGURIDAD MCP (Principio de Mínimo Privilegio): Esta es una salvaguarda interna del servidor MCP para garantizar que el usuario consiente operaciones de alto impacto. NO es una elevación de privilegios de Administrador de Windows ni instala malware.",
+        safety_notice: "Control de seguridad MCP: Salvaguarda interna del servidor para asegurar que las operaciones de alto impacto cuenten con la debida autorización.",
         currentLevel: current,
         requiredLevel: required,
         workflow: workflow ? { status: "active", remainingSeconds: workflow.remainingSeconds } : { status: "inactive" },

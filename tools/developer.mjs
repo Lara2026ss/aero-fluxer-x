@@ -108,7 +108,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
       return {
         ok: true,
-        path: target,
+        path: sanitizeUserPath(target),
         detectedEcosystems: types,
         isProject: types.length > 0,
         primaryType: types[0] || "unknown",
@@ -255,7 +255,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         const exists = await fs.access(skillFile).then(() => true).catch(() => false);
         if (exists && !overwrite) {
-          return { ok: false, error: `El archivo de skill '${skillFile}' ya existe y overwrite=false.` };
+          return { ok: false, error: `El archivo de skill '${sanitizeUserPath(skillFile)}' ya existe y overwrite=false.` };
         }
 
         const safeDesc = String(description).trim();
@@ -356,7 +356,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         let skillFile = target;
         const stat = await fs.stat(target).catch(() => null);
         if (!stat) {
-          return { ok: false, valid: false, error: `La ruta '${target}' no existe.` };
+          return { ok: false, valid: false, error: `La ruta '${sanitizeUserPath(target)}' no existe.` };
         }
         if (stat.isDirectory()) {
           skillFile = path.join(target, "SKILL.md");
@@ -619,7 +619,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           ok: true,
           deleted: true,
           name: skillName || path.basename(targetDir),
-          directory: targetDir,
+          directory: sanitizeUserPath(targetDir),
           message: `Skill '${skillName || path.basename(targetDir)}' eliminada exitosamente.`,
         };
       } catch (err) {
@@ -1351,7 +1351,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         return {
           ok: true,
-          repoRoot: topLevel.trim(),
+          repoRoot: sanitizeUserPath(topLevel.trim()),
           branch,
           isDetached,
           isClean: staged.length === 0 && unstaged.length === 0 && untracked.length === 0,

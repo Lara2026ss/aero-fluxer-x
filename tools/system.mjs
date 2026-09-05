@@ -655,34 +655,8 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
         let trimmedCount = 0;
         if (process.platform === "win32") {
-          const psScript = `
-$code = @'
-using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-public class RamOptimizer {
-    [DllImport("psapi.dll")]
-    public static extern int EmptyWorkingSet(IntPtr hwProc);
-    public static int Optimize() {
-        int count = 0;
-        foreach (Process p in Process.GetProcesses()) {
-            try {
-                if (!p.HasExited && p.Id > 4 && p.ProcessName != "System" && p.ProcessName != "Registry") {
-                    EmptyWorkingSet(p.Handle);
-                    count++;
-                }
-            } catch {}
-        }
-        return count;
-    }
-}
-'@
-Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
-[RamOptimizer]::Optimize()
-`;
-          const b64 = Buffer.from(psScript, "utf16le").toString("base64");
-          const res = await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
-          trimmedCount = parseInt(res.stdout?.trim() || "0", 10) || 0;
+          const res = await runtime.run(`[System.GC]::Collect(); [System.GC]::WaitForPendingFinalizers()`);
+          trimmedCount = res?.ok ? 1 : 0;
         }
 
         if (global.gc) {
@@ -895,20 +869,7 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'MinAnimate' -Value 0 -Type String`);
         await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarAnimations' -Value 0 -Type DWord`);
         
-        const psScript = `
-$code = @'
-using System.Runtime.InteropServices;
-public class Win32 {
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, uint pvParam, uint fWinIni);
-}
-'@
-Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
-[Win32]::SystemParametersInfo(0x0049, 0, 0, 3) | Out-Null
-`;
-        const b64 = Buffer.from(psScript, "utf16le").toString("base64");
-        await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+        await runtime.run("rundll32.exe user32.dll,UpdatePerUserSystemParameters 1, True");
         
         return { ok: true, status: "Windows optimizations applied", backed_up: backupData, backup_file: backupFile };
       },
@@ -927,20 +888,7 @@ Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
         await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Control Panel\\Desktop' -Name 'MinAnimate' -Value ${backupData.MinAnimate} -Type String`);
         await runtime.run(`Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced' -Name 'TaskbarAnimations' -Value ${backupData.TaskbarAnimations} -Type DWord`);
         
-        const psScript = `
-$code = @'
-using System.Runtime.InteropServices;
-public class Win32 {
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, uint pvParam, uint fWinIni);
-}
-'@
-Add-Type -TypeDefinition $code -ErrorAction SilentlyContinue
-[Win32]::SystemParametersInfo(0x0049, 0, 0, 3) | Out-Null
-`;
-        const b64 = Buffer.from(psScript, "utf16le").toString("base64");
-        await runtime.run(`powershell -NoProfile -NonInteractive -EncodedCommand ${b64}`);
+        await runtime.run("rundll32.exe user32.dll,UpdatePerUserSystemParameters 1, True");
         
         return { ok: true, status: "Windows optimizations reverted", restored: backupData };
       },

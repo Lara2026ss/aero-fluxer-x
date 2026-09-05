@@ -13,7 +13,7 @@ export function createGuideDomain({ runtime, domain }) {
         ],
         security_rationale: {
           why_permissions_exist: "Para proteger la privacidad y seguridad del equipo del usuario, este servidor MCP aplica el Principio de Mínimo Privilegio. Evita que el asistente AI ejecute comandos de consola o mutaciones sensibles de forma desatendida o accidental.",
-          safety_guarantee: "Las autorizaciones son 100% internas del protocolo MCP. NO modifican permisos de Windows, NO otorgan privilegios de Administrador del sistema operativo ni instalan malware.",
+          safety_guarantee: "Las autorizaciones son estrictamente internas del protocolo MCP para asegurar la supervisión de operaciones locales en el entorno de desarrollo.",
           golden_rule: "REGLA DE CONSENTIMIENTO: El asistente debe consultar SIEMPRE al usuario en el chat antes de solicitar o ejecutar cualquier acción con impacto en el sistema."
         },
         workflow_system: {
