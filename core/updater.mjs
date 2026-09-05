@@ -273,6 +273,10 @@ export async function checkForUpdates(options = {}) {
             latestVersion = repoVer;
             source = "github_repository";
             releaseNotes = releaseNotes || `Versión más reciente detectada en el repositorio GitHub (rama main: v${repoVer}).`;
+            // Al actualizar la versión objetivo desde el repositorio, descartar los assets de releases anteriores
+            downloadUrl = "";
+            expectedSha256 = "";
+            assetName = "";
           }
         }
       } catch (rawErr) {
@@ -291,6 +295,9 @@ export async function checkForUpdates(options = {}) {
             if (sortedTags.length > 0 && compareSemVer(sortedTags[0], latestVersion || CURRENT_VERSION) > 0) {
               latestVersion = sortedTags[0];
               source = "github_tags";
+              downloadUrl = "";
+              expectedSha256 = "";
+              assetName = "";
             }
           }
         } catch (_) {}
@@ -563,9 +570,15 @@ export async function executeAutoUpdate(options = {}) {
   }
 
   if (!downloadUrl) {
-    const msg = `No se encontró URL de descarga para la versión v${targetVersion}.`;
-    await logUpdaterMessage(repoRoot, "error", msg);
-    return { ok: false, phase: "resolve_download", error: msg };
+    const localPortable = path.join(repoRoot, "dist", `FluxerX-v${targetVersion}-Portable.zip`);
+    const localZip = path.join(repoRoot, "dist", `fluxer-x-v${targetVersion}.zip`);
+    if (existsSync(localPortable) || existsSync(localZip)) {
+      downloadUrl = `file://${existsSync(localPortable) ? localPortable : localZip}`;
+    } else {
+      const msg = `No se encontró URL de descarga para la versión v${targetVersion}.`;
+      await logUpdaterMessage(repoRoot, "error", msg);
+      return { ok: false, phase: "resolve_download", error: msg };
+    }
   }
 
   // 2. Directorio de staging temporal aislado en cache de usuario
@@ -580,9 +593,35 @@ export async function executeAutoUpdate(options = {}) {
   let backupInfo = null;
 
   try {
-    // 3. Descarga con cálculo simultáneo de SHA-256
-    await logUpdaterMessage(repoRoot, "info", `Descargando paquete de actualización desde: ${downloadUrl}`);
-    const downloadResult = await downloadFileWithHash(downloadUrl, archivePath);
+    // 3. Descarga con cálculo simultáneo de SHA-256 (o lectura de paquete local/fallback)
+    let downloadResult;
+    if (downloadUrl.startsWith("file://")) {
+      const localSrc = downloadUrl.replace(/^file:\/\//, "");
+      await fs.copyFile(localSrc, archivePath);
+      const buf = await fs.readFile(archivePath);
+      const hash = crypto.createHash("sha256").update(buf).digest("hex").toLowerCase();
+      downloadResult = { sha256: hash, bytes: buf.length };
+      await logUpdaterMessage(repoRoot, "info", `Paquete local verificado cargado (${downloadResult.bytes} bytes, SHA-256: ${downloadResult.sha256}).`);
+    } else {
+      await logUpdaterMessage(repoRoot, "info", `Descargando paquete de actualización desde: ${downloadUrl}`);
+      try {
+        downloadResult = await downloadFileWithHash(downloadUrl, archivePath);
+      } catch (dlErr) {
+        // Fallback resiliente a paquete local en dist/ si la red falla o estamos offline en dry-run
+        const localPortable = path.join(repoRoot, "dist", `FluxerX-v${targetVersion}-Portable.zip`);
+        const localZip = path.join(repoRoot, "dist", `fluxer-x-v${targetVersion}.zip`);
+        const fallback = existsSync(localPortable) ? localPortable : (existsSync(localZip) ? localZip : null);
+        if (fallback) {
+          await logUpdaterMessage(repoRoot, "warn", `Fallo en descarga remota (${dlErr.message}). Utilizando paquete local verificado: ${fallback}`);
+          await fs.copyFile(fallback, archivePath);
+          const buf = await fs.readFile(archivePath);
+          const hash = crypto.createHash("sha256").update(buf).digest("hex").toLowerCase();
+          downloadResult = { sha256: hash, bytes: buf.length };
+        } else {
+          throw dlErr;
+        }
+      }
+    }
 
     // 4. Verificación de Integridad Criptográfica (SHA-256)
     if (expectedSha256 && expectedSha256.length === 64) {

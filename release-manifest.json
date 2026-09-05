@@ -3,7 +3,7 @@
   "tag": "v10.3.0",
   "channel": "experimental-public",
   "product": "Fluxer Core",
-  "release_date": "2026-09-05T07:18:24.072Z",
+  "release_date": "2026-09-05T07:25:49.390Z",
   "release_type": "experimental-public",
   "minimum_node_version": ">=18.0.0",
   "platform_support": [
@@ -20,8 +20,8 @@
     },
     "portable": {
       "name": "FluxerX-v10.3.0-Portable.zip",
-      "sha256": "5ecb7b2369355d099706257425c90cb0bc615d7666563d9c6cd0d331231b1020",
-      "size_bytes": 428435,
+      "sha256": "8dee8e327d7c45dd2587edb86304f33c36c537eb4800d23b1f50b1f33921a832",
+      "size_bytes": 428812,
       "description": "Paquete portable completo para despliegues manuales y servidores MCP."
     }
   },
