@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createRuntime } from "../core/runtime.mjs";
 import { Registry } from "../core/registry.mjs";
 import { Router } from "../core/router.mjs";
+import { getStorageStructure } from "../core/storage-paths.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -62,6 +63,117 @@ async function runV10_3_1_Tests() {
   });
   assert.strictEqual(withObjAttachRes.ok, true, "submit_feedback debe soportar attachment pasado como objeto");
   await fs.unlink(testCapture).catch(() => {});
+
+  // 1.b. 🟢 developer.submit_feedback con dry_run / test_mode / status: "test_only_dry_run"
+  console.log("-> 1.b. developer.submit_feedback con simulación dry_run (cero escritura en producción/red/outbox)...");
+  const storage = getStorageStructure(runtime.root);
+  const outboxDir = storage.feedbackOutboxDir;
+
+  // Test con dry_run: true
+  const dryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      dry_run: true,
+      title: "Error simulado de prueba",
+      description: "Probando el comportamiento de dry_run",
+      type: "bug_report",
+      severity: "high",
+    }
+  });
+  assert.strictEqual(dryRunRes.ok, true, "dry_run debe retornar ok: true");
+  assert.strictEqual(dryRunRes.dry_run, true, "Debe tener dry_run: true");
+  assert.strictEqual(dryRunRes.simulated, true, "Debe tener simulated: true");
+  assert.strictEqual(dryRunRes.feedbackId, "AFX-FB-SIMULATED", "feedbackId debe ser AFX-FB-SIMULATED");
+  assert.ok(dryRunRes.message && dryRunRes.message.includes("Simulación dry_run exitosa"), "Mensaje debe confirmar simulación exitosa");
+  assert.strictEqual(dryRunRes.validated?.title, "Error simulado de prueba");
+  assert.strictEqual(dryRunRes.validated?.description, "Probando el comportamiento de dry_run");
+  assert.strictEqual(dryRunRes.validated?.type, "bug_report");
+  assert.strictEqual(dryRunRes.validated?.severity, "high");
+  assert.strictEqual(dryRunRes.validated?.hasAttachment, false);
+
+  // Test con status: "test_only_dry_run" (formato reportado por Claude Desktop)
+  const statusDryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      status: "test_only_dry_run",
+      data: {
+        title: "Test con status test_only_dry_run",
+        description: "Payload anidado en data con status test_only_dry_run",
+      }
+    }
+  });
+  assert.strictEqual(statusDryRunRes.ok, true, "status: test_only_dry_run debe ser aceptado");
+  assert.strictEqual(statusDryRunRes.dry_run, true);
+  assert.strictEqual(statusDryRunRes.simulated, true);
+  assert.strictEqual(statusDryRunRes.feedbackId, "AFX-FB-SIMULATED");
+  assert.strictEqual(statusDryRunRes.validated?.title, "Test con status test_only_dry_run");
+
+  // Test con test_mode: true
+  const testModeRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      test_mode: true,
+      title: "Test con test_mode",
+      description: "Verificando flag test_mode: true",
+    }
+  });
+  assert.strictEqual(testModeRes.ok, true);
+  assert.strictEqual(testModeRes.dry_run, true);
+  assert.strictEqual(testModeRes.feedbackId, "AFX-FB-SIMULATED");
+
+  // Test con dry_run y archivo adjunto
+  const testDryCapture = path.join(os.tmpdir(), "afx_dry_test_img.png");
+  await fs.writeFile(testDryCapture, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const dryWithAttachRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      dry_run: true,
+      title: "Dry run con captura adjunta",
+      description: "Validación de adjunto en dry_run",
+      screenshot: testDryCapture,
+    }
+  });
+  assert.strictEqual(dryWithAttachRes.ok, true);
+  assert.strictEqual(dryWithAttachRes.validated?.hasAttachment, true, "hasAttachment debe ser true");
+  await fs.unlink(testDryCapture).catch(() => {});
+
+  // Test validación en dry_run: campos obligatorios faltantes
+  const invalidDryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      dry_run: true,
+      title: "",
+      description: "Sin título",
+    }
+  });
+  assert.strictEqual(invalidDryRunRes.ok, false);
+  assert.strictEqual(invalidDryRunRes.code, "INVALID_INPUT");
+
+  // Test validación en dry_run: detección preventiva de secretos
+  const secretKey = ["g", "sk_123456789012345678901234"].join("");
+  const blockedDryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      dry_run: true,
+      title: "Intento con API Key",
+      description: `Clave privada ${secretKey} incluida`,
+    }
+  });
+  assert.strictEqual(blockedDryRunRes.ok, false);
+  assert.strictEqual(blockedDryRunRes.code, "BLOCKED_SENSITIVE_DATA");
+
+  // Confirmar que NINGÚN archivo de simulación fue escrito en la outbox local
+  let postOutboxFiles = [];
+  try {
+    postOutboxFiles = await fs.readdir(outboxDir);
+  } catch {}
+  assert.ok(!postOutboxFiles.includes("AFX-FB-SIMULATED.json"), "AFX-FB-SIMULATED no debe guardarse en la outbox");
 
   // ─────────────────────────────────────────────────────────────────────────────
   // 2. 🟠 security.list_granted_permissions filtrado estricto y visual_capture_grant_active

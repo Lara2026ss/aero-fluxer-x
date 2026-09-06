@@ -680,7 +680,33 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         attachment = null,
         attach_logs = true,
         tool = null,
+        dry_run = false,
+        dryRun = false,
+        test_mode = false,
+        testMode = false,
+        status = null,
       } = input || {};
+
+      const isDryRun = Boolean(
+        dry_run === true ||
+        dry_run === "true" ||
+        dryRun === true ||
+        dryRun === "true" ||
+        test_mode === true ||
+        test_mode === "true" ||
+        testMode === true ||
+        testMode === "true" ||
+        status === "test_only_dry_run" ||
+        rawInput?.dry_run === true ||
+        rawInput?.dry_run === "true" ||
+        rawInput?.dryRun === true ||
+        rawInput?.dryRun === "true" ||
+        rawInput?.test_mode === true ||
+        rawInput?.test_mode === "true" ||
+        rawInput?.testMode === true ||
+        rawInput?.testMode === "true" ||
+        rawInput?.status === "test_only_dry_run"
+      );
 
       // 1. Validación de campos obligatorios
       if (!title || typeof title !== "string" || !title.trim() || !description || typeof description !== "string" || !description.trim()) {
@@ -730,7 +756,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       for (let i = 0; i < 6; i++) {
         code += chars[bytes[i] % chars.length];
       }
-      const feedbackId = `AFX-FB-${code}`;
+      const feedbackId = isDryRun ? "AFX-FB-SIMULATED" : `AFX-FB-${code}`;
 
       // 4. Validar y procesar captura de pantalla o archivo adjunto (tamaño bounded max 2MB)
       let attachmentPayload = null;
@@ -831,6 +857,27 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         attachment: attachmentPayload,
         created_at: new Date().toISOString(),
       };
+
+      const hasAttachment = Boolean(attachmentPayload);
+
+      // Simulación de prueba (dry_run / test_mode): validación completa sin escritura en producción ni red
+      if (isDryRun) {
+        return {
+          ok: true,
+          dry_run: true,
+          simulated: true,
+          id: "AFX-FB-SIMULATED",
+          feedbackId: "AFX-FB-SIMULATED",
+          message: "Simulación dry_run exitosa. Validación de payload y conectividad superadas sin escribir en la base de datos de producción.",
+          validated: {
+            title: sanitize(title).trim().slice(0, 200),
+            description: sanitize(description).trim().slice(0, 4000),
+            type: feedbackType,
+            severity: feedbackSeverity,
+            hasAttachment,
+          },
+        };
+      }
 
       // 7. Despacho HTTPS al Feedback Gateway externo (Render)
       const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
@@ -937,9 +984,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           "screenshot",
           "attach_logs",
           "tool",
+          "dry_run",
         ],
         guidelines: [
           "Describa el comportamiento con claridad y precisión.",
+          "Para validar payloads de prueba sin escribir en producción, use dry_run: true o status: 'test_only_dry_run'.",
           "Nunca incluya API keys, tokens, credenciales o contraseñas.",
           "Cualquier patrón de credenciales detectado bloqueará automáticamente el reporte.",
           "Los reportes idénticos consecutivos son deduplicados automáticamente.",
