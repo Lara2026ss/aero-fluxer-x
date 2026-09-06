@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.3.1",
-  "description": "Fluxer Core MCP v10.3.1 (Hotfix Release) — Robust Feedback Payloads, Strict Active Permissions, Zero-Vulnerability Package Audits & Protected Windows Workspaces",
+  "version": "10.3.2",
+  "description": "Fluxer Core MCP v10.3.2 (Official Hotfix Release) — On-Demand Compact Mode, ISO 8601 Date Normalization, Session-Scoped Env Vars & Feedback Author Tracking",
   "type": "module",
   "main": "server.js",
   "bin": {

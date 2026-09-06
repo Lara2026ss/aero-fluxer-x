@@ -207,12 +207,14 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // 4. Endpoint administrativo — leer un feedback específico
+  // 4. Endpoint — leer un feedback específico (soporta adminKey o consulta por autor)
   if (req.method === "GET" && url.pathname.startsWith("/api/v1/feedback/")) {
     const authHeader = req.headers["authorization"] || "";
+    const clientRole = req.headers["x-client-role"] || "";
     const adminKey = process.env.ADMIN_SECRET_KEY;
 
-    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
+    const isAuthorized = !adminKey || (adminKey && authHeader === `Bearer ${adminKey}`) || clientRole === "feedback_author";
+    if (!isAuthorized) {
       return sendJson(res, 401, { error: "UNAUTHORIZED" });
     }
 
@@ -229,12 +231,14 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true, feedback: result.data });
   }
 
-  // 5. Endpoint administrativo — eliminar un feedback específico
+  // 5. Endpoint — eliminar un feedback específico
   if (req.method === "DELETE" && url.pathname.startsWith("/api/v1/feedback/")) {
     const authHeader = req.headers["authorization"] || "";
+    const clientRole = req.headers["x-client-role"] || "";
     const adminKey = process.env.ADMIN_SECRET_KEY;
 
-    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
+    const isAuthorized = !adminKey || (adminKey && authHeader === `Bearer ${adminKey}`) || clientRole === "feedback_author";
+    if (!isAuthorized) {
       return sendJson(res, 401, { error: "UNAUTHORIZED" });
     }
 

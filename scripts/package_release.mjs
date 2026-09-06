@@ -161,6 +161,12 @@ async function packageRelease() {
       }
     ],
     changelog: [
+      "v10.3.2 — On-Demand Compact Mode, ISO 8601 Date Normalization, Session-Scoped Env Vars & Feedback Author Tracking",
+      "Compact Mode Bajo Demanda: compact mode opcional (OFF por defecto), activado solo cuando la IA solicita compact: true en list_scheduled_tasks, get_processes y audit_log",
+      "Normalización ISO 8601: fechas crudas de Windows .NET/WMI /Date(...)/ convertidas automáticamente a ISO 8601 en get_windows_update_status y get_defender_status",
+      "Seguimiento Propio de Feedback: lectura, borrado y listado con list_my_feedbacks de feedbacks creados por la sesión sin exigir ADMIN_KEY, con sincronización oportunística y resiliencia offline/LOCKDOWN",
+      "Variables de Entorno de Sesión: system.get_env_vars soporta sessionOnly: true aislando exclusivamente las variables creadas por la sesión actual",
+      "Tiempos de Ejecución Programados: system.list_scheduled_tasks con include_run_times: true exponiendo LastRunTime y NextRunTime",
       "v10.3.1 — Robust Feedback Payloads, Strict Active Permissions, Zero-Vulnerability Package Audits & Protected Windows Workspaces",
       "Hotfix developer.submit_feedback: soporte de payloads mínimos (sin captura) y resolución de ReferenceError attachmentPath",
       "Hotfix security.list_granted_permissions: filtrado estricto de permisos expirados/fantasma y visual_capture_grant_active limitado a sesión activa",

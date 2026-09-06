@@ -5,6 +5,28 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v10.3.2] - 2026-09-06 (Official Hotfix Release — On-Demand Compact Mode, ISO 8601 Date Normalization, Session-Scoped Env Vars & Feedback Author Tracking)
+
+### 🛠️ Correcciones Críticas y Nuevas Capacidades
+- **Regla Fundamental de Compact Mode (Opcional y Bajo Demanda)**:
+  - `compact mode` NO está activado por defecto ni forzado de forma permanente; devuelve siempre salida estándar completa a menos que la IA pase explícitamente `compact: true` o `compact_mode: true`.
+  - `system.list_scheduled_tasks`: con `compact: true`, retorna únicamente `TaskName` y `State` para ahorro masivo de tokens; por defecto retorna el formato completo.
+  - `system.get_processes`: con `compact: true`, devuelve únicamente los campos esenciales (`PID`, `Name`, `MemoryMB`, `CPU%`); por defecto retorna la tabla estándar en `output`.
+  - `security.audit_log`: con `compact: true`, limita las entradas a `timestamp`, `tool`, `action` y `status`.
+- **[AFX-FB-9XMUF4] Normalización Universal de Fechas .NET / WMI a ISO 8601**:
+  - En `system.get_windows_update_status` y `system.get_defender_status`, normalización automática de fechas crudas de formato `/Date(1787919781000)/` a formato estándar ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`).
+- **[AFX-FB-PUG9Y6] Seguimiento y Gestión de Feedback Propio sin Requerir ADMIN_KEY**:
+  - Persistencia local y en memoria de feedbacks generados por la máquina/sesión en `storage/my_feedbacks.json`.
+  - `developer.read_feedback`: permite consultar feedbacks propios sin requerir `ADMIN_KEY`, sincronizando bajo demanda con el Gateway/Firebase y conservando caché local transparente ante entornos fuera de línea o modo LOCKDOWN. `ADMIN_KEY_REQUIRED` solo se exige para consultar feedbacks ajenos.
+  - `developer.delete_feedback`: permite eliminar feedbacks propios sin requerir `ADMIN_KEY`, removiéndolos del registro local y del backend.
+  - Nueva subherramienta `developer.list_my_feedbacks`: acción de lectura (`standard`) que expone exclusivamente los reportes enviados desde este equipo con su estado actualizado (`recibido`, `en_proceso`, `hecho`), `resolution_notes` y `fixed_in_version`, con cero filtración de datos ajenos y resiliencia con backup automático ante JSON corrupto.
+- **[AFX-FB-B6A7UQ] `system.get_env_vars` con `sessionOnly: true`**:
+  - Soporte del parámetro opcional `sessionOnly: true` para devolver exclusivamente las variables que fueron asignadas durante la sesión actual mediante `set_env_var` (aisladas de las variables globales del sistema operativo).
+- **[AFX-FB-TTLJN2] `system.list_scheduled_tasks` con `include_run_times: true`**:
+  - Soporte del parámetro opcional `include_run_times: true` (o `includeSchedule: true`) para exponer `LastRunTime` y `NextRunTime` normalizados en ISO 8601 al consultar tareas programadas de Windows.
+
+---
+
 ## [v10.3.1] - 2026-09-05 (Hotfix Release — Robust Feedback Payloads, Strict Active Permissions, Zero-Vulnerability Package Audits & Protected Windows Workspaces)
 
 ### 🛠️ Correcciones Críticas y Mejoras Operacionales

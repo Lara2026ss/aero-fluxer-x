@@ -36,6 +36,34 @@ function categorizeProcess(name) {
   return { category: "other", safeToClose: true };
 }
 
+export function normalizeDotNetDate(val) {
+  if (val === null || val === undefined) return val;
+  if (typeof val === "string") {
+    const m = val.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+    if (m) {
+      const ms = Number(m[1]);
+      const d = new Date(ms);
+      return !isNaN(d.getTime()) ? d.toISOString() : val;
+    }
+    return val;
+  }
+  if (typeof val === "object") {
+    if (typeof val.value === "string") {
+      const m = val.value.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+      if (m) {
+        const ms = Number(m[1]);
+        const d = new Date(ms);
+        return !isNaN(d.getTime()) ? d.toISOString() : val.value;
+      }
+    }
+    if (typeof val.DateTime === "string") {
+      const d = new Date(val.DateTime);
+      return !isNaN(d.getTime()) ? d.toISOString() : val.DateTime;
+    }
+  }
+  return val;
+}
+
 export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchText, sendNativeNotification }) {
   const actions = {
       // ── Hardware / OS ────────────────────────────────────────────────────────
@@ -206,17 +234,23 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         }
       },
 
-      get_processes: async ({ limit = 30, compact = false } = {}) => {
+      get_processes: async ({ limit = 30, compact = false, compact_mode = false } = {}) => {
         try {
+          const isCompact = Boolean(compact || compact_mode);
           const n = Math.min(Number(limit) || 30, 100);
-          let cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,WorkingSet | Format-Table`;
-          if (compact) {
-            cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,@{N='MemMB';E={[Math]::Round($_.WorkingSet/1MB,1)}} | ConvertTo-Json -Compress`;
+          if (isCompact) {
+            const cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} | Select-Object @{N='PID';E={$_.Id}},@{N='Name';E={$_.ProcessName}},@{N='MemoryMB';E={[Math]::Round($_.WorkingSet/1MB,1)}},@{N='CPU%';E={if ($_.CPU) { [Math]::Round($_.CPU,1) } else { 0 }}} | ConvertTo-Json -Compress`;
+            const res = await runtime.run(cmd);
+            if (res.ok && res.stdout) {
+              try {
+                let parsed = JSON.parse(res.stdout);
+                if (!Array.isArray(parsed)) parsed = [parsed];
+                return { ok: true, count: parsed.length, processes: parsed, compact: true };
+              } catch { }
+            }
           }
+          const cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} Id,ProcessName,CPU,WorkingSet | Format-Table`;
           const res = await runtime.run(cmd);
-          if (compact && res.ok && res.stdout) {
-            try { return { ok: true, count: n, processes: JSON.parse(res.stdout) }; } catch { }
-          }
           return { ok: res.ok || Boolean(res.stdout), output: res.stdout || res.stderr };
         } catch (e) {
           return { ok: false, error: e.message };
@@ -376,7 +410,16 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       },
 
       // ── Variables de Entorno ─────────────────────────────────────────────────
-      get_env_vars: async ({ scope = "all", filter } = {}) => {
+      get_env_vars: async ({ scope = "all", filter, sessionOnly = false } = {}) => {
+        if (Boolean(sessionOnly)) {
+          const sessionStore = runtime._sessionEnvVars || new Map();
+          const sessionVars = {};
+          for (const [k, v] of sessionStore.entries()) {
+            if (filter && !k.toLowerCase().includes(String(filter).toLowerCase())) continue;
+            sessionVars[k] = v;
+          }
+          return { ok: true, scope: "process", sessionOnly: true, count: Object.keys(sessionVars).length, vars: sessionVars };
+        }
         // scope: "process" → lee process.env de Node.js (en vivo, inmediato)
         // scope: "user" | "system" → consulta el Registro de Windows vía PowerShell
         if (scope === "system" || scope === "user") {
@@ -403,6 +446,8 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       set_env_var: async ({ name, value, scope = "user" } = {}) => {
         if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
         const val = String(value ?? "");
+        if (!runtime._sessionEnvVars) runtime._sessionEnvVars = new Map();
+        runtime._sessionEnvVars.set(name, val);
         if (scope === "process") {
           // Operar directamente sobre process.env del proceso MCP — sin subproceso
           process.env[name] = val;
@@ -417,6 +462,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
       remove_env_var: async ({ name, scope = "user" } = {}) => {
         if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
+        if (runtime._sessionEnvVars) runtime._sessionEnvVars.delete(name);
         if (scope === "process") {
           // Eliminar del proceso MCP en vivo
           const existed = name in process.env;
@@ -453,22 +499,51 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       },
 
       // ── Tareas Programadas ──────────────────────────────────────────────────
-      list_scheduled_tasks: async ({ filter } = {}) => {
-        const cmd = filter
-          ? `Get-ScheduledTask | Where-Object { $_.TaskName -like ${runtime.shellQuote("*" + filter + "*")} } | Select-Object TaskName,TaskPath,State | ConvertTo-Json`
-          : "Get-ScheduledTask | Select-Object TaskName,TaskPath,State | Sort-Object State | ConvertTo-Json -Depth 1";
+      list_scheduled_tasks: async ({ filter, compact = false, compact_mode = false, include_run_times = false, includeSchedule = false } = {}) => {
+        const isCompact = Boolean(compact || compact_mode);
+        const withRunTimes = Boolean(include_run_times || includeSchedule);
+        const whereClause = filter ? `| Where-Object { $_.TaskName -like ${runtime.shellQuote("*" + filter + "*")} }` : "";
+
+        let cmd;
+        if (isCompact) {
+          cmd = `Get-ScheduledTask ${whereClause} | Select-Object TaskName,State | ConvertTo-Json -Depth 1`;
+        } else if (withRunTimes) {
+          cmd = `Get-ScheduledTask ${whereClause} | ForEach-Object { $info = Get-ScheduledTaskInfo -TaskName $_.TaskName -TaskPath $_.TaskPath -ErrorAction SilentlyContinue; [PSCustomObject]@{ TaskName = $_.TaskName; TaskPath = $_.TaskPath; State = [string]$_.State; LastRunTime = if ($info) { $info.LastRunTime } else { $null }; NextRunTime = if ($info) { $info.NextRunTime } else { $null } } } | ConvertTo-Json -Depth 1`;
+        } else {
+          cmd = filter
+            ? `Get-ScheduledTask | Where-Object { $_.TaskName -like ${runtime.shellQuote("*" + filter + "*")} } | Select-Object TaskName,TaskPath,State | ConvertTo-Json`
+            : "Get-ScheduledTask | Select-Object TaskName,TaskPath,State | Sort-Object State | ConvertTo-Json -Depth 1";
+        }
+
         const res = await runtime.run(cmd);
         const raw = (res.stdout || "").trim();
         if (!raw) {
           // Sin coincidencias (filtro sin resultados)
-          return { ok: true, count: 0, tasks: [], filter: filter || null };
+          return { ok: true, count: 0, tasks: [], filter: filter || null, ...(isCompact ? { compact: true } : {}) };
         }
         try {
           const parsed = JSON.parse(raw);
-          const tasks = Array.isArray(parsed) ? parsed : [parsed];
+          let tasks = Array.isArray(parsed) ? parsed : [parsed];
+          if (isCompact) {
+            tasks = tasks.map(t => ({
+              TaskName: t.TaskName,
+              State: String(t.State || ""),
+            }));
+            return { ok: true, count: tasks.length, tasks, filter: filter || null, compact: true };
+          }
+          if (withRunTimes) {
+            tasks = tasks.map(t => ({
+              TaskName: t.TaskName,
+              TaskPath: t.TaskPath,
+              State: t.State,
+              LastRunTime: normalizeDotNetDate(t.LastRunTime),
+              NextRunTime: normalizeDotNetDate(t.NextRunTime),
+            }));
+            return { ok: true, count: tasks.length, tasks, filter: filter || null, include_run_times: true };
+          }
           return { ok: true, count: tasks.length, tasks, filter: filter || null };
         } catch {
-          return { ok: true, raw, filter: filter || null };
+          return { ok: true, raw, filter: filter || null, ...(isCompact ? { compact: true } : {}) };
         }
       },
 
@@ -512,24 +587,12 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       get_windows_update_status: async () => {
         const cmd = "Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 10 HotFixID,Description,InstalledOn | ConvertTo-Json";
         const res = await runtime.run(cmd);
-        const parseDotNetDate = (val) => {
-          if (typeof val === "string") {
-            const m = val.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
-            if (m) return new Date(Number(m[1])).toISOString();
-          } else if (val && typeof val === "object") {
-            if (val.value && typeof val.value === "string") {
-              const m = val.value.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
-              if (m) return new Date(Number(m[1])).toISOString();
-            }
-          }
-          return val;
-        };
         try {
           let updates = JSON.parse(res.stdout);
           if (!Array.isArray(updates)) updates = [updates];
           updates = updates.map(u => ({
             ...u,
-            InstalledOn: parseDotNetDate(u.InstalledOn)
+            InstalledOn: normalizeDotNetDate(u.InstalledOn)
           }));
           return { ok: true, recentUpdates: updates };
         }
@@ -541,15 +604,8 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
         const res = await runtime.run(cmd);
         try {
           const parsed = JSON.parse(res.stdout);
-          const parseDotNetDate = (val) => {
-            if (typeof val === "string") {
-              const m = val.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
-              if (m) return new Date(Number(m[1])).toISOString();
-            }
-            return val;
-          };
           for (const key of Object.keys(parsed)) {
-            parsed[key] = parseDotNetDate(parsed[key]);
+            parsed[key] = normalizeDotNetDate(parsed[key]);
           }
           return { ok: true, defender: parsed };
         }

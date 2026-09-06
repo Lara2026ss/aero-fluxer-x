@@ -250,8 +250,18 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       }
     },
 
-    audit_log: async ({ limit = 50, tool: filterTool, action: filterAction, result: filterResult } = {}) => {
+    audit_log: async ({ limit = 50, tool: filterTool, action: filterAction, result: filterResult, compact = false, compact_mode = false } = {}) => {
+      const isCompact = Boolean(compact || compact_mode);
       const entries = await runtime.auditLog?.search({ tool: filterTool, action: filterAction, result: filterResult, limit: Math.min(Number(limit) || 50, 500) }) || [];
+      if (isCompact) {
+        const compactEntries = entries.map(e => ({
+          timestamp: e.timestamp || e.ts || e.time || e.createdAt,
+          tool: e.tool,
+          action: e.action,
+          status: e.status ?? e.result ?? (e.ok ? "success" : "unknown"),
+        }));
+        return { ok: true, count: compactEntries.length, entries: compactEntries, compact: true };
+      }
       return { ok: true, count: entries.length, entries };
     },
 

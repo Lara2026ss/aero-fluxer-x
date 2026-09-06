@@ -95,6 +95,88 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     return runtime.hp(resolved);
   }
 
+  // ── Local author feedbacks tracking (storage/my_feedbacks.json) ───────────────
+  function getMyFeedbacksFilePath() {
+    const root = runtime?.root || process.cwd();
+    return path.join(root, "storage", "my_feedbacks.json");
+  }
+
+  async function loadMyFeedbacks() {
+    const filePath = getMyFeedbacksFilePath();
+    if (!runtime._sessionFeedbacks) {
+      runtime._sessionFeedbacks = new Map();
+    }
+    try {
+      const raw = await fs.readFile(filePath, "utf8");
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : [];
+      for (const item of list) {
+        if (item && item.id) {
+          runtime._sessionFeedbacks.set(item.id, item);
+        }
+      }
+      return list;
+    } catch (err) {
+      if (err.code === "ENOENT") {
+        try {
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(filePath, "[]\n", "utf8");
+        } catch {}
+        return [];
+      }
+      // Backup automático de archivo corrupto y reinicialización limpia
+      try {
+        const bakPath = path.join(path.dirname(filePath), "my_feedbacks.bak.json");
+        const badContent = await fs.readFile(filePath, "utf8").catch(() => "");
+        if (badContent) await fs.writeFile(bakPath, badContent, "utf8");
+        await fs.writeFile(filePath, "[]\n", "utf8");
+      } catch {}
+      return [];
+    }
+  }
+
+  async function saveMyFeedback(record) {
+    if (!record || !record.id) return;
+    if (!runtime._sessionFeedbacks) {
+      runtime._sessionFeedbacks = new Map();
+    }
+    runtime._sessionFeedbacks.set(record.id, record);
+
+    const filePath = getMyFeedbacksFilePath();
+    try {
+      let list = await loadMyFeedbacks();
+      const idx = list.findIndex((f) => f.id === record.id);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...record };
+      } else {
+        list.unshift(record);
+      }
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify(list, null, 2) + "\n", "utf8");
+    } catch {}
+  }
+
+  async function removeMyFeedback(id) {
+    if (!id) return;
+    if (runtime._sessionFeedbacks) {
+      runtime._sessionFeedbacks.delete(id);
+    }
+    const filePath = getMyFeedbacksFilePath();
+    try {
+      let list = await loadMyFeedbacks();
+      list = list.filter((f) => f.id !== id);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify(list, null, 2) + "\n", "utf8");
+    } catch {}
+  }
+
+  async function isMyFeedback(id) {
+    if (!id) return false;
+    if (runtime._sessionFeedbacks?.has(id)) return true;
+    const list = await loadMyFeedbacks();
+    return list.some((f) => f.id === id);
+  }
+
   const actions = {
     detect_project: async ({ path: p = "." } = {}) => {
       const target = runtime.hp(p);
@@ -887,6 +969,19 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         };
       }
 
+      // Registrar autoría local de feedback propio persistente en storage/my_feedbacks.json y memoria
+      await saveMyFeedback({
+        id: feedbackId,
+        title: sanitize(title).trim().slice(0, 200),
+        type: feedbackType,
+        severity: feedbackSeverity,
+        created_at: payload.created_at,
+        status: "recibido",
+        resolution_notes: null,
+        fixed_in_version: null,
+        cached_at: new Date().toISOString(),
+      });
+
       // 7. Despacho HTTPS al Feedback Gateway externo (Render)
       const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
 
@@ -929,18 +1024,36 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         });
 
         if (gatewayResponse.status === 200 || gatewayResponse.status === 201) {
+          const finalId = gatewayResponse.data?.id || feedbackId;
+          await saveMyFeedback({
+            id: finalId,
+            title: sanitize(title).trim().slice(0, 200),
+            created_at: payload.created_at,
+            status: gatewayResponse.data?.status || "recibido",
+            resolution_notes: gatewayResponse.data?.resolution_notes || null,
+            fixed_in_version: gatewayResponse.data?.fixed_in_version || gatewayResponse.data?.resolved_in_version || null,
+            cached_at: new Date().toISOString(),
+          });
           return {
             ok: true,
-            status: gatewayResponse.data?.status || "received",
-            id: gatewayResponse.data?.id || feedbackId,
+            status: gatewayResponse.data?.status || "recibido",
+            id: finalId,
           };
         }
 
         if (gatewayResponse.status === 409 || gatewayResponse.data?.status === "duplicate") {
+          const finalId = gatewayResponse.data?.id || feedbackId;
+          await saveMyFeedback({
+            id: finalId,
+            title: sanitize(title).trim().slice(0, 200),
+            created_at: payload.created_at,
+            status: "duplicate",
+            cached_at: new Date().toISOString(),
+          });
           return {
             ok: true,
             status: "duplicate",
-            id: gatewayResponse.data?.id || feedbackId,
+            id: finalId,
           };
         }
 
@@ -962,6 +1075,13 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             await fs.mkdir(storage.feedbackOutboxDir, { recursive: true }).catch(() => {});
             const outboxPath = path.join(storage.feedbackOutboxDir, `${feedbackId}.json`);
             await fs.writeFile(outboxPath, JSON.stringify(payload, null, 2), "utf8");
+            await saveMyFeedback({
+              id: feedbackId,
+              title: sanitize(title).trim().slice(0, 200),
+              created_at: payload.created_at,
+              status: "queued",
+              cached_at: new Date().toISOString(),
+            });
             return {
               ok: true,
               status: "queued",
@@ -1392,21 +1512,50 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     read_feedback: async ({ id } = {}) => {
       if (!id) return { ok: false, error: "ID requerido." };
 
-      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const isOwn = await isMyFeedback(id);
       const adminKey = process.env.AERON_FEEDBACK_ADMIN_KEY || runtime.config?.feedback?.admin_key;
-      const baseUrl = endpoint.replace("/api/v1/feedback", "");
 
-      if (!adminKey) return { ok: false, error: "ADMIN_KEY_REQUIRED" };
+      if (!isOwn && !adminKey) {
+        return {
+          ok: false,
+          error: "ADMIN_KEY_REQUIRED",
+          message: "Se requiere AERON_FEEDBACK_ADMIN_KEY para consultar feedbacks ajenos.",
+        };
+      }
+
+      const currentMode = runtime.permissions?.getSecurityMode?.() || "normal";
+      const isLockdown = currentMode === "lockdown";
+
+      let localRecord = null;
+      if (isOwn) {
+        const list = await loadMyFeedbacks();
+        localRecord = list.find((f) => f.id === id) || runtime._sessionFeedbacks?.get(id) || null;
+      }
+
+      if (isOwn && isLockdown) {
+        return {
+          ok: true,
+          source: "local_cache",
+          network_status: "offline_or_lockdown",
+          feedback: localRecord || { id, status: "recibido" },
+        };
+      }
+
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const baseUrl = endpoint.replace("/api/v1/feedback", "");
 
       try {
         const url = new URL(`${baseUrl}/api/v1/feedback/${encodeURIComponent(id)}`);
         const client = url.protocol === "https:" ? https : http;
+        const headers = { "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` };
+        if (adminKey) headers["Authorization"] = `Bearer ${adminKey}`;
+        if (isOwn) headers["x-client-role"] = "feedback_author";
 
         const response = await new Promise((resolve, reject) => {
           const req = client.request(url, {
             method: "GET",
-            headers: { "Authorization": `Bearer ${adminKey}`, "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` },
-            timeout: 8000,
+            headers,
+            timeout: 5000,
           }, (res) => {
             let body = "";
             res.on("data", (c) => (body += c));
@@ -1420,12 +1569,66 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           req.end();
         });
 
-        if (response.status === 401) return { ok: false, error: "UNAUTHORIZED" };
-        if (response.status === 404) return { ok: false, error: "NOT_FOUND", id };
-        if (response.status !== 200) return { ok: false, error: `HTTP ${response.status}` };
+        if (response.status === 401) {
+          if (isOwn && localRecord) {
+            return {
+              ok: true,
+              source: "local_cache",
+              network_status: "unauthorized_remote",
+              feedback: localRecord,
+            };
+          }
+          return { ok: false, error: "UNAUTHORIZED" };
+        }
+        if (response.status === 404) {
+          if (isOwn && localRecord) {
+            return {
+              ok: true,
+              source: "local_cache",
+              feedback: localRecord,
+            };
+          }
+          return { ok: false, error: "NOT_FOUND", id };
+        }
+        if (response.status !== 200) {
+          if (isOwn && localRecord) {
+            return {
+              ok: true,
+              source: "local_cache",
+              network_status: `http_${response.status}`,
+              feedback: localRecord,
+            };
+          }
+          return { ok: false, error: `HTTP ${response.status}` };
+        }
 
-        return { ok: true, feedback: response.data.feedback };
+        const fb = response.data?.feedback || response.data;
+        if (fb) {
+          const updated = {
+            id,
+            title: fb.title || localRecord?.title || "Feedback",
+            status: fb.status || localRecord?.status || "recibido",
+            resolution_notes: fb.resolution_notes || null,
+            fixed_in_version: fb.fixed_in_version || fb.resolved_in_version || null,
+            cached_at: new Date().toISOString(),
+            ...fb,
+          };
+          if (isOwn) {
+            await saveMyFeedback(updated);
+          }
+          return { ok: true, source: "gateway", feedback: updated };
+        }
+
+        return { ok: true, feedback: response.data?.feedback || localRecord };
       } catch (err) {
+        if (isOwn && localRecord) {
+          return {
+            ok: true,
+            source: "local_cache",
+            network_status: "offline_or_error",
+            feedback: localRecord,
+          };
+        }
         return { ok: false, error: err.message };
       }
     },
@@ -1433,21 +1636,36 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     delete_feedback: async ({ id } = {}) => {
       if (!id) return { ok: false, error: "ID requerido." };
 
-      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const isOwn = await isMyFeedback(id);
       const adminKey = process.env.AERON_FEEDBACK_ADMIN_KEY || runtime.config?.feedback?.admin_key;
-      const baseUrl = endpoint.replace("/api/v1/feedback", "");
 
-      if (!adminKey) return { ok: false, error: "ADMIN_KEY_REQUIRED", message: "Se requiere AERON_FEEDBACK_ADMIN_KEY para eliminar feedbacks." };
+      if (!isOwn && !adminKey) {
+        return {
+          ok: false,
+          error: "ADMIN_KEY_REQUIRED",
+          message: "Se requiere AERON_FEEDBACK_ADMIN_KEY para eliminar feedbacks ajenos.",
+        };
+      }
+
+      if (isOwn) {
+        await removeMyFeedback(id);
+      }
+
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const baseUrl = endpoint.replace("/api/v1/feedback", "");
 
       try {
         const url = new URL(`${baseUrl}/api/v1/feedback/${encodeURIComponent(id)}`);
         const client = url.protocol === "https:" ? https : http;
+        const headers = { "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` };
+        if (adminKey) headers["Authorization"] = `Bearer ${adminKey}`;
+        if (isOwn) headers["x-client-role"] = "feedback_author";
 
         const response = await new Promise((resolve, reject) => {
           const req = client.request(url, {
             method: "DELETE",
-            headers: { "Authorization": `Bearer ${adminKey}`, "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}` },
-            timeout: 8000,
+            headers,
+            timeout: 5000,
           }, (res) => {
             let body = "";
             res.on("data", (c) => (body += c));
@@ -1461,14 +1679,109 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           req.end();
         });
 
-        if (response.status === 401) return { ok: false, error: "UNAUTHORIZED" };
-        if (response.status === 404) return { ok: false, error: "NOT_FOUND", id, message: "El feedback no existe o ya fue eliminado." };
-        if (response.status !== 200) return { ok: false, error: `HTTP ${response.status}` };
+        if (response.status === 401) {
+          if (isOwn) return { ok: true, deleted: id, own_feedback: true, remote: "unauthorized" };
+          return { ok: false, error: "UNAUTHORIZED" };
+        }
+        if (response.status === 404) {
+          if (isOwn) return { ok: true, deleted: id, own_feedback: true, remote: "already_deleted" };
+          return { ok: false, error: "NOT_FOUND", id, message: "El feedback no existe o ya fue eliminado." };
+        }
 
-        return { ok: true, deleted: id, paths: response.data.paths };
+        return { ok: true, deleted: id, own_feedback: isOwn, paths: response.data?.paths };
       } catch (err) {
+        if (isOwn) {
+          return { ok: true, deleted: id, own_feedback: true, remote_error: err.message };
+        }
         return { ok: false, error: err.message };
       }
+    },
+
+    list_my_feedbacks: async () => {
+      const list = await loadMyFeedbacks();
+      const currentMode = runtime.permissions?.getSecurityMode?.() || "normal";
+      const isLockdown = currentMode === "lockdown";
+
+      if (isLockdown) {
+        return {
+          ok: true,
+          count: list.length,
+          source: "local_cache",
+          network_status: "offline_or_lockdown",
+          feedbacks: list.map((f) => ({
+            id: f.id,
+            title: f.title || "Feedback",
+            created_at: f.created_at,
+            status: f.status || "recibido",
+            resolution_notes: f.resolution_notes || null,
+            fixed_in_version: f.fixed_in_version || f.resolved_in_version || null,
+          })),
+        };
+      }
+
+      // Sincronización oportunística bajo demanda con backend
+      const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
+      const baseUrl = endpoint.replace("/api/v1/feedback", "");
+      let didSync = false;
+
+      if (list.length > 0) {
+        try {
+          const syncPromises = list.map(async (item) => {
+            try {
+              const url = new URL(`${baseUrl}/api/v1/feedback/${encodeURIComponent(item.id)}`);
+              const client = url.protocol === "https:" ? https : http;
+              const res = await new Promise((resolve, reject) => {
+                const req = client.request(url, {
+                  method: "GET",
+                  headers: {
+                    "User-Agent": `Aero-Fluxer-X/v${CURRENT_VERSION}`,
+                    "x-client-role": "feedback_author",
+                  },
+                  timeout: 2500,
+                }, (r) => {
+                  let body = "";
+                  r.on("data", (c) => (body += c));
+                  r.on("end", () => {
+                    try { resolve({ status: r.statusCode, data: JSON.parse(body) }); }
+                    catch { resolve({ status: r.statusCode, raw: body }); }
+                  });
+                });
+                req.on("timeout", () => { req.destroy(); reject(new Error("TIMEOUT")); });
+                req.on("error", reject);
+                req.end();
+              });
+              if (res.status === 200 && res.data?.feedback) {
+                const fb = res.data.feedback;
+                item.status = fb.status || item.status;
+                item.resolution_notes = fb.resolution_notes || item.resolution_notes;
+                item.fixed_in_version = fb.fixed_in_version || fb.resolved_in_version || item.fixed_in_version;
+                item.cached_at = new Date().toISOString();
+                didSync = true;
+              }
+            } catch {}
+          });
+          await Promise.allSettled(syncPromises);
+          if (didSync) {
+            const filePath = getMyFeedbacksFilePath();
+            await fs.writeFile(filePath, JSON.stringify(list, null, 2) + "\n", "utf8").catch(() => {});
+          }
+        } catch {}
+      }
+
+      return {
+        ok: true,
+        count: list.length,
+        source: didSync ? "gateway_synced" : "local_cache",
+        ...(didSync ? {} : { network_status: "offline_or_unchanged" }),
+        feedbacks: list.map((f) => ({
+          id: f.id,
+          title: f.title || "Feedback",
+          created_at: f.created_at,
+          status: f.status || "recibido",
+          resolution_notes: f.resolution_notes || null,
+          fixed_in_version: f.fixed_in_version || f.resolved_in_version || null,
+        })),
+      };
     },
 
     verify_html_integrity: async (args) => {
@@ -1700,7 +2013,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       git_log_compact: "standard",
       list_feedbacks: "standard",
       read_feedback: "standard",
-      delete_feedback: "advanced",
+      list_my_feedbacks: "standard",
+      delete_feedback: "standard",
     }
   );
 }
