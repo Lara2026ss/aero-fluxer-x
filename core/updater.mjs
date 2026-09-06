@@ -410,8 +410,6 @@ export async function createCodeBackup(repoRoot, versionTag = CURRENT_VERSION) {
     "package.json",
     "package-lock.json",
     "aeron.config.json",
-    "start_aeron.bat",
-    "start_aeron.ps1",
   ];
 
   let filesCount = 0;

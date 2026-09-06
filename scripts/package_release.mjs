@@ -53,14 +53,10 @@ async function packageRelease() {
     "shortcuts.template.json",
     "aeron.config.example.json",
     "aeron.config.json",
-    "Install-FluxerX.bat",
-    "Install-FluxerX.ps1",
     "FLUXER_X_TOOL_AUDIT.md",
     "PUBLIC_RELEASE_AUDIT.md",
     ".env.example",
     ".gitignore",
-    "start_aeron.bat",
-    "start_aeron.ps1",
   ];
 
   for (const f of rootFiles) {
@@ -81,7 +77,6 @@ async function packageRelease() {
     "scripts",
     "tests",
     "plugins",
-    "installer",
   ];
 
   for (const d of directories) {
@@ -111,21 +106,13 @@ async function packageRelease() {
   // Copia de compatibilidad para updater automático
   await fs.copyFile(zipPath, compatZipPath).catch(() => {});
 
-  // Copiar scripts directos a dist para descarga individual
-  const directBatPath = path.join(DIST_DIR, "Install-FluxerX.bat");
-  await fs.copyFile(path.join(ROOT, "Install-FluxerX.bat"), directBatPath).catch(() => {});
-  const directPs1Path = path.join(DIST_DIR, "Install-FluxerX.ps1");
-  await fs.copyFile(path.join(ROOT, "Install-FluxerX.ps1"), directPs1Path).catch(() => {});
-
   // 4. Calcular Checksum SHA-256
   const sha256 = await computeSha256(zipPath);
-  const sha256Bat = await computeSha256(directBatPath);
   const checksumFileName = "checksums.sha256";
   const checksumFilePath = path.join(DIST_DIR, checksumFileName);
-  const checksumContent = `${sha256}  ${zipName}\n${sha256}  ${compatZipName}\n${sha256Bat}  Install-FluxerX.bat\n`;
+  const checksumContent = `${sha256}  ${zipName}\n${sha256}  ${compatZipName}\n`;
   await fs.writeFile(checksumFilePath, checksumContent, "utf8");
   console.log(`  ✓ SHA-256 (${zipName}): ${sha256}`);
-  console.log(`  ✓ SHA-256 (Install-FluxerX.bat): ${sha256Bat}`);
 
   // 5. Generar Release Manifest
   const manifest = {
@@ -138,12 +125,6 @@ async function packageRelease() {
     minimum_node_version: ">=18.0.0",
     platform_support: ["windows", "linux", "darwin"],
     artifacts: {
-      installer: {
-        name: "Install-FluxerX.bat",
-        sha256: sha256Bat,
-        size_bytes: (await fs.stat(directBatPath)).size,
-        description: "Instalador automático en 1 clic para Windows 11 con pre-flight checks y auto-test."
-      },
       portable: {
         name: zipName,
         sha256,
@@ -198,8 +179,6 @@ async function packageRelease() {
   console.log(`\n🎉 Paquetes generados exitosamente:`);
   console.log(`  - Motor Completo (Portable): ${zipPath}`);
   console.log(`  - Alias Compatibilidad:      ${compatZipPath}`);
-  console.log(`  - Instalador BAT directo:    ${directBatPath}`);
-  console.log(`  - Instalador PS1 directo:    ${directPs1Path}`);
   console.log(`  - Manifest Oficial:          ${manifestPath}`);
   console.log(`  - Checksums SHA-256:         ${checksumFilePath}\n`);
 

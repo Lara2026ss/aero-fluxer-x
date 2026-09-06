@@ -20,7 +20,6 @@
     "start": "node server.js",
     "start:mjs": "node server.mjs",
     "dev": "node --watch server.js",
-    "setup": "node scripts/install.mjs",
     "doctor": "node doctor.mjs",
     "health": "node -e \"import('./core/health.mjs').then(m => m.runHealthCheck({})).then(r => console.log(r.formattedReport))\"",
     "update": "node update.mjs",

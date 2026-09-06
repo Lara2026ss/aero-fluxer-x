@@ -3,7 +3,7 @@
   "tag": "v10.3.2",
   "channel": "experimental-public",
   "product": "Fluxer Core",
-  "release_date": "2026-09-06T03:44:48.014Z",
+  "release_date": "2026-09-06T08:06:10.516Z",
   "release_type": "experimental-public",
   "minimum_node_version": ">=18.0.0",
   "platform_support": [
@@ -12,16 +12,10 @@
     "darwin"
   ],
   "artifacts": {
-    "installer": {
-      "name": "Install-FluxerX.bat",
-      "sha256": "1a5f692f145ad5cf20872e2f557efd0837159cd94c7f3da780479f7b888b5d77",
-      "size_bytes": 2102,
-      "description": "Instalador automático en 1 clic para Windows 11 con pre-flight checks y auto-test."
-    },
     "portable": {
       "name": "FluxerX-v10.3.2-Portable.zip",
-      "sha256": "69af2988e44a88104c7a8ff649c6bc9160366efb7c7faf184fff6e4c5fc23e4f",
-      "size_bytes": 446149,
+      "sha256": "035298280a847a85ae1f8c3a85831b6c08bb69fb9ea20522a333e35e6ab63078",
+      "size_bytes": 434208,
       "description": "Paquete portable completo para despliegues manuales y servidores MCP."
     }
   },
