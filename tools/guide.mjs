@@ -38,7 +38,7 @@ export function createGuideDomain({ runtime, domain }) {
         ok: true,
         guidelines: [
           { rule: "read_before_write", detail: "Siempre lee el contenido de un archivo (con 'files.read_text_file' o 'files.read_file_range') antes de intentar sobrescribirlo o editarlo." },
-          { rule: "use_compact_mode", detail: "Para directorios grandes o archivos largos, usa 'compact: true' para ahorrar tokens y no desbordar el contexto." },
+          { rule: "use_compact_mode", detail: "Para directorios grandes, archivos largos o gestión de skills (create_skill, edit_skill, get_skill, list_skills), usa 'compact: true' para ahorrar tokens y no desbordar el contexto." },
           { rule: "path_privacy_awareness", detail: "Las rutas de usuario están ofuscadas por defecto para mayor privacidad. Usa 'revealPath: true' o 'allow_user_path: true' cuando el usuario te autorice ver la ruta completa." },
           { rule: "verify_results", detail: "No asumas que HTTP 200 o 'ok: true' significa éxito. Verifica los cambios reales en disco." },
           { rule: "handle_errors", detail: "Si una herramienta falla, lee el mensaje de error estructurado y adapta tu estrategia. No repitas el mismo comando ciegamente." },
@@ -72,8 +72,9 @@ export function createGuideDomain({ runtime, domain }) {
           ]
         },
         developer: {
-          description: "Herramientas de inspección Git y actualizaciones del MCP.",
+          description: "Herramientas de inspección Git, gestión de skills y actualizaciones del MCP.",
           tips: [
+            "Usa 'compact: true' en 'create_skill', 'edit_skill', 'get_skill', 'list_skills', 'validate_skill' y 'delete_skill' para ahorrar tokens sustancialmente y evitar respuestas desmedidas.",
             "Usa 'upd_check' con 'checkRepo: true' para validar contra el repositorio remoto y etiquetas locales.",
             "Usa 'revealPath: true' si requieres la ruta absoluta desofuscada."
           ]

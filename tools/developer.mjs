@@ -323,10 +323,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    create_skill: async ({ name, description, instructions = "", path: targetPath, rules = [], examples = [], references = [], scripts = [], overwrite = true } = {}) => {
+    create_skill: async ({ name, description, instructions = "", path: targetPath, rules = [], examples = [], references = [], scripts = [], overwrite = true, compact = false, compact_mode = false } = {}) => {
       if (!name) return { ok: false, error: "El parámetro 'name' es requerido para crear una skill." };
       if (!description) return { ok: false, error: "El parámetro 'description' es requerido para crear una skill." };
 
+      const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
       const cleanName = String(name).trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-");
       let skillFile;
       let skillDir;
@@ -431,6 +432,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           }
         }
 
+        if (isCompact) {
+          return {
+            ok: true,
+            skillName: cleanName,
+            skillFile: sanitizeUserPath(skillFile),
+            compact: true,
+          };
+        }
+
         return {
           ok: true,
           skillName: cleanName,
@@ -445,8 +455,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
     },
 
-    validate_skill: async ({ path: p } = {}) => {
+    validate_skill: async ({ path: p, compact = false, compact_mode = false } = {}) => {
       if (!p) return { ok: false, error: "El parámetro 'path' es requerido para validar una skill." };
+      const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
       const target = resolveSanitizedPath(p);
       try {
         let skillFile = target;
@@ -461,7 +472,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             skillFile = path.join(target, "skill.md");
             const fStat2 = await fs.stat(skillFile).catch(() => null);
             if (!fStat2) {
-              return { ok: true, valid: false, errors: ["No se encontró SKILL.md dentro del directorio."], warnings: [], path: sanitizeUserPath(target) };
+              return { ok: true, valid: false, errors: ["No se encontró SKILL.md dentro del directorio."], warnings: [], path: sanitizeUserPath(target), ...(isCompact ? { compact: true } : {}) };
             }
           }
         }
@@ -493,6 +504,17 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
         const valid = errors.length === 0;
 
+        if (isCompact) {
+          return {
+            ok: true,
+            valid,
+            name: frontmatter?.name || null,
+            ...(errors.length > 0 ? { errors } : {}),
+            ...(warnings.length > 0 ? { warnings } : {}),
+            compact: true,
+          };
+        }
+
         return {
           ok: true,
           valid,
@@ -508,7 +530,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
     },
 
-    list_skills: async ({ path: p = ".", searchGlobal = true } = {}) => {
+    list_skills: async ({ path: p = ".", searchGlobal = true, compact = false, compact_mode = false } = {}) => {
+      const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
       const foundSkills = [];
       const visitedPaths = new Set();
 
@@ -598,6 +621,18 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         }
       }
 
+      if (isCompact) {
+        return {
+          ok: true,
+          count: uniqueSkills.length,
+          skills: uniqueSkills.map((s) => ({
+            name: s.name,
+            description: s.description ? (s.description.length > 90 ? s.description.slice(0, 87) + "..." : s.description) : "",
+          })),
+          compact: true,
+        };
+      }
+
       return {
         ok: true,
         count: uniqueSkills.length,
@@ -610,7 +645,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    get_skill: async ({ name, path: p } = {}) => {
+    get_skill: async ({ name, path: p, compact = false, compact_mode = false } = {}) => {
+      const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
       let targetFile = null;
       if (p) {
         const resolved = resolveSanitizedPath(p);
@@ -642,6 +678,19 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           subResources[resType] = entries;
         }
 
+        if (isCompact) {
+          return {
+            ok: true,
+            name: frontmatter?.name || path.basename(skillDir),
+            description: frontmatter?.description || "",
+            file: sanitizeUserPath(targetFile),
+            instructionsSummary: (body || "").trim().slice(0, 200) + ((body || "").trim().length > 200 ? "..." : ""),
+            instructionsLinesCount: (body || "").trim().split(/\r?\n/).length,
+            subResourcesCount: (subResources.examples?.length || 0) + (subResources.references?.length || 0) + (subResources.scripts?.length || 0),
+            compact: true,
+          };
+        }
+
         return {
           ok: true,
           file: sanitizeUserPath(targetFile),
@@ -655,7 +704,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
     },
 
-    delete_skill: async ({ name, path: p } = {}) => {
+    delete_skill: async ({ name, path: p, compact = false, compact_mode = false } = {}) => {
+      const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
       if (!name && !p) {
         return { ok: false, error: "Se requiere el parámetro 'name' o 'path' para eliminar una skill." };
       }
@@ -711,6 +761,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           await fs.unlink(targetFile);
         }
 
+        if (isCompact) {
+          return {
+            ok: true,
+            deleted: true,
+            name: skillName || path.basename(targetDir),
+            compact: true,
+          };
+        }
+
         return {
           ok: true,
           deleted: true,
@@ -723,7 +782,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
     },
 
-    edit_skill: async ({ name, path: p, description, instructions, rules, examples, references, scripts } = {}) => {
+    edit_skill: async ({ name, path: p, description, instructions, rules, examples, references, scripts, compact = false, compact_mode = false } = {}) => {
       let targetFile = null;
       let existingSkill = null;
       if (name || p) {
@@ -752,6 +811,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         references,
         scripts,
         overwrite: true,
+        compact,
+        compact_mode,
       });
     },
 

@@ -5,7 +5,7 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "10.3.2";
+export const CURRENT_VERSION = "10.3.3";
 export const APP_NAME = "fluxer-core";
 export const BRAND_NAME = "Fluxer Core";
 export const CHANNEL = "public-release";

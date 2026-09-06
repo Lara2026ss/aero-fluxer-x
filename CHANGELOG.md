@@ -5,6 +5,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v10.3.3] - 2026-09-06 (On-Demand Compact Mode for Skill Management & Token Optimization)
+
+### 🛠️ Nuevas Capacidades y Optimización de Tokens
+- **Modo Compacto Bajo Demanda para Gestión de Skills (`developer.*_skill`)**:
+  - `compact mode` opcional y bajo demanda (OFF por defecto, 100% retrocompatible). Activado cuando el cliente MCP / IA envía `compact: true` o `compact_mode: true`.
+  - `developer.create_skill`: con `compact: true`, devuelve únicamente `{ ok: true, skillName, skillFile, compact: true }`, omitiendo `sizeBytes`, `linesCount`, `resourcesCreated` y `skillDirectory` para reducir drásticamente el consumo de tokens de confirmación.
+  - `developer.edit_skill`: acepta y propaga `compact: true` a la creación/modificación de la skill, retornando la respuesta sucinta en modo compacto.
+  - `developer.get_skill`: con `compact: true`, no vuelca las miles de líneas del archivo `SKILL.md` ni listas crudas de recursos; retorna únicamente metadatos clave, `instructionsSummary` (primeros 200 caracteres), `instructionsLinesCount`, `subResourcesCount` y la ruta, ahorrando entre 90% y 98% de tokens de contexto.
+  - `developer.list_skills`: con `compact: true`, omite `directories_scanned`, `scope` y rutas absolutas redundantes, entregando únicamente un array ligero `{ name, description }` con descripciones truncadas para listados rápidos.
+  - `developer.validate_skill`: con `compact: true`, retorna únicamente el estado de validación `{ ok: true, valid: true, name, compact: true }` y errores/advertencias solo si existieran.
+  - `developer.delete_skill`: con `compact: true`, retorna únicamente `{ ok: true, deleted: true, name, compact: true }`.
+  - Actualización sincronizada de esquemas JSON del MCP, contratos maestros (`contracts/fluxer_mcp_tools.json`) y guías de mejores prácticas (`tools/guide.mjs`).
+
+---
+
 ## [v10.3.2] - 2026-09-06 (Official Hotfix Release — On-Demand Compact Mode, ISO 8601 Date Normalization, Session-Scoped Env Vars & Feedback Author Tracking)
 
 ### 🛠️ Correcciones Críticas y Nuevas Capacidades

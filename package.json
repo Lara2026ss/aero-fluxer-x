@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.3.2",
-  "description": "Fluxer Core MCP v10.3.2 (Official Hotfix Release) — On-Demand Compact Mode, ISO 8601 Date Normalization, Session-Scoped Env Vars & Feedback Author Tracking",
+  "version": "10.3.3",
+  "description": "Fluxer Core MCP v10.3.3 — On-Demand Compact Mode in Skill Management (create_skill, edit_skill, get_skill, list_skills, validate_skill, delete_skill) & Token Optimization",
   "type": "module",
   "main": "server.js",
   "bin": {
