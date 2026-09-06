@@ -227,6 +227,9 @@ export class PermissionEngine {
         const exp = new Date(p.expiresAt).getTime();
         if (isNaN(exp) || exp <= nowMs) return false;
       }
+      if (p.level === "visual_capture_grant" || p.scope === "system.visual_capture") {
+        return this.hasVisualCaptureGrant(p.principal || "default");
+      }
       return true;
     });
   }

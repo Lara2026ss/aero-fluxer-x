@@ -225,30 +225,31 @@ export function createPackagesDomain({ runtime, domain, parsePkgLines: externalP
       } catch {}
 
       if (auditData) {
-        const vulns = (auditData.vulnerabilities && typeof auditData.vulnerabilities === "object" && !Array.isArray(auditData.vulnerabilities))
-          ? auditData.vulnerabilities
-          : {};
-        const advisoriesCount = Object.keys(vulns).length;
+        const rawVulns = auditData.vulnerabilities || auditData.advisories || {};
+        const isArray = Array.isArray(rawVulns);
+        const vulnsObj = (!isArray && typeof rawVulns === "object" && rawVulns !== null) ? rawVulns : {};
+        const advisoriesCount = isArray ? rawVulns.length : Object.keys(vulnsObj).length;
         const totalFromMeta = typeof auditData.metadata?.vulnerabilities?.total === "number"
           ? auditData.metadata.vulnerabilities.total
           : null;
-        const totalCount = totalFromMeta !== null ? totalFromMeta : advisoriesCount;
+        const hasVulns = advisoriesCount > 0 || (totalFromMeta !== null && totalFromMeta > 0);
+        const auditPassed = !hasVulns;
 
-        const auditPassed = advisoriesCount === 0 || totalCount === 0;
+        const advisoryList = isArray ? rawVulns : Object.values(vulnsObj);
 
         return {
           ok: true,
           manager: mgr,
           audit_passed: auditPassed,
-          summary: auditData.metadata?.vulnerabilities || (advisoriesCount === 0 ? { total: 0 } : vulns),
+          summary: auditData.metadata?.vulnerabilities || (advisoriesCount === 0 ? { total: 0 } : (isArray ? { total: advisoriesCount } : vulnsObj)),
           advisories_count: advisoriesCount,
-          advisories: Object.values(vulns)
+          advisories: advisoryList
             .slice(0, 10)
             .map((v) => ({
-              name: v.name,
-              severity: v.severity,
-              range: v.range,
-              fixAvailable: v.fixAvailable,
+              name: v?.name || v?.module_name || "unknown",
+              severity: v?.severity || "info",
+              range: v?.range || v?.vulnerable_versions || "*",
+              fixAvailable: Boolean(v?.fixAvailable),
             })),
           privacy_sanitized: true,
         };

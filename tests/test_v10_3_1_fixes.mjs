@@ -23,7 +23,7 @@ async function runV10_3_1_Tests() {
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. 🔴 developer.submit_feedback sin captura adjunta (payload mínimo)
   // ─────────────────────────────────────────────────────────────────────────────
-  console.log("-> 1. developer.submit_feedback con payload mínimo (sin attachment/screenshot)...");
+  console.log("-> 1. developer.submit_feedback con payload mínimo y diversos tipos de adjuntos...");
   const minimalRes = await runtime.router.execute({
     tool: "developer",
     action: "submit_feedback",
@@ -49,6 +49,18 @@ async function runV10_3_1_Tests() {
     }
   });
   assert.strictEqual(withAttachRes.ok, true, "submit_feedback debe soportar adjunto válido");
+
+  // Soporte de attachment como objeto ({ path: ... })
+  const withObjAttachRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      title: "Error con attachment como objeto",
+      description: "Descripción con attachment { path: ... }",
+      attachment: { path: testCapture }
+    }
+  });
+  assert.strictEqual(withObjAttachRes.ok, true, "submit_feedback debe soportar attachment pasado como objeto");
   await fs.unlink(testCapture).catch(() => {});
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -75,12 +87,13 @@ async function runV10_3_1_Tests() {
     principal: "default",
     workflowId: "wf_expired_test_99"
   });
-  // Inyectar permiso visual expirado
+  // Inyectar permiso visual no expirado en SQLite pero de sesión anterior (sin grant en memoria)
+  const futureIso = new Date(Date.now() + 3600000).toISOString();
   runtime.memory.grantPermission({
     level: "visual_capture_grant",
     scope: "system.visual_capture",
-    expiresAt: pastIso,
-    reason: "Captura expirada",
+    expiresAt: futureIso,
+    reason: "Captura de sesión anterior",
     principal: "default"
   });
 
@@ -92,7 +105,12 @@ async function runV10_3_1_Tests() {
   // El permiso expirado NO debe aparecer en current_permissions
   const hasExpired = permsAfterExpiredInjection.current_permissions.some(p => p.workflow_id === "wf_expired_test_99");
   assert.strictEqual(hasExpired, false, "Los permisos expirados no deben aparecer en current_permissions");
-  assert.strictEqual(permsAfterExpiredInjection.visual_capture_grant_active, false, "visual_capture_grant_active debe ser false ante registros antiguos");
+  assert.strictEqual(permsAfterExpiredInjection.visual_capture_grant_active, false, "visual_capture_grant_active debe ser false ante registros de sesión previa");
+
+  // Verificar que PermissionEngine.active() filtra directamente el permiso fantasma
+  const engineActive = runtime.permissions.active();
+  const hasGhostVisual = engineActive.some(p => p.level === "visual_capture_grant" || p.scope === "system.visual_capture");
+  assert.strictEqual(hasGhostVisual, false, "PermissionEngine.active() no debe retornar permisos visuales de sesiones previas");
 
   // Conceder visual capture activamente en esta sesión
   const grantVisual = await runtime.router.execute({
@@ -122,7 +140,7 @@ async function runV10_3_1_Tests() {
   // ─────────────────────────────────────────────────────────────────────────────
   // 3. 🟡 packages.audit_vulnerabilities audit_passed: true cuando advisories_count === 0
   // ─────────────────────────────────────────────────────────────────────────────
-  console.log("-> 3. packages.audit_vulnerabilities con 0 vulnerabilidades...");
+  console.log("-> 3. packages.audit_vulnerabilities con 0 vulnerabilidades y con vulnerabilidades simuladas...");
   const tempAuditDir = path.join(os.tmpdir(), `afx_audit_${Date.now()}`);
   await fs.mkdir(tempAuditDir, { recursive: true });
   await fs.writeFile(
@@ -150,11 +168,57 @@ async function runV10_3_1_Tests() {
   assert.strictEqual(cleanAuditRes.advisories_count, 0, "advisories_count debe ser 0 en proyecto limpio");
   assert.strictEqual(cleanAuditRes.audit_passed, true, "audit_passed debe ser estrictamente true si advisories_count === 0");
 
+  // Comprobar lógica unitaria ante vulnerabilidades existentes (evitar falsos positivos)
+  const packagesDomain = (await import("../tools/packages.mjs")).createPackagesDomain({
+    runtime: {
+      run: async () => ({
+        ok: false,
+        stdout: JSON.stringify({
+          vulnerabilities: {
+            "vulnerable-lib": { name: "vulnerable-lib", severity: "high", range: "<2.0.0", fixAvailable: true }
+          },
+          metadata: { vulnerabilities: { total: 1 } }
+        }),
+        stderr: ""
+      }),
+      hp: p => p
+    },
+    domain: (name, desc, actions, permissions) => ({ name, description: desc, actions, permissions }),
+    parsePkgLines: () => []
+  });
+  const vulnAuditRes = await packagesDomain.actions.audit_vulnerabilities({ path: "." });
+  assert.strictEqual(vulnAuditRes.advisories_count, 1, "Debe registrar 1 asesoría");
+  assert.strictEqual(vulnAuditRes.audit_passed, false, "audit_passed debe ser estrictamente FALSE cuando hay vulnerabilidades");
+
+  // También probar formato pnpm con advisories
+  const pnpmDomain = (await import("../tools/packages.mjs")).createPackagesDomain({
+    runtime: {
+      run: async () => ({
+        ok: false,
+        stdout: JSON.stringify({
+          advisories: {
+            "101": { module_name: "pnpm-vulnerable", severity: "critical", vulnerable_versions: "<1.5.0" }
+          },
+          metadata: { vulnerabilities: { total: 1 } }
+        }),
+        stderr: ""
+      }),
+      hp: p => p
+    },
+    domain: (name, desc, actions, permissions) => ({ name, description: desc, actions, permissions }),
+    parsePkgLines: () => []
+  });
+  const pnpmAuditRes = await pnpmDomain.actions.audit_vulnerabilities({ path: ".", manager: "pnpm" });
+  assert.strictEqual(pnpmAuditRes.advisories_count, 1, "pnpm debe registrar 1 asesoría");
+  assert.strictEqual(pnpmAuditRes.audit_passed, false, "audit_passed debe ser FALSE ante advisories de pnpm");
+
   // ─────────────────────────────────────────────────────────────────────────────
   // 4. 🟡 files.sandbox_status resuelve C:\\Windows\\System32 a runtime.root
   // ─────────────────────────────────────────────────────────────────────────────
-  console.log("-> 4. files.sandbox_status con process.cwd() simulando System32...");
+  console.log("-> 4. files.sandbox_status con process.cwd() simulando System32 y variantes...");
   const originalCwd = process.cwd();
+
+  // Test 4a: C:\Windows\System32
   try {
     process.chdir("C:\\Windows\\System32");
   } catch {}
@@ -163,6 +227,12 @@ async function runV10_3_1_Tests() {
     tool: "files",
     action: "sandbox_status",
     args: { revealPath: true }
+  });
+
+  const sandboxMaskedRes = await runtime.router.execute({
+    tool: "files",
+    action: "sandbox_status",
+    args: { revealPath: false }
   });
 
   try {
@@ -175,6 +245,34 @@ async function runV10_3_1_Tests() {
   assert.ok(wsRoot, "allowed_roots debe contener workspace_cwd");
   assert.notStrictEqual(wsRoot.path?.toLowerCase(), "c:\\windows\\system32", "allowed_roots.workspace_cwd no debe ser System32");
   assert.strictEqual(path.resolve(wsRoot.path), path.resolve(ROOT), "workspace_cwd debe resolver hacia la raíz del MCP");
+
+  // Masked workspace_cwd no debe revelar System32
+  assert.ok(!sandboxMaskedRes.workspace_cwd?.toLowerCase().includes("system32"), "Masked workspace_cwd no debe exponer system32");
+
+  // Test 4b: Verificación con variantes de rutas (trailing slash, forward slash, SysWOW64)
+  const filesDomain = (await import("../tools/files.mjs")).createFilesDomain({
+    runtime: { dirs: { root: ROOT, home: os.homedir() }, permissions: { currentLevel: () => "standard" } },
+    path,
+    fs,
+    crypto,
+    domain: (name, desc, actions, permissions) => ({ name, description: desc, actions, permissions }),
+    helpers: {}
+  });
+
+  const testVariants = ["C:\\Windows\\System32\\", "C:/Windows/System32", "C:\\Windows\\SysWOW64"];
+  for (const variant of testVariants) {
+    try {
+      process.chdir(variant);
+      const res = await runtime.router.execute({
+        tool: "files",
+        action: "sandbox_status",
+        args: { revealPath: true }
+      });
+      assert.strictEqual(path.resolve(res.workspace_cwd), path.resolve(ROOT), `Variante ${variant} debe resolver a ROOT`);
+    } catch {} finally {
+      try { process.chdir(originalCwd); } catch {}
+    }
+  }
 
   console.log("\n✅ TODOS LOS 4 HOTFIXES DE v10.3.1 FUERON VERIFICADOS SATISFACTORIAMENTE (4/4) ✅");
   await runtime.shutdown();

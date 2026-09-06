@@ -207,21 +207,29 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     }
   }
 
+  function isWindowsSystemDirectory(dirPath) {
+    if (!dirPath || typeof dirPath !== "string") return false;
+    const winDir = process.env.WINDIR || process.env.SYSTEMROOT || "C:\\Windows";
+    const normTarget = path.resolve(dirPath).toLowerCase();
+    const normWin = path.resolve(winDir).toLowerCase();
+    const normSys32 = path.resolve(path.join(winDir, "System32")).toLowerCase();
+    const normSysWow = path.resolve(path.join(winDir, "SysWOW64")).toLowerCase();
+    if (normTarget === normWin || normTarget === normSys32 || normTarget === normSysWow) {
+      return true;
+    }
+    return /^[a-zA-Z]:[\\\/]windows([\\\/](system32|syswow64))?[\\\/]?$/i.test(dirPath.trim());
+  }
+
   async function getAllowedDirectoriesList() {
     if (!runtime.dirs) return [];
     const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
     const rawCwd = process.cwd();
-    const winDir = process.env.WINDIR || process.env.SYSTEMROOT || "C:\\Windows";
-    const sys32 = path.join(winDir, "System32").toLowerCase();
-    const rawCwdLower = rawCwd.toLowerCase();
-    const isSystemDir =
-      rawCwdLower === sys32 ||
-      rawCwdLower === winDir.toLowerCase() ||
-      /^[a-zA-Z]:\\windows(\\system32)?$/i.test(rawCwd);
+    const isSystemDir = isWindowsSystemDirectory(rawCwd);
 
     const mcpRoot = runtime.dirs?.root || runtime.root || path.resolve(".");
     const cwdDir = isSystemDir ? mcpRoot : rawCwd;
     const parentCwd = path.dirname(cwdDir);
+    const isParentSystem = isWindowsSystemDirectory(parentCwd) || parentCwd === path.dirname(parentCwd);
     const tempDir = os.tmpdir();
     const desktopDir = path.join(homeDir, "Desktop");
     const builtinSkills = path.join(homeDir, ".gemini", "antigravity", "builtin", "skills");
@@ -230,7 +238,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     const defaults = [
       // 1. Workspace autorizado
       { path: cwdDir, label: "workspace_cwd", domain: "files", note: "Directorio de trabajo activo" },
-      { path: parentCwd, label: "workspace_parent", domain: "files", note: "Raíz del proyecto activo" },
+      ...(!isParentSystem ? [{ path: parentCwd, label: "workspace_parent", domain: "files", note: "Raíz del proyecto activo" }] : []),
       // 2. User home y subcarpetas estándar
       { path: homeDir, label: "user_home", domain: "files", note: "Directorio principal del usuario" },
       { path: desktopDir, label: "desktop", domain: "files", note: "Escritorio del usuario" },
@@ -563,13 +571,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           runtime.config?.security?.trustedClient === true;
 
         const rawCwd = process.cwd();
-        const winDir = process.env.WINDIR || process.env.SYSTEMROOT || "C:\\Windows";
-        const sys32 = path.join(winDir, "System32").toLowerCase();
-        const rawCwdLower = rawCwd.toLowerCase();
-        const isSystemDir =
-          rawCwdLower === sys32 ||
-          rawCwdLower === winDir.toLowerCase() ||
-          /^[a-zA-Z]:\\windows(\\system32)?$/i.test(rawCwd);
+        const isSystemDir = isWindowsSystemDirectory(rawCwd);
         const mcpRoot = runtime.dirs?.root || runtime.root || path.resolve(".");
         const effectiveCwd = isSystemDir ? mcpRoot : rawCwd;
 

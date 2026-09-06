@@ -732,13 +732,17 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       }
       const feedbackId = `AFX-FB-${code}`;
 
-      // 4. Validar y procesar captura de pantalla (tamaño bounded max 2MB)
+      // 4. Validar y procesar captura de pantalla o archivo adjunto (tamaño bounded max 2MB)
       let attachmentPayload = null;
-      const targetAttachment = screenshot || attachmentPath || attachment_path || attachment;
+      let targetAttachment = screenshot || attachmentPath || attachment_path || attachment;
+      if (targetAttachment && typeof targetAttachment === "object") {
+        targetAttachment = targetAttachment.path || targetAttachment.data || targetAttachment.file || targetAttachment.screenshot || null;
+      }
       if (targetAttachment) {
         try {
           let buffer = null;
           let mime = "image/png";
+          let fileName = `${feedbackId}_screenshot.png`;
           if (typeof targetAttachment === "string" && targetAttachment.startsWith("data:image")) {
             const match = targetAttachment.match(/^data:(image\/\w+);base64,(.*)$/);
             if (match) {
@@ -754,6 +758,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
               const ext = path.extname(actualPath).toLowerCase();
               if (ext === ".jpg" || ext === ".jpeg") mime = "image/jpeg";
               else if (ext === ".webp") mime = "image/webp";
+              else if (ext === ".gif") mime = "image/gif";
+              else if (ext === ".txt" || ext === ".log") mime = "text/plain";
+              else if (ext === ".json") mime = "application/json";
+              const base = path.basename(actualPath);
+              if (base && base.includes(".")) {
+                fileName = `${feedbackId}_${base}`;
+              }
+            } else if (/^[A-Za-z0-9+/=]{100,}$/.test(targetAttachment.trim())) {
+              buffer = Buffer.from(targetAttachment.trim(), "base64");
             }
           }
 
@@ -762,11 +775,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
               return {
                 status: "invalid_input",
                 code: "PAYLOAD_TOO_LARGE",
-                message: "La captura de pantalla supera el límite máximo permitido de 2MB.",
+                message: "El archivo adjunto supera el límite máximo permitido de 2MB.",
               };
             }
             attachmentPayload = {
-              name: `${feedbackId}_screenshot.png`,
+              name: fileName,
               mime,
               sizeBytes: buffer.length,
               data: buffer.toString("base64"),
