@@ -116,13 +116,14 @@ export const SECURITY_MODES = {
   /** LOCKDOWN: Solo herramientas esenciales de lectura */
   LOCKDOWN: {
     description: "Only essential read-only tools allowed",
-    allowedDomains: new Set(["system", "files"]),
+    allowedDomains: new Set(["system", "files", "developer"]),
     blockedDomains: new Set(["terminal", "packages", "database", "browser", "git", "ollama"]),
     allowedActions: new Set([
       "system.get_system_info", "system.get_cpu_info", "system.get_ram_info",
       "system.get_storage_info", "system.get_system_snapshot",
       "files.read_text_file", "files.read_file_range", "files.read_json",
       "files.list_directory", "files.get_file_info",
+      "developer.list_my_feedbacks", "developer.read_feedback",
     ]),
     maxLevel: "standard",
   },
@@ -138,6 +139,7 @@ export const SECURITY_MODES = {
       "ollama.pull", "ollama.run",
       "security.grant_permission", "security.revoke_permission",
       "system.set_clipboard", "system.set_env", "system.manage_services",
+      "developer.delete_feedback",
     ]),
     maxLevel: "standard",
   },
@@ -186,6 +188,10 @@ export class PermissionEngine {
   }
 
   get securityMode() {
+    return this._securityMode;
+  }
+
+  getSecurityMode() {
     return this._securityMode;
   }
 

@@ -106,6 +106,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     if (!runtime._sessionFeedbacks) {
       runtime._sessionFeedbacks = new Map();
     }
+    if (!runtime._sessionFeedbackIds) {
+      runtime._sessionFeedbackIds = new Set();
+    }
     try {
       const raw = await fs.readFile(filePath, "utf8");
       const parsed = JSON.parse(raw);
@@ -113,6 +116,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       for (const item of list) {
         if (item && item.id) {
           runtime._sessionFeedbacks.set(item.id, item);
+          runtime._sessionFeedbackIds.add(item.id);
         }
       }
       return list;
@@ -140,7 +144,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     if (!runtime._sessionFeedbacks) {
       runtime._sessionFeedbacks = new Map();
     }
+    if (!runtime._sessionFeedbackIds) {
+      runtime._sessionFeedbackIds = new Set();
+    }
     runtime._sessionFeedbacks.set(record.id, record);
+    runtime._sessionFeedbackIds.add(record.id);
 
     const filePath = getMyFeedbacksFilePath();
     try {
@@ -161,6 +169,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     if (runtime._sessionFeedbacks) {
       runtime._sessionFeedbacks.delete(id);
     }
+    if (runtime._sessionFeedbackIds) {
+      runtime._sessionFeedbackIds.delete(id);
+    }
     const filePath = getMyFeedbacksFilePath();
     try {
       let list = await loadMyFeedbacks();
@@ -172,7 +183,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
   async function isMyFeedback(id) {
     if (!id) return false;
-    if (runtime._sessionFeedbacks?.has(id)) return true;
+    if (runtime._sessionFeedbackIds?.has(id) || runtime._sessionFeedbacks?.has(id)) return true;
     const list = await loadMyFeedbacks();
     return list.some((f) => f.id === id);
   }
@@ -1523,8 +1534,13 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         };
       }
 
-      const currentMode = runtime.permissions?.getSecurityMode?.() || "normal";
-      const isLockdown = currentMode === "lockdown";
+      const secMode = (
+        runtime.permissions?.getSecurityMode?.() ||
+        runtime.permissions?.modeInfo?.()?.mode ||
+        runtime.permissions?._securityMode ||
+        ""
+      ).toUpperCase();
+      const isLockdown = secMode === "LOCKDOWN";
 
       let localRecord = null;
       if (isOwn) {
@@ -1537,7 +1553,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           ok: true,
           source: "local_cache",
           network_status: "offline_or_lockdown",
-          feedback: localRecord || { id, status: "recibido" },
+          feedback: localRecord
+            ? { ...localRecord, cached_at: localRecord.cached_at || localRecord.created_at }
+            : { id, status: "recibido", cached_at: new Date().toISOString() },
         };
       }
 
@@ -1575,7 +1593,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
               ok: true,
               source: "local_cache",
               network_status: "unauthorized_remote",
-              feedback: localRecord,
+              feedback: {
+                ...localRecord,
+                cached_at: localRecord.cached_at || localRecord.created_at,
+              },
             };
           }
           return { ok: false, error: "UNAUTHORIZED" };
@@ -1585,7 +1606,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             return {
               ok: true,
               source: "local_cache",
-              feedback: localRecord,
+              feedback: {
+                ...localRecord,
+                cached_at: localRecord.cached_at || localRecord.created_at,
+              },
             };
           }
           return { ok: false, error: "NOT_FOUND", id };
@@ -1596,7 +1620,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
               ok: true,
               source: "local_cache",
               network_status: `http_${response.status}`,
-              feedback: localRecord,
+              feedback: {
+                ...localRecord,
+                cached_at: localRecord.cached_at || localRecord.created_at,
+              },
             };
           }
           return { ok: false, error: `HTTP ${response.status}` };
@@ -1625,8 +1652,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           return {
             ok: true,
             source: "local_cache",
-            network_status: "offline_or_error",
-            feedback: localRecord,
+            network_status: "offline_or_lockdown",
+            feedback: {
+              ...localRecord,
+              cached_at: localRecord.cached_at || localRecord.created_at,
+            },
           };
         }
         return { ok: false, error: err.message };
@@ -1699,8 +1729,13 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
     list_my_feedbacks: async () => {
       const list = await loadMyFeedbacks();
-      const currentMode = runtime.permissions?.getSecurityMode?.() || "normal";
-      const isLockdown = currentMode === "lockdown";
+      const secMode = (
+        runtime.permissions?.getSecurityMode?.() ||
+        runtime.permissions?.modeInfo?.()?.mode ||
+        runtime.permissions?._securityMode ||
+        ""
+      ).toUpperCase();
+      const isLockdown = secMode === "LOCKDOWN";
 
       if (isLockdown) {
         return {
@@ -1708,6 +1743,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           count: list.length,
           source: "local_cache",
           network_status: "offline_or_lockdown",
+          last_sync: list[0]?.cached_at || list[0]?.created_at || null,
           feedbacks: list.map((f) => ({
             id: f.id,
             title: f.title || "Feedback",
@@ -1715,6 +1751,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             status: f.status || "recibido",
             resolution_notes: f.resolution_notes || null,
             fixed_in_version: f.fixed_in_version || f.resolved_in_version || null,
+            cached_at: f.cached_at || f.created_at || null,
           })),
         };
       }
@@ -1772,7 +1809,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         ok: true,
         count: list.length,
         source: didSync ? "gateway_synced" : "local_cache",
-        ...(didSync ? {} : { network_status: "offline_or_unchanged" }),
+        ...(didSync ? {} : { network_status: "offline_or_lockdown" }),
+        last_sync: list[0]?.cached_at || list[0]?.created_at || null,
         feedbacks: list.map((f) => ({
           id: f.id,
           title: f.title || "Feedback",
@@ -1780,6 +1818,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           status: f.status || "recibido",
           resolution_notes: f.resolution_notes || null,
           fixed_in_version: f.fixed_in_version || f.resolved_in_version || null,
+          cached_at: f.cached_at || f.created_at || null,
         })),
       };
     },

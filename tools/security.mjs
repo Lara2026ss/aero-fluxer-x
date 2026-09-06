@@ -251,7 +251,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     },
 
     audit_log: async ({ limit = 50, tool: filterTool, action: filterAction, result: filterResult, compact = false, compact_mode = false } = {}) => {
-      const isCompact = Boolean(compact || compact_mode);
+      const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
       const entries = await runtime.auditLog?.search({ tool: filterTool, action: filterAction, result: filterResult, limit: Math.min(Number(limit) || 50, 500) }) || [];
       if (isCompact) {
         const compactEntries = entries.map(e => ({

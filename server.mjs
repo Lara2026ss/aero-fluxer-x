@@ -321,7 +321,7 @@ export async function startServer() {
       });
 
       return mcpText(response, {
-        compact: args?.compact === true,
+        compact: args?.compact === true || args?.compact === "true" || args?.compact_mode === true || args?.compact_mode === "true",
         format: args?.format,
         prefer: args?.prefer || "tail",
       });

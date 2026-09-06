@@ -118,6 +118,8 @@ async function runHotfixTests() {
   const expectedIso = new Date(sampleMs).toISOString();
   assert.strictEqual(normalizeDotNetDate(`/Date(${sampleMs})/`), expectedIso);
   assert.strictEqual(normalizeDotNetDate(`/Date(${sampleMs}-0500)/`), expectedIso);
+  assert.strictEqual(normalizeDotNetDate("/Date(-62135596800000)/"), "0001-01-01T00:00:00.000Z");
+  assert.strictEqual(normalizeDotNetDate(new Date(sampleMs)), expectedIso);
   assert.strictEqual(normalizeDotNetDate({ value: `/Date(${sampleMs})/` }), expectedIso);
   assert.strictEqual(normalizeDotNetDate({ DateTime: "2026-09-01T12:00:00.000Z" }), "2026-09-01T12:00:00.000Z");
   assert.strictEqual(normalizeDotNetDate(null), null);
@@ -308,12 +310,69 @@ async function runHotfixTests() {
   assert.strictEqual(corruptTestList.ok, true, "list_my_feedbacks no debe crashear con archivo corrupto");
   const bakExists = await fs.access(path.join(ROOT, "storage", "my_feedbacks.bak.json")).then(() => true).catch(() => false);
   assert.strictEqual(bakExists, true, "Debe haber generado my_feedbacks.bak.json de respaldo");
+  // 5.g Comportamiento en Modo de Seguridad LOCKDOWN (cero llamadas de red, fallback a cache local transparente)
+  const lockdownItem = {
+    id: "AFX-FB-LOCKDOWNTST",
+    title: "Feedback en cache offline",
+    created_at: new Date().toISOString(),
+    status: "en_proceso",
+    resolution_notes: "Investigando",
+    fixed_in_version: null,
+    cached_at: new Date().toISOString(),
+  };
+  await fs.writeFile(myFeedbacksPath, JSON.stringify([lockdownItem], null, 2), "utf8");
+
+  runtime.permissions.setSecurityMode("LOCKDOWN");
+  assert.strictEqual(runtime.permissions.getSecurityMode(), "LOCKDOWN", "getSecurityMode debe retornar LOCKDOWN");
+
+  const lockdownList = await router.execute({
+    tool: "developer",
+    action: "list_my_feedbacks",
+    args: {}
+  });
+  assert.strictEqual(lockdownList.ok, true, "list_my_feedbacks debe responder en LOCKDOWN");
+  assert.strictEqual(lockdownList.source, "local_cache", "source debe ser local_cache");
+  assert.strictEqual(lockdownList.network_status, "offline_or_lockdown", "network_status debe ser offline_or_lockdown");
+  assert.ok(lockdownList.feedbacks.length === 1, "Debe listar el item cacheado");
+  assert.strictEqual(lockdownList.feedbacks[0].id, lockdownItem.id);
+  assert.ok(lockdownList.feedbacks[0].cached_at, "Debe informar cached_at");
+
+  const lockdownRead = await router.execute({
+    tool: "developer",
+    action: "read_feedback",
+    args: { id: lockdownItem.id }
+  });
+  assert.strictEqual(lockdownRead.ok, true, "read_feedback propio debe responder en LOCKDOWN");
+  assert.strictEqual(lockdownRead.source, "local_cache", "source debe ser local_cache");
+  assert.strictEqual(lockdownRead.network_status, "offline_or_lockdown", "network_status debe ser offline_or_lockdown");
+  assert.strictEqual(lockdownRead.feedback.id, lockdownItem.id);
+  assert.ok(lockdownRead.feedback.cached_at, "Debe informar cached_at");
+
+  // Mutación en LOCKDOWN debe ser prevenida por el motor de permisos
+  let lockdownDelBlocked = false;
+  try {
+    await router.execute({
+      tool: "developer",
+      action: "delete_feedback",
+      args: { id: lockdownItem.id }
+    });
+  } catch (err) {
+    lockdownDelBlocked = true;
+  }
+  assert.strictEqual(lockdownDelBlocked, true, "delete_feedback debe bloquearse en LOCKDOWN");
+
+  // Restaurar modo normal
+  runtime.permissions.setSecurityMode("NORMAL");
+  assert.strictEqual(runtime.permissions.getSecurityMode(), "NORMAL");
+
+  // 5.h Verificar rastreo en Set en memoria (runtime._sessionFeedbackIds)
+  assert.ok(runtime._sessionFeedbackIds instanceof Set, "_sessionFeedbackIds debe ser un Set en memoria");
 
   // Limpiar archivo bak temporal de prueba
   await fs.rm(path.join(ROOT, "storage", "my_feedbacks.bak.json"), { force: true }).catch(() => {});
   await fs.rm(myFeedbacksPath, { force: true }).catch(() => {});
 
-  console.log("   ✓ Seguimiento de feedback propio, list_my_feedbacks y resiliencia validados.");
+  console.log("   ✓ Seguimiento de feedback propio, list_my_feedbacks, resiliencia y LOCKDOWN validados.");
 
   console.log("\n==================================================");
   console.log("🎉 TODOS LOS TESTS DE HOTFIX v10.3.2 PASARON EXITOSAMENTE");

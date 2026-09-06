@@ -38,8 +38,11 @@ function categorizeProcess(name) {
 
 export function normalizeDotNetDate(val) {
   if (val === null || val === undefined) return val;
+  if (val instanceof Date) {
+    return !isNaN(val.getTime()) ? val.toISOString() : val;
+  }
   if (typeof val === "string") {
-    const m = val.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+    const m = val.match(/\/Date\((-?\d+)(?:[+-]\d+)?\)\//);
     if (m) {
       const ms = Number(m[1]);
       const d = new Date(ms);
@@ -49,7 +52,7 @@ export function normalizeDotNetDate(val) {
   }
   if (typeof val === "object") {
     if (typeof val.value === "string") {
-      const m = val.value.match(/\/Date\((\d+)(?:[+-]\d+)?\)\//);
+      const m = val.value.match(/\/Date\((-?\d+)(?:[+-]\d+)?\)\//);
       if (m) {
         const ms = Number(m[1]);
         const d = new Date(ms);
@@ -236,7 +239,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
       get_processes: async ({ limit = 30, compact = false, compact_mode = false } = {}) => {
         try {
-          const isCompact = Boolean(compact || compact_mode);
+          const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
           const n = Math.min(Number(limit) || 30, 100);
           if (isCompact) {
             const cmd = `Get-Process | Sort-Object CPU -Descending | Select-Object -First ${n} | Select-Object @{N='PID';E={$_.Id}},@{N='Name';E={$_.ProcessName}},@{N='MemoryMB';E={[Math]::Round($_.WorkingSet/1MB,1)}},@{N='CPU%';E={if ($_.CPU) { [Math]::Round($_.CPU,1) } else { 0 }}} | ConvertTo-Json -Compress`;
@@ -318,9 +321,12 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
       set_env: async ({ name, value = "" } = {}) => {
         if (!name) return { ok: false, error: "El parámetro 'name' es requerido." };
-        process.env[name] = String(value);
-        if (runtime.env) runtime.env[name] = String(value);
-        return { ok: true, name, value: String(value) };
+        const val = String(value);
+        process.env[name] = val;
+        if (runtime.env) runtime.env[name] = val;
+        if (!runtime._sessionEnvVars) runtime._sessionEnvVars = new Map();
+        runtime._sessionEnvVars.set(name, val);
+        return { ok: true, name, value: val };
       },
 
       list_env: async ({ filter } = {}) => {
@@ -411,7 +417,8 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
       // ── Variables de Entorno ─────────────────────────────────────────────────
       get_env_vars: async ({ scope = "all", filter, sessionOnly = false } = {}) => {
-        if (Boolean(sessionOnly)) {
+        const isSessionOnly = sessionOnly === true || sessionOnly === "true" || sessionOnly === 1 || sessionOnly === "1";
+        if (isSessionOnly) {
           const sessionStore = runtime._sessionEnvVars || new Map();
           const sessionVars = {};
           for (const [k, v] of sessionStore.entries()) {
@@ -446,33 +453,40 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       set_env_var: async ({ name, value, scope = "user" } = {}) => {
         if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
         const val = String(value ?? "");
-        if (!runtime._sessionEnvVars) runtime._sessionEnvVars = new Map();
-        runtime._sessionEnvVars.set(name, val);
         if (scope === "process") {
           // Operar directamente sobre process.env del proceso MCP — sin subproceso
           process.env[name] = val;
-          runtime.env[name] = val;
+          if (runtime.env) runtime.env[name] = val;
+          if (!runtime._sessionEnvVars) runtime._sessionEnvVars = new Map();
+          runtime._sessionEnvVars.set(name, val);
           return { ok: true, name, value: val, scope: "process", note: "Variable activa en el proceso MCP actual (sesion)." };
         }
         const target = scope === "system" ? "Machine" : "User";
         const cmd = `[System.Environment]::SetEnvironmentVariable(${runtime.shellQuote(name)}, ${runtime.shellQuote(val)}, [System.EnvironmentVariableTarget]::${target}); Write-Output "OK"`;
         const res = await runtime.run(cmd);
+        if (res.ok) {
+          if (!runtime._sessionEnvVars) runtime._sessionEnvVars = new Map();
+          runtime._sessionEnvVars.set(name, val);
+        }
         return { ok: res.ok, name, value: val, scope, persisted: true, output: res.stdout };
       },
 
       remove_env_var: async ({ name, scope = "user" } = {}) => {
         if (!name) return { ok: false, error: "El parametro 'name' es requerido." };
-        if (runtime._sessionEnvVars) runtime._sessionEnvVars.delete(name);
         if (scope === "process") {
           // Eliminar del proceso MCP en vivo
+          if (runtime._sessionEnvVars) runtime._sessionEnvVars.delete(name);
           const existed = name in process.env;
           delete process.env[name];
-          delete runtime.env[name];
+          if (runtime.env) delete runtime.env[name];
           return { ok: true, name, scope: "process", existed, note: "Variable eliminada del proceso MCP actual (sesion)." };
         }
         const target = scope === "system" ? "Machine" : "User";
         const cmd = `[System.Environment]::SetEnvironmentVariable(${runtime.shellQuote(name)}, $null, [System.EnvironmentVariableTarget]::${target}); Write-Output "Removed"`;
         const res = await runtime.run(cmd);
+        if (res.ok && runtime._sessionEnvVars) {
+          runtime._sessionEnvVars.delete(name);
+        }
         return { ok: res.ok, name, scope, persisted: true, output: res.stdout };
       },
 
@@ -500,9 +514,11 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
 
       // ── Tareas Programadas ──────────────────────────────────────────────────
       list_scheduled_tasks: async ({ filter, compact = false, compact_mode = false, include_run_times = false, includeSchedule = false } = {}) => {
-        const isCompact = Boolean(compact || compact_mode);
-        const withRunTimes = Boolean(include_run_times || includeSchedule);
+        const isCompact = compact === true || compact === "true" || compact_mode === true || compact_mode === "true";
+        const withRunTimes = include_run_times === true || include_run_times === "true" || includeSchedule === true || includeSchedule === "true";
         const whereClause = filter ? `| Where-Object { $_.TaskName -like ${runtime.shellQuote("*" + filter + "*")} }` : "";
+        const TASK_STATE_MAP = { 0: "Unknown", 1: "Disabled", 2: "Queued", 3: "Ready", 4: "Running" };
+        const formatState = (s) => (s in TASK_STATE_MAP ? TASK_STATE_MAP[s] : String(s || ""));
 
         let cmd;
         if (isCompact) {
@@ -527,7 +543,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
           if (isCompact) {
             tasks = tasks.map(t => ({
               TaskName: t.TaskName,
-              State: String(t.State || ""),
+              State: formatState(t.State),
             }));
             return { ok: true, count: tasks.length, tasks, filter: filter || null, compact: true };
           }
@@ -535,7 +551,7 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
             tasks = tasks.map(t => ({
               TaskName: t.TaskName,
               TaskPath: t.TaskPath,
-              State: t.State,
+              State: formatState(t.State),
               LastRunTime: normalizeDotNetDate(t.LastRunTime),
               NextRunTime: normalizeDotNetDate(t.NextRunTime),
             }));
