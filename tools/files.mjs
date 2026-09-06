@@ -210,7 +210,17 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
   async function getAllowedDirectoriesList() {
     if (!runtime.dirs) return [];
     const homeDir = runtime.dirs?.home || runtime.home || os.homedir();
-    const cwdDir = process.cwd();
+    const rawCwd = process.cwd();
+    const winDir = process.env.WINDIR || process.env.SYSTEMROOT || "C:\\Windows";
+    const sys32 = path.join(winDir, "System32").toLowerCase();
+    const rawCwdLower = rawCwd.toLowerCase();
+    const isSystemDir =
+      rawCwdLower === sys32 ||
+      rawCwdLower === winDir.toLowerCase() ||
+      /^[a-zA-Z]:\\windows(\\system32)?$/i.test(rawCwd);
+
+    const mcpRoot = runtime.dirs?.root || runtime.root || path.resolve(".");
+    const cwdDir = isSystemDir ? mcpRoot : rawCwd;
     const parentCwd = path.dirname(cwdDir);
     const tempDir = os.tmpdir();
     const desktopDir = path.join(homeDir, "Desktop");
@@ -239,14 +249,14 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     const dynamic = await loadDynamicAllowedDirs();
     const map = new Map();
     for (const d of defaults) {
-      const canon = getCanonicalPath(d.path).toLowerCase();
-      map.set(canon, { ...d, path: getCanonicalPath(d.path), isDefault: true });
+      const key = `${d.label}:${getCanonicalPath(d.path).toLowerCase()}`;
+      map.set(key, { ...d, path: getCanonicalPath(d.path), isDefault: true });
     }
     for (const d of dynamic) {
       if (d?.path) {
-        const canon = getCanonicalPath(d.path).toLowerCase();
-        if (!map.has(canon)) {
-          map.set(canon, { ...d, path: getCanonicalPath(d.path), isDefault: false });
+        const key = `${d.label || "custom"}:${getCanonicalPath(d.path).toLowerCase()}`;
+        if (!map.has(key)) {
+          map.set(key, { ...d, path: getCanonicalPath(d.path), isDefault: false });
         }
       }
     }
@@ -552,6 +562,17 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           process.env.FLUXER_TRUSTED_CLIENT === "true" ||
           runtime.config?.security?.trustedClient === true;
 
+        const rawCwd = process.cwd();
+        const winDir = process.env.WINDIR || process.env.SYSTEMROOT || "C:\\Windows";
+        const sys32 = path.join(winDir, "System32").toLowerCase();
+        const rawCwdLower = rawCwd.toLowerCase();
+        const isSystemDir =
+          rawCwdLower === sys32 ||
+          rawCwdLower === winDir.toLowerCase() ||
+          /^[a-zA-Z]:\\windows(\\system32)?$/i.test(rawCwd);
+        const mcpRoot = runtime.dirs?.root || runtime.root || path.resolve(".");
+        const effectiveCwd = isSystemDir ? mcpRoot : rawCwd;
+
         const sanitized = dirs.map((d) => ({
           label: d.label,
           domain: d.domain,
@@ -565,6 +586,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           sandbox_active: !isBypassed,
           security_level: currentLevel,
           trusted_mode: isBypassed,
+          workspace_cwd: shouldReveal ? effectiveCwd : maskUserPath(effectiveCwd),
           allowed_roots_count: dirs.length,
           allowed_roots: sanitized,
           path_masking_active: !shouldReveal,

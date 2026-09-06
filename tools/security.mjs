@@ -271,29 +271,58 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     list_granted_permissions: async ({ limit = 20 } = {}) => {
       const activeWf = runtime.permissions?.getWorkflow?.("default") || null;
       const allActive = runtime.permissions?.active?.() || [];
-      const hasVisualGrant = runtime.permissions?.hasVisualCaptureGrant?.("default") || false;
+      const hasVisualGrant = Boolean(runtime.permissions?.hasVisualCaptureGrant?.("default"));
       const history = (await runtime.auditLog?.search?.({ limit: Math.min(Number(limit) || 20, 100) })) || [];
       
       const grantsHistory = history.filter(item => 
         ["elevation_requested", "workflow_started", "workflow_revoked", "confirmation_approved", "permission_granted", "visual_capture_granted"].includes(item.action)
       );
 
+      const now = Date.now();
+      const currentPermissions = allActive
+        .filter(p => {
+          if (!p) return false;
+          if (p.expiresAt) {
+            const exp = new Date(p.expiresAt).getTime();
+            if (isNaN(exp) || exp <= now) return false;
+          }
+          if (p.level === "visual_capture_grant" || p.scope === "system.visual_capture") {
+            return hasVisualGrant;
+          }
+          return true;
+        })
+        .map(p => {
+          const expiresMs = p.expiresAt ? new Date(p.expiresAt).getTime() : null;
+          const remainingSeconds = expiresMs ? Math.max(0, Math.round((expiresMs - now) / 1000)) : null;
+          return {
+            level: p.level,
+            canonical_level: p.canonicalLevel || p.level,
+            workflow_id: p.workflowId,
+            expires_at: p.expiresAt,
+            remaining_seconds: remainingSeconds,
+            reason: p.reason,
+            scope: p.scope,
+          };
+        });
+
+      let summaryText = "";
+      if (activeWf && activeWf.remainingSeconds > 0) {
+        summaryText = `Sesión activa con nivel '${activeWf.level}' (${activeWf.remainingSeconds}s restantes).`;
+      } else if (hasVisualGrant) {
+        summaryText = "Autorización de captura visual activa en la sesión actual.";
+      } else if (currentPermissions.length > 0) {
+        summaryText = `${currentPermissions.length} permiso(s) específico(s) activo(s).`;
+      } else {
+        summaryText = "No hay ninguna sesión temporal de elevación ni permisos activos actualmente.";
+      }
+
       return {
         ok: true,
-        active_workflow: activeWf,
+        active_workflow: (activeWf && activeWf.remainingSeconds > 0) ? activeWf : null,
         visual_capture_grant_active: hasVisualGrant,
-        current_permissions: allActive.map(p => ({
-          level: p.level,
-          canonical_level: p.canonicalLevel || p.level,
-          workflow_id: p.workflowId,
-          expires_at: p.expiresAt,
-          reason: p.reason,
-          scope: p.scope,
-        })),
+        current_permissions: currentPermissions,
         recent_grants: grantsHistory,
-        summary: activeWf 
-          ? `Sesión activa con nivel '${activeWf.level}' (${activeWf.remainingSeconds}s restantes).`
-          : "No hay ninguna sesión temporal de elevación activa actualmente.",
+        summary: summaryText,
       };
     },
 

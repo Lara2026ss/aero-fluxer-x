@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.3.0",
-  "description": "Fluxer Core MCP v10.3.0 (System & Security Hotfix) — Modern Permission Hierarchy, Dynamic Window Approvals, Path Privacy & Resilient Updater for Windows 11",
+  "version": "10.3.1",
+  "description": "Fluxer Core MCP v10.3.1 (Hotfix Release) — Robust Feedback Payloads, Strict Active Permissions, Zero-Vulnerability Package Audits & Protected Windows Workspaces",
   "type": "module",
   "main": "server.js",
   "bin": {

@@ -409,16 +409,23 @@ export class MemoryStore {
   }
 
   activePermissions() {
-    return this.db
+    const nowIso = new Date().toISOString();
+    const rows = this.db
       .prepare(
         `
       SELECT level, scope, expires_at AS expiresAt, reason, ts, principal, workflow_id AS workflowId
       FROM permissions
-      WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+      WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)
       ORDER BY ts DESC
     `,
       )
-      .all();
+      .all(nowIso);
+    const now = Date.now();
+    return rows.filter((p) => {
+      if (!p.expiresAt) return true;
+      const t = new Date(p.expiresAt).getTime();
+      return !isNaN(t) && t > now;
+    });
   }
 
   history(limit = 50) {
@@ -701,9 +708,9 @@ export class MemoryStore {
       .get().count;
     const activePermissions = this.db
       .prepare(
-        "SELECT COUNT(*) AS count FROM permissions WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
+        "SELECT COUNT(*) AS count FROM permissions WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)",
       )
-      .get().count;
+      .get(new Date().toISOString()).count;
     return {
       calls,
       knowledgeCount,

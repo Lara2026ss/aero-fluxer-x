@@ -175,6 +175,7 @@ export class PermissionEngine {
     this.cacheTtlMs = 1000;
     this._securityMode = process.env.FLUXER_SECURITY_MODE || config?.security?.mode || "NORMAL";
     this._workflowTimer = null;
+    this._sessionVisualGrants = new Map();
     this._audit("engine_started", { defaultLevel: this.defaultLevel, securityMode: this._securityMode });
     this._scheduleNextExpiration();
   }
@@ -214,11 +215,20 @@ export class PermissionEngine {
   }
 
   active() {
-    if (this.cachedPermissions === null || Date.now() - this.cachedAt > this.cacheTtlMs) {
-      this.cachedPermissions = this.memory.activePermissions();
-      this.cachedAt = Date.now();
+    const now = Date.now();
+    if (this.cachedPermissions === null || now - this.cachedAt > this.cacheTtlMs) {
+      this.cachedPermissions = this.memory ? this.memory.activePermissions() : [];
+      this.cachedAt = now;
     }
-    return this.cachedPermissions;
+    const nowMs = Date.now();
+    return (this.cachedPermissions || []).filter((p) => {
+      if (!p) return false;
+      if (p.expiresAt) {
+        const exp = new Date(p.expiresAt).getTime();
+        if (isNaN(exp) || exp <= nowMs) return false;
+      }
+      return true;
+    });
   }
 
   _scheduleNextExpiration() {
@@ -501,34 +511,42 @@ export class PermissionEngine {
   }
 
   hasVisualCaptureGrant(principal = "default") {
-    const perms = this.active();
-    const now = Date.now();
-    return perms.some(p => 
-      p.principal === principal && 
-      (p.level === "visual_capture_grant" || p.visual_capture_grant === true) && 
-      (!p.expiresAt || new Date(p.expiresAt).getTime() > now)
-    );
+    const grant = this._sessionVisualGrants?.get(principal);
+    if (!grant) return false;
+    if (Date.now() >= grant.expiresAt) {
+      this._sessionVisualGrants.delete(principal);
+      return false;
+    }
+    return true;
   }
 
   grantVisualCapture({ durationMinutes = 5, principal = "default" } = {}) {
     const minutes = Math.max(1, Math.min(Number(durationMinutes) || 5, 60));
     const expiresAt = new Date(Date.now() + minutes * 60000);
-    this.memory.grantPermission({
+    const expiresIso = expiresAt.toISOString();
+    if (!this._sessionVisualGrants) this._sessionVisualGrants = new Map();
+    this._sessionVisualGrants.set(principal, {
+      expiresAt: expiresAt.getTime(),
+      expiresIso,
+      grantedAt: Date.now(),
+    });
+    this.memory?.grantPermission?.({
       level: "visual_capture_grant",
       visual_capture_grant: true,
       scope: "system.visual_capture",
-      expiresAt: expiresAt.toISOString(),
+      expiresAt: expiresIso,
       reason: `Autorización explícita de captura visual concedida por el usuario (${minutes} min)`,
       principal,
     });
     this.cachedPermissions = null;
     this.cachedAt = 0;
-    this._audit("visual_capture_granted", { durationMinutes: minutes, principal, expiresAt: expiresAt.toISOString() });
-    return { ok: true, granted: true, durationMinutes: minutes, expiresAt: expiresAt.toISOString() };
+    this._audit("visual_capture_granted", { durationMinutes: minutes, principal, expiresAt: expiresIso });
+    return { ok: true, granted: true, durationMinutes: minutes, expiresAt: expiresIso };
   }
 
   revokeVisualCapture({ principal = "default" } = {}) {
-    this.memory.revokePermissions("system.visual_capture", principal);
+    this._sessionVisualGrants?.delete(principal);
+    this.memory?.revokePermissions?.("system.visual_capture", principal);
     this.cachedPermissions = null;
     this.cachedAt = 0;
     this._audit("visual_capture_revoked", { principal });

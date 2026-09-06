@@ -161,6 +161,11 @@ async function packageRelease() {
       }
     ],
     changelog: [
+      "v10.3.1 — Robust Feedback Payloads, Strict Active Permissions, Zero-Vulnerability Package Audits & Protected Windows Workspaces",
+      "Hotfix developer.submit_feedback: soporte de payloads mínimos (sin captura) y resolución de ReferenceError attachmentPath",
+      "Hotfix security.list_granted_permissions: filtrado estricto de permisos expirados/fantasma y visual_capture_grant_active limitado a sesión activa",
+      "Hotfix packages.audit_vulnerabilities: retorno explícito de audit_passed: true cuando advisories_count === 0",
+      "Hotfix files.sandbox_status: resolución automática de workspace_cwd hacia runtime.root si process.cwd() inicia en C:\\Windows\\System32",
       "v10.3.0 — Modern Permission Tiers, Dynamic Lease Approvals, Robust GitHub Updater & User Path Privacy",
       "Nuevo sistema canónico de permisos: visitor, standard, advanced, maintainer, developer, system_root con soporte transparente de alias (guest, user, poweruser, admin, admintotaluser)",
       "Dynamic Window Approvals: security.approve_request soporta grantMinutes (ej. 5 min o más) y confirmationCode de 4 caracteres para evitar re-preguntas constantes manteniendo el principio de menor privilegio",

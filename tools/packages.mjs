@@ -225,16 +225,23 @@ export function createPackagesDomain({ runtime, domain, parsePkgLines: externalP
       } catch {}
 
       if (auditData) {
-        const vulns = auditData.vulnerabilities || auditData.metadata?.vulnerabilities || {};
+        const vulns = (auditData.vulnerabilities && typeof auditData.vulnerabilities === "object" && !Array.isArray(auditData.vulnerabilities))
+          ? auditData.vulnerabilities
+          : {};
+        const advisoriesCount = Object.keys(vulns).length;
+        const totalFromMeta = typeof auditData.metadata?.vulnerabilities?.total === "number"
+          ? auditData.metadata.vulnerabilities.total
+          : null;
+        const totalCount = totalFromMeta !== null ? totalFromMeta : advisoriesCount;
+
+        const auditPassed = advisoriesCount === 0 || totalCount === 0;
+
         return {
           ok: true,
           manager: mgr,
-          audit_passed: Boolean(
-            auditData.metadata?.vulnerabilities?.total === 0 ||
-              (!auditData.error && Object.keys(vulns).length === 0)
-          ),
-          summary: auditData.metadata?.vulnerabilities || vulns,
-          advisories_count: Object.keys(vulns).length,
+          audit_passed: auditPassed,
+          summary: auditData.metadata?.vulnerabilities || (advisoriesCount === 0 ? { total: 0 } : vulns),
+          advisories_count: advisoriesCount,
           advisories: Object.values(vulns)
             .slice(0, 10)
             .map((v) => ({
@@ -250,6 +257,8 @@ export function createPackagesDomain({ runtime, domain, parsePkgLines: externalP
       return {
         ok: res.ok,
         manager: mgr,
+        audit_passed: res.ok && (!res.stdout || !res.stdout.includes("vulnerabilities")),
+        advisories_count: 0,
         raw_output: sanitize((res.stdout || res.stderr || "").slice(0, 1000)),
         privacy_sanitized: true,
       };

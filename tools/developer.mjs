@@ -675,6 +675,9 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         actual_behavior = "",
         severity = "medium",
         screenshot = null,
+        attachmentPath = null,
+        attachment_path = null,
+        attachment = null,
         attach_logs = true,
         tool = null,
       } = input || {};
@@ -731,7 +734,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
       // 4. Validar y procesar captura de pantalla (tamaño bounded max 2MB)
       let attachmentPayload = null;
-      const targetAttachment = screenshot || attachmentPath || attachment_path;
+      const targetAttachment = screenshot || attachmentPath || attachment_path || attachment;
       if (targetAttachment) {
         try {
           let buffer = null;
@@ -1018,7 +1021,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
 
       const isConfirmed = Boolean(confirm || confirmed || user_confirmed);
       if (!isConfirmed) {
-        let check = { currentVersion: "10.3.0", latestVersion: "10.3.0" };
+        let check = { currentVersion: CURRENT_VERSION, latestVersion: CURRENT_VERSION };
         try {
           check = await checkForUpdates({ repoRoot: runtime.root });
         } catch {}

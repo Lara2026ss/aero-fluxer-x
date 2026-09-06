@@ -23,7 +23,7 @@ async function runV10_3_Tests() {
 
   // 1. Versioning
   console.log("-> 1. Versión del core...");
-  assert.strictEqual(CURRENT_VERSION, "10.3.0", "CURRENT_VERSION must be 10.3.0");
+  assert.ok(["10.3.0", "10.3.1"].includes(CURRENT_VERSION), `CURRENT_VERSION must be 10.3.0 or 10.3.1, got: ${CURRENT_VERSION}`);
 
   // 2. Canonical permissions hierarchy & Aliases
   console.log("-> 2. Jerarquía canónica y normalización de alias...");
@@ -266,10 +266,10 @@ async function runV10_3_Tests() {
   const updInfoRes = await runtime.router.execute({
     tool: "developer",
     action: "upd_info",
-    args: { version: "10.3.0" }
+    args: { version: CURRENT_VERSION }
   });
   assert.strictEqual(updInfoRes.ok, true);
-  assert.strictEqual(updInfoRes.version, "10.3.0");
+  assert.strictEqual(updInfoRes.version, CURRENT_VERSION);
   assert.strictEqual(updInfoRes.is_isolated_version, true);
   assert.ok(updInfoRes.changelog, "Must have isolated changelog");
   // Isolated changelog should not contain older version headers

@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v10.3.1] - 2026-09-05 (Hotfix Release — Robust Feedback Payloads, Strict Active Permissions, Zero-Vulnerability Package Audits & Protected Windows Workspaces)
+
+### 🛠️ Correcciones Críticas y Mejoras Operacionales
+- **`developer.submit_feedback` con soporte de payloads mínimos y adjuntos**:
+  - Corregido `ReferenceError: attachmentPath is not defined` cuando se envía feedback con payload mínimo (`title` y `description`) sin adjuntos.
+  - Soporte completo y defensivo para argumentos con o sin capturas de pantalla (`screenshot`, `attachmentPath`, `attachment_path`, `attachment` y data URIs).
+- **`security.list_granted_permissions` y filtrado estricto de permisos temporales**:
+  - Eliminación definitiva de permisos fantasma o expirados: filtrado estricto con `Date.now() < expiresAt` tanto en capa de motor (`PermissionEngine.active()`) como en capa de persistencia (`MemoryStore.activePermissions()`), corrigiendo discrepancias de comparación de texto en SQLite `CURRENT_TIMESTAMP`.
+  - `visual_capture_grant_active` restringido estrictamente al ciclo de vida de la sesión activa en ejecución; permanece en `false` salvo concesión explícita y vigente en dicha sesión.
+  - Alineación total del `summary` con el estado real de flujos de trabajo y permisos vigentes.
+- **`packages.audit_vulnerabilities` con resultado positivo en auditorías limpias**:
+  - Retorna `audit_passed: true` cuando no se detectan vulnerabilidades (`advisories_count === 0` o `metadata.vulnerabilities.total === 0`), eliminando falsos negativos.
+- **`files.sandbox_status` y protección de directorios del sistema Windows**:
+  - Si `process.cwd()` coincide con `C:\Windows\System32` (o directorio de sistema Windows), `workspace_cwd` se resuelve automáticamente hacia la raíz del MCP (`runtime.root`), evitando reportar System32.
+  - Preservación explícita de `workspace_cwd` en el listado de raíces permitidas (`allowed_roots`).
+
+---
+
 ## [v10.3.0] - 2026-09-05 (Modern Permission Tiers, Dynamic Lease Approvals, Robust GitHub Updater & User Path Privacy)
 
 ### 🌟 Destacados de la Versión
