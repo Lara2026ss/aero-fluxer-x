@@ -685,27 +685,34 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         test_mode = false,
         testMode = false,
         status = null,
+        mode = null,
       } = input || {};
 
+      const isTruthyFlag = (val) => val === true || val === "true" || val === 1 || val === "1" || val === "yes";
+      const isDryRunStatus = (val) => {
+        if (typeof val !== "string") return false;
+        const s = val.trim().toLowerCase();
+        return s === "test_only_dry_run" || s === "dry_run" || s === "test" || s === "simulation" || s === "dry-run";
+      };
+      const isDryRunMode = (val) => {
+        if (typeof val !== "string") return false;
+        const m = val.trim().toLowerCase();
+        return m === "dry_run" || m === "test" || m === "simulation" || m === "dry-run";
+      };
+
       const isDryRun = Boolean(
-        dry_run === true ||
-        dry_run === "true" ||
-        dryRun === true ||
-        dryRun === "true" ||
-        test_mode === true ||
-        test_mode === "true" ||
-        testMode === true ||
-        testMode === "true" ||
-        status === "test_only_dry_run" ||
-        rawInput?.dry_run === true ||
-        rawInput?.dry_run === "true" ||
-        rawInput?.dryRun === true ||
-        rawInput?.dryRun === "true" ||
-        rawInput?.test_mode === true ||
-        rawInput?.test_mode === "true" ||
-        rawInput?.testMode === true ||
-        rawInput?.testMode === "true" ||
-        rawInput?.status === "test_only_dry_run"
+        isTruthyFlag(dry_run) ||
+        isTruthyFlag(dryRun) ||
+        isTruthyFlag(test_mode) ||
+        isTruthyFlag(testMode) ||
+        isTruthyFlag(rawInput?.dry_run) ||
+        isTruthyFlag(rawInput?.dryRun) ||
+        isTruthyFlag(rawInput?.test_mode) ||
+        isTruthyFlag(rawInput?.testMode) ||
+        isDryRunStatus(status) ||
+        isDryRunStatus(rawInput?.status) ||
+        isDryRunMode(mode) ||
+        isDryRunMode(rawInput?.mode)
       );
 
       // 1. Validación de campos obligatorios
@@ -799,6 +806,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           if (buffer) {
             if (buffer.length > 2 * 1024 * 1024) {
               return {
+                ok: false,
                 status: "invalid_input",
                 code: "PAYLOAD_TOO_LARGE",
                 message: "El archivo adjunto supera el límite máximo permitido de 2MB.",

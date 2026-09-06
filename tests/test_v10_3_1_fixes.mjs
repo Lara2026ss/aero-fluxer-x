@@ -154,6 +154,62 @@ async function runV10_3_1_Tests() {
   assert.strictEqual(invalidDryRunRes.ok, false);
   assert.strictEqual(invalidDryRunRes.code, "INVALID_INPUT");
 
+  // Test con status en mayúsculas y espacios (tolerancia robusta a clientes MCP)
+  const statusUpperRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      status: "  TEST_ONLY_DRY_RUN  ",
+      title: "Test con status TEST_ONLY_DRY_RUN en mayúsculas",
+      description: "Verificando normalización case-insensitive",
+    }
+  });
+  assert.strictEqual(statusUpperRes.ok, true, "status TEST_ONLY_DRY_RUN mayúsculas debe ser aceptado");
+  assert.strictEqual(statusUpperRes.dry_run, true);
+  assert.strictEqual(statusUpperRes.feedbackId, "AFX-FB-SIMULATED");
+
+  // Test con dry_run numérico (dry_run: 1) y como string "1"
+  const numericDryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      dry_run: 1,
+      title: "Test con dry_run: 1",
+      description: "Verificando valor numérico truthy para dry_run",
+    }
+  });
+  assert.strictEqual(numericDryRunRes.ok, true);
+  assert.strictEqual(numericDryRunRes.dry_run, true);
+  assert.strictEqual(numericDryRunRes.feedbackId, "AFX-FB-SIMULATED");
+
+  // Test con mode: "dry_run"
+  const modeDryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      mode: "dry_run",
+      title: "Test con mode dry_run",
+      description: "Verificando soporte de mode: dry_run",
+    }
+  });
+  assert.strictEqual(modeDryRunRes.ok, true);
+  assert.strictEqual(modeDryRunRes.dry_run, true);
+  assert.strictEqual(modeDryRunRes.feedbackId, "AFX-FB-SIMULATED");
+
+  // Test con dry_run especificado a nivel superior en router.execute
+  const topLevelDryRunRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    dry_run: true,
+    args: {
+      title: "Test con dry_run a nivel superior",
+      description: "Verificando propagación de dry_run desde argumentos raíz del MCP",
+    }
+  });
+  assert.strictEqual(topLevelDryRunRes.ok, true);
+  assert.strictEqual(topLevelDryRunRes.dry_run, true);
+  assert.strictEqual(topLevelDryRunRes.feedbackId, "AFX-FB-SIMULATED");
+
   // Test validación en dry_run: detección preventiva de secretos
   const secretKey = ["g", "sk_123456789012345678901234"].join("");
   const blockedDryRunRes = await runtime.router.execute({
@@ -167,6 +223,23 @@ async function runV10_3_1_Tests() {
   });
   assert.strictEqual(blockedDryRunRes.ok, false);
   assert.strictEqual(blockedDryRunRes.code, "BLOCKED_SENSITIVE_DATA");
+
+  // Test validación en dry_run: adjunto > 2MB debe ser rechazado con ok: false y PAYLOAD_TOO_LARGE
+  const largeAttachment = path.join(os.tmpdir(), "afx_large_test.bin");
+  await fs.writeFile(largeAttachment, Buffer.alloc(2.5 * 1024 * 1024)); // 2.5MB
+  const largeAttachRes = await runtime.router.execute({
+    tool: "developer",
+    action: "submit_feedback",
+    args: {
+      dry_run: true,
+      title: "Dry run con adjunto gigante",
+      description: "Debe ser rechazado con PAYLOAD_TOO_LARGE",
+      attachment: largeAttachment,
+    }
+  });
+  assert.strictEqual(largeAttachRes.ok, false, "Debe retornar ok: false ante adjunto > 2MB");
+  assert.strictEqual(largeAttachRes.code, "PAYLOAD_TOO_LARGE", "Código de error debe ser PAYLOAD_TOO_LARGE");
+  await fs.unlink(largeAttachment).catch(() => {});
 
   // Confirmar que NINGÚN archivo de simulación fue escrito en la outbox local
   let postOutboxFiles = [];

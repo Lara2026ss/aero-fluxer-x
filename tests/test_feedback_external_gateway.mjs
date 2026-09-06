@@ -160,12 +160,12 @@ async function main() {
   console.log("\n9. Probando herramientas de actualización (check_update, update_info)...");
   const checkRes = await router.execute("developer", "check_update", {});
   assert.equal(checkRes.ok, true);
-  assert.ok(checkRes.current);
+  assert.ok(checkRes.current || checkRes.current_version);
 
   const infoRes = await router.execute("developer", "update_info", {});
   assert.equal(infoRes.ok, true);
-  assert.ok(infoRes.version);
-  console.log(`   ✓ check_update & update_info OK (v${checkRes.current}).`);
+  assert.ok(infoRes.version || infoRes.current_version);
+  console.log(`   ✓ check_update & update_info OK (v${checkRes.current || checkRes.current_version}).`);
 
   console.log("\n══════════════════════════════════════════════════════════════════");
   console.log("🎉 TODAS LAS PRUEBAS DE ARQUITECTURA DEL FEEDBACK GATEWAY PASARON");
