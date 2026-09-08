@@ -5,6 +5,34 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v10.3.4] - 2026-09-07 (Seguimiento de Feedback Propio sin Admin Key, Compact Mode & Normalización ISO 8601)
+
+### 🔒 Seguridad y Gestión de Feedback
+- **Seguimiento de Feedback Propio sin Admin Key**:
+  - `storage/my_feedbacks.json`: registro local de autoría por máquina. Cada `developer.submit_feedback` guarda su ID, título y fecha en este índice local.
+  - `developer.list_my_feedbacks`: lista los reportes creados desde esta instalación con estado en vivo (`status`, `resolved_in_version`, `resolution_notes`), sin requerir ADMIN_KEY.
+  - `developer.read_feedback` / `developer.delete_feedback`: si el ID está en el registro local, se permite leer/borrar sin ADMIN_KEY_REQUIRED. IDs ajenos mantienen el bloqueo estricto — el candado ahora protege el escenario correcto (acceso ajeno) sin bloquear el propio.
+  - **Resiliencia del registro local**: si `my_feedbacks.json` falta o está corrupto, se reinicializa seguro como `[]`. Escritura atómica con respaldo automático en `storage/my_feedbacks.bak.json`. El backend (Firebase RTDB) conserva el registro original; el archivo local actúa como índice recuperable, no como única fuente de verdad.
+  - **Aislamiento multi-máquina intencional**: cada instalación gestiona solo sus propios tickets locales. Documentado como decisión de diseño, no como limitación accidental.
+  - **Sincronización bajo demanda (cero daemons)**: sin polling ni jobs en segundo plano. En modo NORMAL/SAFE con red disponible, cada consulta a `list_my_feedbacks`/`read_feedback` refresca el caché local desde Firebase/Render y responde con `source: "live_network"` + `cached_at`. En modo LOCKDOWN o sin conexión, responde desde `storage/my_feedbacks.json` con `source: "local_cache"`, `network_status: "blocked_by_lockdown"` y un warning explícito indicando que los datos reflejan la última consulta en línea.
+  - **Respeto a modos de seguridad**: `list_my_feedbacks` y `read_feedback` respetan el modo activo (SAFE, LOCKDOWN) en vez de operar como excepción fuera del sistema de permisos.
+
+### ⚡ Eficiencia y Formato de Datos
+- **Compact Mode extendido**:
+  - `system.get_processes`: nuevo parámetro `compact: true` — devuelve solo `PID`, `Name`, `MemoryMB`, `CPU%`. Sin el flag (o en false), preserva el formato tabular completo de siempre.
+  - `system.list_scheduled_tasks`: nuevo parámetro `include_run_times: true` para agregar `LastRunTime`/`NextRunTime` opcionalmente, con formato compacto selectivo que no altera el comportamiento por defecto.
+- **Normalización de fechas**:
+  - `system.get_windows_update_status` y `system.get_defender_status`: fechas WMI/.NET (`/Date(...)/`) normalizadas a ISO 8601 directo.
+- **Variables de entorno por sesión**:
+  - `system.get_env_vars`: nuevo parámetro `sessionOnly: true` — lista únicamente las variables agregadas por la sesión/proceso MCP actual vía `set_env_var`, sin depender de recordar nombres exactos.
+
+### 🐛 Correcciones (reportadas y verificadas en v10.3.1, mantenidas)
+- `set_env_var`/`remove_env_var` (scope process) ahora operan directo sobre `process.env` del proceso MCP real, sin depender de subprocesos PowerShell efímeros.
+- `list_scheduled_tasks` con filtro sin coincidencias devuelve `count: 0`, `tasks: []` de forma consistente (antes: raw: "").
+- `read_registry`/`write_registry` normalizan internamente la sintaxis de ruta (acepta `HKCU\...` estándar además de `HKCU:\...`).
+
+---
+
 ## [v10.3.3] - 2026-09-06 (On-Demand Compact Mode for Skill Management & Token Optimization)
 
 ### 🛠️ Nuevas Capacidades y Optimización de Tokens

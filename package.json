@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.3.3",
-  "description": "Fluxer Core MCP v10.3.3 — On-Demand Compact Mode in Skill Management (create_skill, edit_skill, get_skill, list_skills, validate_skill, delete_skill) & Token Optimization",
+  "version": "10.3.4",
+  "description": "Fluxer Core MCP v10.3.4 — Own Feedback Author Tracking, On-Demand Compact Mode & Date Normalization",
   "type": "module",
   "main": "server.js",
   "bin": {
