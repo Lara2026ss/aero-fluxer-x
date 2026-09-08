@@ -1,0 +1,50 @@
+{
+  "name": "shortcuts",
+  "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload.\nAcciones y argumentos (usar en args): add_shortcut { name, description, steps, category, tags } | backup_shortcuts { destination } | clear_all {} | create { name, description, steps, category, tags } | create_shortcut { name, description, steps, category, tags } | delete { name, all } | delete_shortcut { name, all } | edit { name, description, steps, category, tags } | execute { name, variables } | execute_shortcut { name, variables } | export_shortcuts { destination } | get { name } | get_shortcut { name } | history { name } | import_shortcuts { source, data, overwrite } | inspect { name } | list { category } | list_all { category } | list_shortcuts { category } | reload {} | remove { name, all } | rename { name, newName } | restore_shortcuts { source } | run { name, variables } | run_shortcut { name, variables } | save { name, description, steps, category, tags } | update { name, description, steps, category, tags }",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "add_shortcut",
+          "backup_shortcuts",
+          "clear_all",
+          "create",
+          "create_shortcut",
+          "delete",
+          "delete_shortcut",
+          "edit",
+          "execute",
+          "execute_shortcut",
+          "export_shortcuts",
+          "get",
+          "get_shortcut",
+          "history",
+          "import_shortcuts",
+          "inspect",
+          "list",
+          "list_all",
+          "list_shortcuts",
+          "reload",
+          "remove",
+          "rename",
+          "restore_shortcuts",
+          "run",
+          "run_shortcut",
+          "save",
+          "update"
+        ],
+        "description": "Acción a ejecutar en el dominio shortcuts"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

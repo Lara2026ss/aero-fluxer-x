@@ -115,7 +115,14 @@ export class MemoryStore {
           INSERT INTO notes_fts(notes_fts, rowid, title, content, tags) VALUES('delete', old.id, old.title, old.content, old.tags);
           INSERT INTO notes_fts(rowid, title, content, tags) VALUES (new.id, new.title, new.content, new.tags);
         END;
+      `);
 
+      try { this.db.exec("ALTER TABLE history ADD COLUMN error TEXT"); } catch (e) {}
+      try { this.db.exec("ALTER TABLE permissions ADD COLUMN principal TEXT"); } catch (e) {}
+      try { this.db.exec("ALTER TABLE permissions ADD COLUMN workflow_id TEXT"); } catch (e) {}
+      try { this.db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_permissions_workflow_id ON permissions(workflow_id)"); } catch (e) {}
+
+      this.db.exec(`
         CREATE INDEX IF NOT EXISTS idx_history_tool_action ON history(tool, action, ts);
         CREATE INDEX IF NOT EXISTS idx_history_client ON history(client, ts);
         CREATE INDEX IF NOT EXISTS idx_history_ok ON history(ok, ts);
@@ -128,10 +135,6 @@ export class MemoryStore {
         CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category, ts DESC);
         CREATE INDEX IF NOT EXISTS idx_kv_section_key ON kv(section, key);
       `);
-
-      try { this.db.exec("ALTER TABLE history ADD COLUMN error TEXT"); } catch (e) {}
-      try { this.db.exec("ALTER TABLE permissions ADD COLUMN principal TEXT"); } catch (e) {}
-      try { this.db.exec("ALTER TABLE permissions ADD COLUMN workflow_id TEXT UNIQUE"); } catch (e) {}
 
       // Migración y depuración de la tabla errors antigua
       try {

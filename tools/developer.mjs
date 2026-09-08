@@ -96,6 +96,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
   }
 
   // ── Local author feedbacks tracking (storage/my_feedbacks.json) ───────────────
+  // DECISIÓN DE DISEÑO: Aislamiento multi-máquina intencional.
+  // Cada instalación gestiona exclusivamente sus propios tickets locales registrados en storage/my_feedbacks.json.
+  // El backend (Firebase RTDB) conserva el registro original íntegro; el archivo local actúa
+  // como índice recuperable y caché local, no como única fuente de verdad.
   function getMyFeedbacksFilePath() {
     const root = runtime?.root || process.cwd();
     return path.join(root, "storage", "my_feedbacks.json");
@@ -128,7 +132,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         } catch {}
         return [];
       }
-      // Backup automático de archivo corrupto y reinicialización limpia
+      // Resiliencia: si my_feedbacks.json falta o está corrupto, se reinicializa seguro como []
+      // con respaldo automático en storage/my_feedbacks.bak.json
       try {
         const bakPath = path.join(path.dirname(filePath), "my_feedbacks.bak.json");
         const badContent = await fs.readFile(filePath, "utf8").catch(() => "");
@@ -151,6 +156,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
     runtime._sessionFeedbackIds.add(record.id);
 
     const filePath = getMyFeedbacksFilePath();
+    const bakPath = path.join(path.dirname(filePath), "my_feedbacks.bak.json");
+    const tmpPath = `${filePath}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
     try {
       let list = await loadMyFeedbacks();
       const idx = list.findIndex((f) => f.id === record.id);
@@ -160,8 +167,22 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         list.unshift(record);
       }
       await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, JSON.stringify(list, null, 2) + "\n", "utf8");
-    } catch {}
+      const jsonContent = JSON.stringify(list, null, 2) + "\n";
+      
+      // Respaldo preventivo antes de sobrescribir
+      try {
+        const currentContent = await fs.readFile(filePath, "utf8").catch(() => null);
+        if (currentContent && currentContent.trim().length > 0) {
+          await fs.writeFile(bakPath, currentContent, "utf8");
+        }
+      } catch {}
+
+      // Escritura atómica vía archivo temporal + rename
+      await fs.writeFile(tmpPath, jsonContent, "utf8");
+      await fs.rename(tmpPath, filePath);
+    } catch (err) {
+      await fs.rm(tmpPath, { force: true }).catch(() => {});
+    }
   }
 
   async function removeMyFeedback(id) {
@@ -173,12 +194,28 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       runtime._sessionFeedbackIds.delete(id);
     }
     const filePath = getMyFeedbacksFilePath();
+    const bakPath = path.join(path.dirname(filePath), "my_feedbacks.bak.json");
+    const tmpPath = `${filePath}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
     try {
       let list = await loadMyFeedbacks();
       list = list.filter((f) => f.id !== id);
       await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, JSON.stringify(list, null, 2) + "\n", "utf8");
-    } catch {}
+      const jsonContent = JSON.stringify(list, null, 2) + "\n";
+
+      // Respaldo preventivo
+      try {
+        const currentContent = await fs.readFile(filePath, "utf8").catch(() => null);
+        if (currentContent && currentContent.trim().length > 0) {
+          await fs.writeFile(bakPath, currentContent, "utf8");
+        }
+      } catch {}
+
+      // Escritura atómica
+      await fs.writeFile(tmpPath, jsonContent, "utf8");
+      await fs.rename(tmpPath, filePath);
+    } catch (err) {
+      await fs.rm(tmpPath, { force: true }).catch(() => {});
+    }
   }
 
   async function isMyFeedback(id) {
@@ -1613,7 +1650,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         return {
           ok: true,
           source: "local_cache",
-          network_status: "offline_or_lockdown",
+          network_status: "blocked_by_lockdown",
+          warning: "Datos obtenidos de la caché local; la sincronización de red está bloqueada por el modo LOCKDOWN. Los datos reflejan la última consulta en línea.",
           feedback: localRecord
             ? { ...localRecord, cached_at: localRecord.cached_at || localRecord.created_at }
             : { id, status: "recibido", cached_at: new Date().toISOString() },
@@ -1654,6 +1692,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
               ok: true,
               source: "local_cache",
               network_status: "unauthorized_remote",
+              warning: "Acceso remoto no autorizado; mostrando datos desde caché local.",
               feedback: {
                 ...localRecord,
                 cached_at: localRecord.cached_at || localRecord.created_at,
@@ -1667,6 +1706,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
             return {
               ok: true,
               source: "local_cache",
+              warning: "Registro no encontrado en el servidor remoto; mostrando datos desde caché local.",
               feedback: {
                 ...localRecord,
                 cached_at: localRecord.cached_at || localRecord.created_at,
@@ -1681,6 +1721,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
               ok: true,
               source: "local_cache",
               network_status: `http_${response.status}`,
+              warning: `Respuesta HTTP ${response.status} del gateway remoto; mostrando datos desde caché local.`,
               feedback: {
                 ...localRecord,
                 cached_at: localRecord.cached_at || localRecord.created_at,
@@ -1704,7 +1745,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           if (isOwn) {
             await saveMyFeedback(updated);
           }
-          return { ok: true, source: "gateway", feedback: updated };
+          return { ok: true, source: "live_network", cached_at: updated.cached_at, feedback: updated };
         }
 
         return { ok: true, feedback: response.data?.feedback || localRecord };
@@ -1713,7 +1754,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           return {
             ok: true,
             source: "local_cache",
-            network_status: "offline_or_lockdown",
+            network_status: isLockdown ? "blocked_by_lockdown" : "offline",
+            warning: isLockdown
+              ? "Datos obtenidos de la caché local; la sincronización de red está bloqueada por el modo LOCKDOWN. Los datos reflejan la última consulta en línea."
+              : "Datos obtenidos de la caché local; no se pudo sincronizar en vivo con la red. Los datos reflejan la última consulta en línea.",
             feedback: {
               ...localRecord,
               cached_at: localRecord.cached_at || localRecord.created_at,
@@ -1803,7 +1847,8 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           ok: true,
           count: list.length,
           source: "local_cache",
-          network_status: "offline_or_lockdown",
+          network_status: "blocked_by_lockdown",
+          warning: "Datos obtenidos de la caché local; la sincronización de red está bloqueada por el modo LOCKDOWN. Los datos reflejan la última consulta en línea.",
           last_sync: list[0]?.cached_at || list[0]?.created_at || null,
           feedbacks: list.map((f) => ({
             id: f.id,
@@ -1869,8 +1914,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       return {
         ok: true,
         count: list.length,
-        source: didSync ? "gateway_synced" : "local_cache",
-        ...(didSync ? {} : { network_status: "offline_or_lockdown" }),
+        source: didSync ? "live_network" : "local_cache",
+        ...(didSync
+          ? { cached_at: new Date().toISOString() }
+          : {
+              network_status: isLockdown ? "blocked_by_lockdown" : "offline",
+              warning: isLockdown
+                ? "Datos obtenidos de la caché local; la sincronización de red está bloqueada por el modo LOCKDOWN. Los datos reflejan la última consulta en línea."
+                : "Datos obtenidos de la caché local; no se pudo sincronizar en vivo con la red. Los datos reflejan la última consulta en línea.",
+            }),
         last_sync: list[0]?.cached_at || list[0]?.created_at || null,
         feedbacks: list.map((f) => ({
           id: f.id,

@@ -332,7 +332,8 @@ async function runHotfixTests() {
   });
   assert.strictEqual(lockdownList.ok, true, "list_my_feedbacks debe responder en LOCKDOWN");
   assert.strictEqual(lockdownList.source, "local_cache", "source debe ser local_cache");
-  assert.strictEqual(lockdownList.network_status, "offline_or_lockdown", "network_status debe ser offline_or_lockdown");
+  assert.strictEqual(lockdownList.network_status, "blocked_by_lockdown", "network_status debe ser blocked_by_lockdown");
+  assert.ok(lockdownList.warning, "Debe incluir warning explícito");
   assert.ok(lockdownList.feedbacks.length === 1, "Debe listar el item cacheado");
   assert.strictEqual(lockdownList.feedbacks[0].id, lockdownItem.id);
   assert.ok(lockdownList.feedbacks[0].cached_at, "Debe informar cached_at");
@@ -344,7 +345,8 @@ async function runHotfixTests() {
   });
   assert.strictEqual(lockdownRead.ok, true, "read_feedback propio debe responder en LOCKDOWN");
   assert.strictEqual(lockdownRead.source, "local_cache", "source debe ser local_cache");
-  assert.strictEqual(lockdownRead.network_status, "offline_or_lockdown", "network_status debe ser offline_or_lockdown");
+  assert.strictEqual(lockdownRead.network_status, "blocked_by_lockdown", "network_status debe ser blocked_by_lockdown");
+  assert.ok(lockdownRead.warning, "Debe incluir warning explícito");
   assert.strictEqual(lockdownRead.feedback.id, lockdownItem.id);
   assert.ok(lockdownRead.feedback.cached_at, "Debe informar cached_at");
 

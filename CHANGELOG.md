@@ -20,25 +20,31 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
-## [v10.3.2] - 2026-09-06 (Official Hotfix Release — On-Demand Compact Mode, ISO 8601 Date Normalization, Session-Scoped Env Vars & Feedback Author Tracking)
+## [v10.3.2] - 2026-09-06 (Seguimiento de Feedback Propio sin Admin Key, Compact Mode & Normalización ISO 8601)
 
-### 🛠️ Correcciones Críticas y Nuevas Capacidades
-- **Regla Fundamental de Compact Mode (Opcional y Bajo Demanda)**:
-  - `compact mode` NO está activado por defecto ni forzado de forma permanente; devuelve siempre salida estándar completa a menos que la IA pase explícitamente `compact: true` o `compact_mode: true`.
-  - `system.list_scheduled_tasks`: con `compact: true`, retorna únicamente `TaskName` y `State` para ahorro masivo de tokens; por defecto retorna el formato completo.
-  - `system.get_processes`: con `compact: true`, devuelve únicamente los campos esenciales (`PID`, `Name`, `MemoryMB`, `CPU%`); por defecto retorna la tabla estándar en `output`.
-  - `security.audit_log`: con `compact: true`, limita las entradas a `timestamp`, `tool`, `action` y `status`.
-- **[AFX-FB-9XMUF4] Normalización Universal de Fechas .NET / WMI a ISO 8601**:
-  - En `system.get_windows_update_status` y `system.get_defender_status`, normalización automática de fechas crudas de formato `/Date(1787919781000)/` a formato estándar ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`).
-- **[AFX-FB-PUG9Y6] Seguimiento y Gestión de Feedback Propio sin Requerir ADMIN_KEY**:
-  - Persistencia local y en memoria de feedbacks generados por la máquina/sesión en `storage/my_feedbacks.json`.
-  - `developer.read_feedback`: permite consultar feedbacks propios sin requerir `ADMIN_KEY`, sincronizando bajo demanda con el Gateway/Firebase y conservando caché local transparente ante entornos fuera de línea o modo LOCKDOWN. `ADMIN_KEY_REQUIRED` solo se exige para consultar feedbacks ajenos.
-  - `developer.delete_feedback`: permite eliminar feedbacks propios sin requerir `ADMIN_KEY`, removiéndolos del registro local y del backend.
-  - Nueva subherramienta `developer.list_my_feedbacks`: acción de lectura (`standard`) que expone exclusivamente los reportes enviados desde este equipo con su estado actualizado (`recibido`, `en_proceso`, `hecho`), `resolution_notes` y `fixed_in_version`, con cero filtración de datos ajenos y resiliencia con backup automático ante JSON corrupto.
-- **[AFX-FB-B6A7UQ] `system.get_env_vars` con `sessionOnly: true`**:
-  - Soporte del parámetro opcional `sessionOnly: true` para devolver exclusivamente las variables que fueron asignadas durante la sesión actual mediante `set_env_var` (aisladas de las variables globales del sistema operativo).
-- **[AFX-FB-TTLJN2] `system.list_scheduled_tasks` con `include_run_times: true`**:
-  - Soporte del parámetro opcional `include_run_times: true` (o `includeSchedule: true`) para exponer `LastRunTime` y `NextRunTime` normalizados en ISO 8601 al consultar tareas programadas de Windows.
+### 🔒 Seguridad y Gestión de Feedback
+- **Seguimiento de Feedback Propio sin Admin Key**:
+  - `storage/my_feedbacks.json`: registro local de autoría por máquina. Cada `developer.submit_feedback` guarda su ID, título y fecha en este índice local.
+  - `developer.list_my_feedbacks`: lista los reportes creados desde esta instalación con estado en vivo (`status`, `resolved_in_version`, `resolution_notes`), sin requerir ADMIN_KEY.
+  - `developer.read_feedback` / `developer.delete_feedback`: si el ID está en el registro local, se permite leer/borrar sin ADMIN_KEY_REQUIRED. IDs ajenos mantienen el bloqueo estricto — el candado ahora protege el escenario correcto (acceso ajeno) sin bloquear el propio.
+  - **Resiliencia del registro local**: si `my_feedbacks.json` falta o está corrupto, se reinicializa seguro como `[]`. Escritura atómica con respaldo automático en `storage/my_feedbacks.bak.json`. El backend (Firebase RTDB) conserva el registro original; el archivo local actúa como índice recuperable, no como única fuente de verdad.
+  - **Aislamiento multi-máquina intencional**: cada instalación gestiona solo sus propios tickets locales. Documentado como decisión de diseño, no como limitación accidental.
+  - **Sincronización bajo demanda (cero daemons)**: sin polling ni jobs en segundo plano. En modo NORMAL/SAFE con red disponible, cada consulta a `list_my_feedbacks`/`read_feedback` refresca el caché local desde Firebase/Render y responde con `source: "live_network"` + `cached_at`. En modo LOCKDOWN o sin conexión, responde desde `storage/my_feedbacks.json` con `source: "local_cache"`, `network_status: "blocked_by_lockdown"` y un warning explícito indicando que los datos reflejan la última consulta en línea.
+  - **Respeto a modos de seguridad**: `list_my_feedbacks` y `read_feedback` respetan el modo activo (SAFE, LOCKDOWN) en vez de operar como excepción fuera del sistema de permisos.
+
+### ⚡ Eficiencia y Formato de Datos
+- **Compact Mode extendido**:
+  - `system.get_processes`: nuevo parámetro `compact: true` — devuelve solo `PID`, `Name`, `MemoryMB`, `CPU%`. Sin el flag (o en false), preserva el formato tabular completo de siempre.
+  - `system.list_scheduled_tasks`: nuevo parámetro `include_run_times: true` para agregar `LastRunTime`/`NextRunTime` opcionalmente, con formato compacto selectivo que no altera el comportamiento por defecto.
+- **Normalización de fechas**:
+  - `system.get_windows_update_status` y `system.get_defender_status`: fechas WMI/.NET (`/Date(...)/`) normalizadas a ISO 8601 directo.
+- **Variables de entorno por sesión**:
+  - `system.get_env_vars`: nuevo parámetro `sessionOnly: true` — lista únicamente las variables agregadas por la sesión/proceso MCP actual vía `set_env_var`, sin depender de recordar nombres exactos.
+
+### 🐛 Correcciones (reportadas y verificadas en v10.3.1, mantenidas)
+- `set_env_var`/`remove_env_var` (scope process) ahora operan directo sobre `process.env` del proceso MCP real, sin depender de subprocesos PowerShell efímeros.
+- `list_scheduled_tasks` con filtro sin coincidencias devuelve `count: 0`, `tasks: []` de forma consistente (antes: raw: "").
+- `read_registry`/`write_registry` normalizan internamente la sintaxis de ruta (acepta `HKCU\...` estándar además de `HKCU:\...`).
 
 ---
 
