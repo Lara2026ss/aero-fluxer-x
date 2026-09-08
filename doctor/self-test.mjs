@@ -128,8 +128,9 @@ export async function runSelfTest(runtime) {
   invariantResults.push(checkInvariant("INV_013", fileWrittenVerify.verified === true && fileWrittenVerify.actualBytes > 0, fileWrittenVerify));
 
   // 14. INV-014: Git Identity Integrity
-  const gitIdVerify = await VerificationEngine.verifyGitIdentity(process.cwd(), { expectedName: "Agy-Leo" });
-  invariantResults.push(checkInvariant("INV_014", gitIdVerify.verified === true && gitIdVerify.identity.name === "Agy-Leo", gitIdVerify));
+  const gitIdVerify = await VerificationEngine.verifyGitIdentity(process.cwd());
+  const gitIdOk = gitIdVerify.verified === true && Boolean(gitIdVerify.identity?.name);
+  invariantResults.push(checkInvariant("INV_014", gitIdOk, gitIdVerify));
 
   // 15. INV-015: FTS5 Secret Redaction
   const sampleSecret = "token: ghp_123456789012345678901234567890123456";

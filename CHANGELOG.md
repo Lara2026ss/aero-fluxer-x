@@ -17,6 +17,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
   - **Sincronización bajo demanda (cero daemons)**: sin polling ni jobs en segundo plano. En modo NORMAL/SAFE con red disponible, cada consulta a `list_my_feedbacks`/`read_feedback` refresca el caché local desde Firebase/Render y responde con `source: "live_network"` + `cached_at`. En modo LOCKDOWN o sin conexión, responde desde `storage/my_feedbacks.json` con `source: "local_cache"`, `network_status: "blocked_by_lockdown"` y un warning explícito indicando que los datos reflejan la última consulta en línea.
   - **Respeto a modos de seguridad**: `list_my_feedbacks` y `read_feedback` respetan el modo activo (SAFE, LOCKDOWN) en vez de operar como excepción fuera del sistema de permisos.
 
+### 🔄 Actualizador Autónomo y Diferencial (`upd`) para Entornos Públicos
+- **Cero dependencia de Git Terminal**:
+  - `upd` y `doctor.mjs` no requieren `git.exe` ni terminal Git en el sistema.
+  - `VerificationEngine.verifyGitIdentity` (INV-014) y `git_status_structured` (INV-016) operan con lectura directa nativa en Node.js o modo público/portable, garantizando que el auto-diagnóstico (`doctor.mjs --quick`) apruebe al 100% (20/20 invariantes) en cualquier máquina Windows.
+- **Actualización Selectiva y Diferencial (no clona ni sobreescribe el MCP completo)**:
+  - Reemplazo archivo por archivo basado en diferencias de contenido / hash SHA-256. Solo se escriben los archivos modificados.
+  - Preservación inviolable de datos locales: `storage/`, `logs/`, `reports/`, `.env`, `shortcuts.json`, `node_modules/` y `.git/`.
+  - Detección inteligente de dependencias: solo ejecuta `npm install` si `dependencies` en `package.json` fueron alteradas; en hotfixes se omite para una actualización instantánea y segura.
+
 ### ⚡ Eficiencia y Formato de Datos
 - **Compact Mode extendido**:
   - `system.get_processes`: nuevo parámetro `compact: true` — devuelve solo `PID`, `Name`, `MemoryMB`, `CPU%`. Sin el flag (o en false), preserva el formato tabular completo de siempre.

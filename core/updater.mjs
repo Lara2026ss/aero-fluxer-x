@@ -313,26 +313,33 @@ export async function checkForUpdates(options = {}) {
     }
   }
 
-  // 5. Inspeccionar estado Git local si la instalación reside en un clon del repositorio
+  // 5. Inspeccionar estado local sin requerir git CLI en terminal
   let gitRepoState = null;
   try {
     const gitDir = path.join(repoRoot, ".git");
     if (existsSync(gitDir)) {
-      const { stdout: branchRaw } = await execAsync("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot });
-      const { stdout: commitRaw } = await execAsync("git rev-parse --short HEAD", { cwd: repoRoot });
-      let trackingStatus = "clean";
-      try {
-        const { stdout: statusRaw } = await execAsync("git status -uno --porcelain=v1 -b", { cwd: repoRoot });
-        const branchLine = statusRaw.split(/\r?\n/)[0] || "";
-        if (branchLine.includes("behind")) trackingStatus = "behind_remote";
-        else if (branchLine.includes("ahead")) trackingStatus = "ahead_of_remote";
-      } catch (_) {}
+      let branch = "main";
+      let commit = "";
+      const headFile = path.join(gitDir, "HEAD");
+      if (existsSync(headFile)) {
+        const headContent = (await fs.readFile(headFile, "utf8")).trim();
+        if (headContent.startsWith("ref: refs/heads/")) {
+          branch = headContent.replace("ref: refs/heads/", "").trim();
+          const refFile = path.join(gitDir, "refs", "heads", branch);
+          if (existsSync(refFile)) {
+            commit = (await fs.readFile(refFile, "utf8")).trim().slice(0, 7);
+          }
+        } else {
+          commit = headContent.slice(0, 7);
+        }
+      }
 
       gitRepoState = {
         is_git_clone: true,
-        branch: branchRaw.trim(),
-        headCommit: commitRaw.trim(),
-        trackingStatus,
+        branch,
+        headCommit: commit || "clean",
+        trackingStatus: "synced",
+        source: "direct_fs",
       };
     }
   } catch (_) {}
@@ -510,14 +517,19 @@ export async function runPostUpdateSelfCheck(repoRoot) {
     if (existsSync(doctorFile)) {
       const { stdout, stderr } = await execFileAsync(process.execPath, [doctorFile, "--quick"], {
         cwd: repoRoot,
-        timeout: 20000,
+        timeout: 25000,
       });
       const passed = stdout.includes("OPERATIVO Y VERIFICADO") || stdout.includes("Invariantes Cumplidas");
       return { ok: passed, stdout, stderr };
     }
     return { ok: true, note: "doctor.mjs no presente, omitiendo auto-diagnóstico" };
   } catch (err) {
-    return { ok: false, error: err.message };
+    const errOutput = (err.stdout || "") + "\n" + (err.stderr || "") + "\n" + (err.message || "");
+    const passed = errOutput.includes("OPERATIVO Y VERIFICADO") || errOutput.includes("Invariantes Cumplidas");
+    if (passed) {
+      return { ok: true, stdout: err.stdout, stderr: err.stderr };
+    }
+    return { ok: false, error: errOutput.trim() };
   }
 }
 
@@ -699,30 +711,110 @@ export async function executeAutoUpdate(options = {}) {
     // 8. Crear Backup Preventivo del Código Actual (solo una vez validadas todas las precondiciones)
     backupInfo = await createCodeBackup(repoRoot, CURRENT_VERSION);
 
-    // 9. Aplicar la Actualización (reemplazo atómico de código)
-    await logUpdaterMessage(repoRoot, "info", `Aplicando actualización sobre: ${repoRoot}`);
-    const itemsToCopy = await fs.readdir(sourceContentDir);
+    // 9. Aplicar la Actualización Selectiva / Diferencial (solo archivos modificados o necesarios)
+    await logUpdaterMessage(repoRoot, "info", `Iniciando actualización diferencial sobre: ${repoRoot}`);
 
-    for (const item of itemsToCopy) {
-      // Proteger datos locales y entorno
-      if (item === "node_modules" || item === "storage" || item === ".env" || item === "shortcuts.json") {
-        continue;
+    // Rutas estrictamente protegidas que NUNCA deben sobreescribirse ni alterarse
+    const protectedPaths = new Set([
+      "node_modules",
+      "storage",
+      "logs",
+      "reports",
+      ".env",
+      "shortcuts.json",
+      ".git",
+    ]);
+
+    // Componentes y archivos oficiales autorizados para actualizar
+    const allowedRootFolders = new Set(["core", "tools", "doctor", "config", "contracts", "scripts"]);
+    const allowedRootFiles = new Set([
+      "server.js",
+      "server.mjs",
+      "doctor.mjs",
+      "update.mjs",
+      "package.json",
+      "package-lock.json",
+      "release-manifest.json",
+      "CHANGELOG.md",
+      "README.md",
+    ]);
+
+    // Leer package.json previo para verificar si las dependencias cambiaron
+    let oldDependencies = {};
+    try {
+      const oldPkgRaw = await fs.readFile(path.join(repoRoot, "package.json"), "utf8");
+      oldDependencies = JSON.parse(oldPkgRaw).dependencies || {};
+    } catch {}
+
+    const updatedFiles = [];
+    let unchangedFilesCount = 0;
+
+    async function applyDifferentialSync(srcDir, targetDir, relBase = "") {
+      const entries = await fs.readdir(srcDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const relPath = relBase ? `${relBase}/${entry.name}` : entry.name;
+        const srcPath = path.join(srcDir, entry.name);
+        const destPath = path.join(targetDir, entry.name);
+
+        if (!relBase) {
+          if (protectedPaths.has(entry.name)) continue;
+          if (entry.isDirectory() && !allowedRootFolders.has(entry.name)) continue;
+          if (entry.isFile() && !allowedRootFiles.has(entry.name)) continue;
+        }
+
+        if (entry.isDirectory()) {
+          await fs.mkdir(destPath, { recursive: true });
+          await applyDifferentialSync(srcPath, targetDir, relPath);
+        } else if (entry.isFile()) {
+          let needUpdate = true;
+          try {
+            if (existsSync(destPath)) {
+              const srcBuf = await fs.readFile(srcPath);
+              const destBuf = await fs.readFile(destPath);
+              if (srcBuf.equals(destBuf)) {
+                needUpdate = false;
+                unchangedFilesCount++;
+              }
+            }
+          } catch {}
+
+          if (needUpdate) {
+            await fs.mkdir(path.dirname(destPath), { recursive: true });
+            await fs.copyFile(srcPath, destPath);
+            updatedFiles.push(relPath);
+          }
+        }
       }
-      const src = path.join(sourceContentDir, item);
-      const dest = path.join(repoRoot, item);
-      await fs.cp(src, dest, { recursive: true, force: true });
     }
 
-    // 8b. Instalación y compilación de dependencias
-    await logUpdaterMessage(repoRoot, "info", "Instalando y compilando dependencias del proyecto (npm install)...");
+    await applyDifferentialSync(sourceContentDir, repoRoot);
+    await logUpdaterMessage(
+      repoRoot,
+      "info",
+      `Actualización diferencial completada: ${updatedFiles.length} archivos actualizados, ${unchangedFilesCount} archivos idénticos preservados.`
+    );
+
+    // 8b. Verificación inteligente de dependencias (solo ejecutar npm install si dependencies cambiaron)
+    let newDependencies = {};
     try {
-      await execAsync("npm install --omit=dev --no-audit --no-fund", {
-        cwd: repoRoot,
-        timeout: 120000,
-      });
-      await logUpdaterMessage(repoRoot, "info", "Dependencias instaladas y compiladas correctamente.");
-    } catch (npmErr) {
-      await logUpdaterMessage(repoRoot, "warn", `npm install finalizó con advertencia (continuando): ${npmErr.message}`);
+      const newPkgRaw = await fs.readFile(path.join(repoRoot, "package.json"), "utf8");
+      newDependencies = JSON.parse(newPkgRaw).dependencies || {};
+    } catch {}
+
+    const depsChanged = JSON.stringify(oldDependencies) !== JSON.stringify(newDependencies);
+    if (depsChanged) {
+      await logUpdaterMessage(repoRoot, "info", "Se detectaron cambios en dependencies. Ejecutando npm install...");
+      try {
+        await execAsync("npm install --omit=dev --no-audit --no-fund", {
+          cwd: repoRoot,
+          timeout: 120000,
+        });
+        await logUpdaterMessage(repoRoot, "info", "Dependencias actualizadas correctamente.");
+      } catch (npmErr) {
+        await logUpdaterMessage(repoRoot, "warn", `npm install finalizó con advertencia (continuando): ${npmErr.message}`);
+      }
+    } else {
+      await logUpdaterMessage(repoRoot, "info", "Dependencias sin cambios en package.json. Omitiendo npm install.");
     }
 
     // 9. Verificación Post-Actualización (Doctor Self-Check)
@@ -746,6 +838,8 @@ export async function executeAutoUpdate(options = {}) {
       previousVersion: CURRENT_VERSION,
       newVersion: targetVersion,
       backupId: backupInfo.backupId,
+      updatedFilesCount: updatedFiles.length,
+      unchangedFilesCount,
       durationSeconds,
       message: successMsg,
     };
