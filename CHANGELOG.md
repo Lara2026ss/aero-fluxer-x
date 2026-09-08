@@ -5,6 +5,36 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v10.4.0] - 2026-09-07 (Primer Lanzamiento Público Mayor — Cero Git, Hot-Reload Supervisor & Wizard Installer)
+
+### 🚀 Lanzamiento Público y Supervisión de Proceso
+- **Supervisor de Proceso y Hot-Reload Automático (`launcher.mjs` + `start.bat`)**:
+  - `launcher.mjs`: Supervisor inteligente en Node.js puro. Intercepta el código de salida `75` emitido por el actualizador (`upd`) y reinicia el servidor MCP de forma transparente e instantánea sin descolgar al cliente host.
+  - **Manejo Elegante de Señales**: Soporte nativo para `SIGTERM` y `SIGINT` realizando *graceful shutdown* de conexiones y escrituras pendientes.
+  - **Protección Anti Crash-Loop**: Si el proceso falla repetidamente (> 5 veces en 10s), suspende el supervisor para evitar saturar la máquina.
+- **Wizard de Instalación Público para Windows (`install.bat`)**:
+  - Auto-detección e instalación asistida de Node.js LTS (v18+) si no está presente en el sistema.
+  - Selección guiada de carpeta de destino.
+  - **Inyección Inteligente en `claude_desktop_config.json`**: Fusiona automáticamente el objeto `mcpServers.fluxer-x` en la configuración de Claude Desktop preservando configuraciones previas y creando respaldos `.bak`.
+  - Fallback automático copiando la configuración JSON al portapapeles de Windows si Claude Desktop no está instalado.
+
+### 🔄 Actualizador Autónomo y Diferencial (`upd`)
+- **Cero dependencia de Git Terminal**:
+  - `upd` y `doctor.mjs` no requieren `git.exe` ni terminal Git en el sistema.
+  - `VerificationEngine.verifyGitIdentity` (INV-014) y `git_status_structured` (INV-016) operan con lectura nativa directa en Node.js o modo público/portable, garantizando que el auto-diagnóstico (`doctor.mjs --quick`) apruebe al 100% (20/20 invariantes) en cualquier máquina Windows.
+- **Actualización Selectiva y Diferencial (no clona ni sobreescribe el MCP completo)**:
+  - Reemplazo archivo por archivo basado en diferencias de contenido / hash SHA-256. Solo se escriben los archivos modificados.
+  - Preservación inviolable de datos locales: `storage/`, `logs/`, `reports/`, `.env`, `shortcuts.json`, `node_modules/` y `.git/`.
+  - Detección inteligente de dependencias: solo ejecuta `npm install` si `dependencies` en `package.json` fueron alteradas; en hotfixes se omite para una actualización instantánea y segura.
+
+### 🔒 Seguridad y Gestión de Feedback
+- **Seguimiento de Feedback Propio sin Admin Key**:
+  - `storage/my_feedbacks.json`: registro local de autoría por máquina. Cada `developer.submit_feedback` guarda su ID, título y fecha en este índice local.
+  - `developer.list_my_feedbacks`: lista los reportes creados desde esta instalación con estado en vivo (`status`, `resolved_in_version`, `resolution_notes`), sin requerir ADMIN_KEY.
+  - `developer.read_feedback` / `developer.delete_feedback`: si el ID está en el registro local, se permite leer/borrar sin ADMIN_KEY_REQUIRED. IDs ajenos mantienen el bloqueo estricto.
+
+---
+
 ## [v10.3.4] - 2026-09-07 (Seguimiento de Feedback Propio sin Admin Key, Compact Mode & Normalización ISO 8601)
 
 ### 🔒 Seguridad y Gestión de Feedback

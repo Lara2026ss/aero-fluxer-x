@@ -1358,9 +1358,10 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         const restartNotice = getClientRestartNotice(runtime);
 
         // Desconectar el servidor MCP limpiamente tras permitir el flush completo del JSON-RPC
+        // Se usa código de salida 75 (hot-reload) para que launcher.mjs reinicie el proceso de inmediato
         setTimeout(() => {
           try {
-            process.exit(0);
+            process.exit(75);
           } catch {}
         }, 2500);
 

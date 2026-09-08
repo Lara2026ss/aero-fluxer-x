@@ -27,7 +27,9 @@ export function createGuideDomain({ runtime, domain }) {
           best_practice: "Pide el nivel canónico adecuado (ej. 'advanced') por el tiempo estimado (ej. 5 a 20 min) solo cuando sea estrictamente necesario."
         },
         updates: {
-          how_to_update: "Para aplicar actualizaciones oficiales de Fluxer X, usa la herramienta 'upd' con action: 'apply'. Pide siempre confirmación al usuario en el chat (ej: '¿Deseas actualizar a vX.X.X?') y cuando te dé su visto bueno llama a 'upd' con { action: 'apply', confirm: true }. No requiere elevación ni configuraciones complejas."
+          how_to_update: "Para aplicar actualizaciones oficiales de Fluxer Core, usa 'upd' con action: 'apply' e incluye { confirm: true } tras la autorización del usuario en el chat. El sistema realiza una actualización diferencial autónoma por archivo (sin requerir Git CLI en terminal), ejecuta el auto-diagnóstico post-actualización (20/20 invariantes) y emite señal de hot-reload para relanzamiento transparente.",
+          zero_git_architecture: "Totalmente compatible con entornos públicos/portables. No requiere Git en el PATH del SO ni herramientas de compilación externas.",
+          public_installer: "Para nuevas instalaciones en Windows, ejecuta install.bat para autodetectar Node.js, seleccionar la carpeta e inyectar la configuración directamente en Claude Desktop."
         },
         permission_denied: "Si recibes PERMISSION_DENIED o CONFIRMATION_REQUIRED en una acción sensible, explica al usuario de manera clara y amigable qué operación deseas ejecutar y solicita su visto bueno antes de continuar."
       };

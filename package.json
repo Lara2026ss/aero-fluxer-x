@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.3.4",
-  "description": "Fluxer Core MCP v10.3.4 — Own Feedback Author Tracking, On-Demand Compact Mode & Date Normalization",
+  "version": "10.4.0",
+  "description": "Fluxer Core MCP v10.4.0 — Public Distribution Release: Zero-Git Autonomous Updater, Hot-Reload Supervisor & Automated Installer Wizard",
   "type": "module",
   "main": "server.js",
   "bin": {
