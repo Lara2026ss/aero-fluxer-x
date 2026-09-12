@@ -267,6 +267,17 @@ export class Router {
         action = "upd_info";
       } else if (requestedAction === "data" || requestedAction === "status" || requestedAction === "upd_data") {
         action = "upd_data";
+      } else if (requestedAction === "doctor" || requestedAction === "upd_doctor" || requestedAction === "health") {
+        action = "upd_doctor";
+      } else if (requestedAction === "repair" || requestedAction === "upd_repair" || requestedAction === "fix") {
+        action = "upd_repair";
+      } else if (requestedAction === "install" || requestedAction === "upd_install" || requestedAction === "wizard" || requestedAction === "setup") {
+        action = "upd_install";
+        if (!args.mode && (requestedAction === "wizard" || requestedAction === "setup")) {
+          args.mode = "wizard";
+        }
+      } else if (requestedAction === "set_channel" || requestedAction === "channel" || requestedAction === "upd_set_channel") {
+        action = "upd_set_channel";
       } else if (requestedAction === "rollback" || requestedAction === "upd_rollback" || requestedAction === "revert") {
         action = "upd_rollback";
       } else if (requestedAction === "backups" || requestedAction === "upd_backups" || requestedAction === "list_backups") {
@@ -279,8 +290,11 @@ export class Router {
       } else {
         action = "upd";
       }
-    } else if (["upd_check", "upd_info", "upd_data", "upd_rollback", "upd_backups", "feedback_outbox_status"].includes(tool.toLowerCase())) {
+    } else if (["upd_check", "upd_info", "upd_data", "upd_doctor", "upd_repair", "upd_install", "upd_set_channel", "upd_rollback", "upd_backups", "feedback_outbox_status"].includes(tool.toLowerCase())) {
       action = tool.toLowerCase();
+      tool = "developer";
+    } else if (["install", "setup_wizard"].includes(tool.toLowerCase())) {
+      action = "upd_install";
       tool = "developer";
     } else if (["sandbox_status"].includes(tool.toLowerCase())) {
       action = "sandbox_status";
@@ -291,6 +305,8 @@ export class Router {
     } else if (["audit_vulnerabilities"].includes(tool.toLowerCase())) {
       action = "audit_vulnerabilities";
       tool = "packages";
+    } else if (["fl_studio", "fl-studio", "fl", "fl_studio_mcp"].includes(tool.toLowerCase())) {
+      tool = "flstudio";
     }
 
     // Soporte nativo para skills invocados directamente como tool

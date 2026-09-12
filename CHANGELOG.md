@@ -5,6 +5,84 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v11.0.5] - 2026-09-12 (Hotfix — FL Studio Autonomous Suite)
+
+### 🎹 Suite Autónoma y Control en Tiempo Real de FL Studio (`flstudio`)
+- **Control de Menús Nativos de FL Studio en Tiempo Real**:
+  - `flstudio.file`: Operaciones de archivo directas (`new`, `open`, `save`, `export` vía CLI headless `/R /Fwav /O"..."`, `backup` con rescate inteligente desde el registro de Windows `HKCU:\Software\Image-Line\FL Studio 26\General\LastSavedBackup` y carpeta `Projects\Backup`, e `info`).
+  - `flstudio.edit`: Edición rápida y precisa (`undo` `^z`, `redo` `^+z`, `cut` `^x`, `copy` `^c`, `paste` `^v`, `select_all` `^a`, `delete` `{DEL}`, `duplicate` `^b`, `quantize` `^q`).
+  - `flstudio.view`: Navegación visual instantánea entre ventanas clave de FL Studio (`playlist` `{F5}`, `channel_rack` `{F6}`, `piano_roll` `{F7}`, `mixer` `{F9}`, `browser` `%{F8}`, `plugin_picker` `{F8}`, `close_all` `{F12}`).
+  - `flstudio.patterns`: Gestión ágil de patrones musicales (`next` `{ADD}`, `prev` `{SUBTRACT}`, `clone` `^+c`, `split_by_channel`).
+  - `flstudio.options`: Configuración de ajustes (`audio`, `midi`, `general`, `file`) protegidos con **Security Elevation Gate** para configuraciones de alto riesgo (drivers ASIO, buffer, claves de registro del DAW).
+  - `flstudio.tools`: Macros globales de optimización (`purge_unused_audio`, `smart_disable` para ahorro de CPU, `prepare_midi_export`) y `dump_score_log` para rescate de interpretaciones MIDI sin grabar.
+  - `flstudio.plugins`: Inspección en vivo de la base de datos de plugins instalados (`Presets\Plugin database\Generators` y `Effects`), catálogo curado de sintetizadores y procesadores gratuitos, y guía de escaneo.
+  - `flstudio.live_session`: Espacio de trabajo persistente en tiempo real (`storage/fl_session/live_session.json` y `live_workspace.mid`) para componer, modificar acordes, notas y tempo en una sola sesión continua sin saturar el sistema con archivos huérfanos.
+  - `flstudio.detect` & `flstudio.open`: Detección en tiempo real del proceso activo `FL64.exe` y lanzamiento asistido en caso de estar cerrado.
+
+### 🛡️ Integración con Dominio de Seguridad (`security`)
+- **Protección de Ajustes Críticos**:
+  - Modificaciones a drivers ASIO, tamaño de buffer y rutas de sistema en FL Studio exigen confirmación explícita (`confirm_security: true`) o elevación mediante el motor de permisos de Fluxer.
+
+### ⚡ Optimización de Tokens y Consolidación de Herramientas
+- Reducción drástica del espacio de contexto MCP mediante subacciones agrupadas (`action` + `option`/`subaction`), manteniendo máxima flexibilidad sin inflar el catálogo de tools.
+
+---
+
+## [v11.0.0] - 2026-09-12 (Aero Compact — FL Studio Suite, AI Compact Mode, Install Wizard & Smart Updater Doctor)
+
+### 🎹 Nueva Herramienta Integral para FL Studio (`flstudio`)
+- **Generador de Archivos MIDI Nativos (`generate_midi`)**:
+  - Creación directa de archivos `.mid` binarios estándar (SMF Tipo 0) sin dependencias externas.
+  - Generación de melodías, líneas de bajo, acordes, arpegios y baterías con BPM y compás configurables.
+  - Archivos listos para arrastrar y soltar (drag & drop) al Channel Rack o Piano Roll de FL Studio.
+- **Teoría Musical y Armonía (`music_theory`)**:
+  - Diccionario completo de escalas (Mayor, Menor Natural/Armónica/Melódica, Dórica, Frigia, Lidia, Mixolidia, Pentatónicas, Blues, Árabe).
+  - Constructor de acordes (maj, min, 7, maj7, min7, dim, aug, sus2, sus4, 9, min9, maj9, 11, 13).
+  - Progresiones armónicas de géneros populares con instrucciones para 'Scale Highlighting' en el Piano Roll.
+- **Cambio de Tono y Afinación (`change_tone`)**:
+  - Transposición de notas, melodías y acordes por semitonos relativos o cambio directo de tonalidad origen-destino.
+  - Cálculo de micro-afinación alternativa (432 Hz vs 440 Hz) con offset en cents para el Master Pitch de FL Studio.
+- **Blueprints y Presets por Estilos (`style_presets`)**:
+  - Parámetros de producción musical para Trap, Lo-Fi, Synthwave, Drill, EDM/House y Ambient.
+  - Rango de BPM recomendado, escalas características, patrones de batería, diseño de bajos y plugins sugeridos.
+- **Fórmulas de Diseño de Sonido (`sound_design`)**:
+  - Fórmulas de síntesis para 808s saturados, Leads brillantes, Pads atmosféricos y Plucks oscuros de campana.
+  - Configuraciones de osciladores, unísono, envolventes ADSR, filtros y efectos para Vital, Sytrus, 3xOSC y FLEX.
+- **Catálogo Curado de Plugins VST/CLAP Gratuitos (`free_plugins`)**:
+  - Enlaces directos y especificaciones de los mejores plugins gratuitos de la industria: Vital, Surge XT, Spitfire LABS, Decent Sampler, OTT, Valhalla Supermassive, CamelCrusher, Fresh Air, Kilohearts Essentials.
+  - Guía paso a paso para escanear y organizar plugins en el Plugin Manager de FL Studio.
+- **Generador de Scripts Python para FL Studio (`fl_scripting`)**:
+  - Scripts para el **Piano Roll de FL Studio 21+** (humanización de velocidad y micro-timing, arpegiador).
+  - Scripts para **Controladores MIDI** con la API nativa de FL Studio (`transport`, `mixer`, `channels`).
+- **Cadenas de Mezcla y Master Limiter (`mixer_settings`)**:
+  - Especificaciones de mezcla para Master Bus, Canal Vocal y Baterías.
+  - Ajustes de corte paso-alto (30 Hz), monofonización de graves (< 120 Hz) y techo True Peak (-0.3 dB) con metas LUFS para streaming (-14 LUFS) y club (-8 LUFS).
+
+### 🧠 Modo Compacto Gestionado por la IA (`set_compact` / `get_compact`)
+- **Control Total en Tiempo Real**:
+  - La IA puede activar o desactivar el modo compacto según la carga de la tarea con `diagnostics.set_compact({ enabled: true/false, reason })`.
+  - Reduce el consumo de tokens hasta un 90% en respuestas voluminosas manteniendo siempre la información crítica.
+  - La IA activa compact mode para consultas masivas de archivos/paquetes y lo desactiva automáticamente antes de presentar detalles finales al usuario.
+
+### 🛠️ Nueva Herramienta Asistente de Instalación (`install`)
+- **Detección Automática de Clientes IA (`detect_clients`)**:
+  - Detecta Claude Desktop, Cursor, Windsurf y VS Code + Cline instalados en el sistema.
+- **Configurador Asistido (`configure` / `wizard`)**:
+  - Inyección limpia de configuración MCP con respaldo preventivo `.bak`.
+  - Verificación de salud y versión de Node.js v18+.
+  - Diagnóstico y reparación automática de instalaciones rotas con `install.repair`.
+
+### 🔄 Actualizador Inteligente Renovado (`upd`)
+- **Doctor de 20 Invariantes (`upd.doctor`)**:
+  - Evaluación forense de 20 puntos con diagnósticos de versión, archivos críticos, SDK, permisos, dashboard, espacio en disco, memoria y conectividad.
+  - Instrucciones claras de remediación para cualquier fallo detectado.
+- **Reparación Automática (`upd.repair`)**:
+  - Limpieza de archivos `.update.lock` residuales, creación de carpetas de almacenamiento y caché.
+- **Canales de Actualización (`upd.set_channel`)**:
+  - Soporte para alternar entre canal `stable` y canal `beta`.
+
+---
+
 ## [v10.4.0] - 2026-09-07 (Primer Lanzamiento Público Mayor — Cero Git, Hot-Reload Supervisor & Wizard Installer)
 
 ### 🚀 Lanzamiento Público y Supervisión de Proceso

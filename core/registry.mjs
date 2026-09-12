@@ -419,6 +419,8 @@ export class Registry {
       { createDiagnosticsDomain: diagnosticsFactory } = {},
       { createDeveloperDomain: developerFactory } = {},
       { createGuideDomain: guideFactory } = {},
+      { createGithubDomain: githubFactory } = {},
+      { createFlStudioDomain: flstudioFactory } = {},
     ] = await Promise.all([
       import(`../tools/files.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/system.mjs?t=${ts}`).catch(() => ({})),
@@ -431,6 +433,8 @@ export class Registry {
       import(`../tools/diagnostics.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/developer.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/guide.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/github.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/flstudio.mjs?t=${ts}`).catch(() => ({})),
     ]);
 
     const domains = [
@@ -445,6 +449,8 @@ export class Registry {
       ...(diagnosticsFactory ? [diagnosticsFactory({ runtime, domain, fs })] : []),
       ...(developerFactory ? [developerFactory({ runtime, domain, fs, path })] : []),
       ...(guideFactory ? [guideFactory({ runtime, domain })] : []),
+      ...(githubFactory ? [githubFactory({ runtime, domain })] : []),
+      ...(flstudioFactory ? [flstudioFactory({ runtime, domain, fs })] : []),
     ];
 
     this.modules = new Map(domains.map((d) => [d.name, d]));

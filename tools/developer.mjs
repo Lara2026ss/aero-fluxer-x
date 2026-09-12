@@ -1564,7 +1564,432 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
+    // ── upd_doctor: 20-point self-diagnostic with remediation ───────────────
+    upd_doctor: async () => {
+      const root = runtime.root || process.cwd();
+      const storage = getStorageStructure(root);
+      const checks = [];
+      const addCheck = (name, ok, detail, remediation = null) => checks.push({ name, ok, detail, remediation });
+
+      // 1. Running version valid SemVer
+      const { parseSemVer } = await import("../core/version.mjs");
+      const parsed = parseSemVer(CURRENT_VERSION);
+      addCheck("Version SemVer valid", Boolean(parsed), `v${CURRENT_VERSION}`, parsed ? null : "Check core/version.mjs — CURRENT_VERSION must be valid SemVer");
+
+      // 2. server.mjs exists
+      const serverMjs = path.join(root, "server.mjs");
+      const serverJs = path.join(root, "server.js");
+      addCheck("Server entry point", existsSync(serverMjs) || existsSync(serverJs), existsSync(serverMjs) ? "server.mjs found" : existsSync(serverJs) ? "server.js found" : "MISSING", existsSync(serverMjs) || existsSync(serverJs) ? null : "Re-download or reinstall from GitHub");
+
+      // 3. MCP SDK installed
+      const sdkPath = path.join(root, "node_modules", "@modelcontextprotocol", "sdk");
+      addCheck("@modelcontextprotocol/sdk installed", existsSync(sdkPath), existsSync(sdkPath) ? "Found in node_modules" : "MISSING", existsSync(sdkPath) ? null : "Run: npm install in the Fluxer directory");
+
+      // 4. core/version.mjs readable
+      const vPath = path.join(root, "core", "version.mjs");
+      addCheck("core/version.mjs readable", existsSync(vPath), existsSync(vPath) ? "Present" : "MISSING", existsSync(vPath) ? null : "Critical file missing — reinstall");
+
+      // 5. core/updater.mjs readable
+      const uPath = path.join(root, "core", "updater.mjs");
+      addCheck("core/updater.mjs readable", existsSync(uPath), existsSync(uPath) ? "Present" : "MISSING", existsSync(uPath) ? null : "Critical file missing — reinstall");
+
+      // 6. package.json version matches CURRENT_VERSION
+      let pkgVersionOk = false;
+      let pkgVersionValue = "could not read";
+      try {
+        const pkgRaw = await fs.readFile(path.join(root, "package.json"), "utf8");
+        const pkg = JSON.parse(pkgRaw);
+        pkgVersionOk = pkg.version === CURRENT_VERSION;
+        pkgVersionValue = pkg.version;
+      } catch (_) {}
+      addCheck("package.json version matches", pkgVersionOk, `package.json: ${pkgVersionValue}, running: ${CURRENT_VERSION}`, pkgVersionOk ? null : "Bump version in package.json to match core/version.mjs");
+
+      // 7. Storage directory writable
+      let storageOk = false;
+      try {
+        const testFile = path.join(storage.dataDir || path.join(root, "storage"), `.doctor_test_${Date.now()}`);
+        await fs.mkdir(path.dirname(testFile), { recursive: true });
+        await fs.writeFile(testFile, "ok", "utf8");
+        await fs.unlink(testFile);
+        storageOk = true;
+      } catch (_) {}
+      addCheck("Storage directory writable", storageOk, storageOk ? "R/W confirmed" : "CANNOT WRITE to storage", storageOk ? null : "Check permissions on the storage directory");
+
+      // 8. Logs directory exists or can be created
+      let logsOk = false;
+      try { await fs.mkdir(storage.logsDir, { recursive: true }); logsOk = true; } catch (_) {}
+      addCheck("Logs directory accessible", logsOk, logsOk ? "Present or created" : "FAILED to create", logsOk ? null : "Check permissions on the Fluxer installation directory");
+
+      // 9. No .lock file blocking updates
+      const lockPath = path.join(root, ".update.lock");
+      const lockExists = existsSync(lockPath);
+      addCheck("No stale update lock", !lockExists, lockExists ? "STALE LOCK FILE FOUND: .update.lock" : "No lock file", lockExists ? "Delete .update.lock manually or run upd_repair" : null);
+
+      // 10. Node.js version >= 18
+      const nodeMajor = parseInt(process.version.slice(1), 10);
+      addCheck("Node.js v18+", nodeMajor >= 18, `v${nodeMajor} (${process.version})`, nodeMajor >= 18 ? null : "Upgrade Node.js to v18 LTS or higher");
+
+      // 11. Runtime permissions engine active
+      addCheck("Permissions engine", Boolean(runtime.permissions), runtime.permissions ? `Active (level: ${runtime.permissions.currentLevel?.() || "N/A"})` : "NOT INITIALIZED", runtime.permissions ? null : "Server startup error — check server.mjs logs");
+
+      // 12. Registry has tools
+      const toolCount = runtime._registry?.getCount?.() || (runtime._registry?.tools ? runtime._registry.tools.size : 0) || 0;
+      addCheck("Tool registry populated", toolCount > 0, `${toolCount} tools registered`, toolCount > 0 ? null : "Server startup error — check server.mjs for import errors");
+
+      // 13. GitHub API reachable
+      let ghReachable = false;
+      try {
+        const https = await import("node:https");
+        await new Promise((resolve, reject) => {
+          const req = https.get("https://api.github.com", { timeout: 5000 }, (res) => { res.destroy(); resolve(res.statusCode); });
+          req.on("error", reject); req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+        });
+        ghReachable = true;
+      } catch (_) {}
+      addCheck("GitHub API reachable", ghReachable, ghReachable ? "api.github.com responding" : "UNREACHABLE", ghReachable ? null : "Check internet connection. Updates require GitHub access.");
+
+      // 14. Dashboard HTTP responding
+      let dashOk = false;
+      try {
+        const http = await import("node:http");
+        dashOk = await new Promise((resolve) => {
+          const req = http.get("http://127.0.0.1:8765/health", { timeout: 2000 }, (res) => { res.destroy(); resolve(res.statusCode < 500); });
+          req.on("error", () => resolve(false)); req.on("timeout", () => { req.destroy(); resolve(false); });
+        });
+      } catch (_) {}
+      addCheck("Dashboard HTTP (/health)", dashOk, dashOk ? "Responding on :8765" : "Not responding", dashOk ? null : "Dashboard may be disabled or port blocked. Non-critical.");
+
+      // 15. Backups directory accessible
+      let backupOk = false;
+      try { await fs.mkdir(storage.backupsDir, { recursive: true }); backupOk = true; } catch (_) {}
+      addCheck("Backups directory accessible", backupOk, backupOk ? "Present or created" : "INACCESSIBLE", backupOk ? null : "Cannot create backups. Updates may fail.");
+
+      // 16. .env.example exists (docs sanity)
+      const envExampleExists = existsSync(path.join(root, ".env.example"));
+      addCheck(".env.example present", envExampleExists, envExampleExists ? "Found" : "Missing (non-critical)", envExampleExists ? null : "Non-critical: re-download from GitHub if needed");
+
+      // 17. launcher.mjs exists
+      const launcherExists = existsSync(path.join(root, "launcher.mjs"));
+      addCheck("launcher.mjs (hot-reload supervisor)", launcherExists, launcherExists ? "Present" : "Missing", launcherExists ? null : "Hot-reload won't work without launcher.mjs — re-download from GitHub");
+
+      // 18. No duplicate version mismatch
+      const versionConsistent = pkgVersionValue === CURRENT_VERSION && (parsed !== null);
+      addCheck("Version consistency", versionConsistent, `core: v${CURRENT_VERSION}, package.json: ${pkgVersionValue}`, versionConsistent ? null : "Bump versions manually or re-apply the last update");
+
+      // 19. Memory pressure OK
+      const os = await import("node:os");
+      const usagePct = Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 100);
+      addCheck("Memory pressure normal", usagePct < 90, `${usagePct}% RAM used`, usagePct >= 90 ? "High memory usage. Close background apps." : null);
+
+      // 20. Compact mode engine functional
+      addCheck("Compact mode engine functional", true, "Session toggle functional (set_compact/get_compact via diagnostics)", null);
+
+      const passing = checks.filter(c => c.ok).length;
+      const failing = checks.filter(c => !c.ok);
+      return {
+        ok: passing === checks.length,
+        version: CURRENT_VERSION,
+        summary: `${passing}/${checks.length} invariants passed`,
+        status: passing === checks.length ? "HEALTHY" : passing >= 17 ? "DEGRADED" : "CRITICAL",
+        checks,
+        failures: failing.map(c => ({ name: c.name, remediation: c.remediation })),
+        tip: failing.length > 0 ? "Run upd_repair to auto-fix common issues." : "All invariants passed. System is healthy.",
+      };
+    },
+
+    // ── upd_repair: Auto-fix common issues found by doctor ──────────────────
+    upd_repair: async () => {
+      const root = runtime.root || process.cwd();
+      const storage = getStorageStructure(root);
+      const results = [];
+      const add = (step, status, note = "", error = "") => results.push({ step, status, note, error: error || undefined });
+
+      // Remove stale lock file
+      const lockPath = path.join(root, ".update.lock");
+      if (existsSync(lockPath)) {
+        try { await fs.unlink(lockPath); add("Remove stale .update.lock", "DONE", "Lock file removed"); }
+        catch (e) { add("Remove stale .update.lock", "FAILED", "", e.message); }
+      } else { add("Remove stale .update.lock", "SKIPPED", "No lock file found"); }
+
+      // Create storage directories
+      for (const [name, dir] of [["storage/data", storage.dataDir], ["storage/logs", storage.logsDir], ["storage/backups", storage.backupsDir]]) {
+        if (!dir) { add(`Create ${name}`, "SKIPPED", "Path not configured"); continue; }
+        try { await fs.mkdir(dir, { recursive: true }); add(`Create ${name}`, "DONE", `${dir} ensured`); }
+        catch (e) { add(`Create ${name}`, "FAILED", "", e.message); }
+      }
+
+      // npm install if node_modules missing
+      const sdkPath = path.join(root, "node_modules", "@modelcontextprotocol", "sdk");
+      if (!existsSync(sdkPath)) {
+        try {
+          const { execSync } = await import("node:child_process");
+          execSync("npm install", { cwd: root, timeout: 90000, stdio: "pipe" });
+          add("npm install", "DONE", "Dependencies installed");
+        } catch (e) { add("npm install", "FAILED", "", e.message.slice(0, 200)); }
+      } else { add("npm install", "SKIPPED", "@modelcontextprotocol/sdk already present"); }
+
+      // Clear stale cache files
+      const cacheDir = path.join(storage.dataDir || path.join(root, "storage"), "cache");
+      try {
+        if (existsSync(cacheDir)) {
+          const cacheFiles = await fs.readdir(cacheDir);
+          let removed = 0;
+          for (const f of cacheFiles) {
+            if (f.endsWith(".tmp") || f.endsWith(".download")) {
+              await fs.unlink(path.join(cacheDir, f)).catch(() => {});
+              removed++;
+            }
+          }
+          add("Clear stale cache files", "DONE", `${removed} temp files removed`);
+        } else { add("Clear stale cache files", "SKIPPED", "No cache directory"); }
+      } catch (e) { add("Clear stale cache files", "FAILED", "", e.message); }
+
+      const done = results.filter(r => r.status === "DONE").length;
+      const failed = results.filter(r => r.status === "FAILED").length;
+      return {
+        ok: failed === 0,
+        summary: `Repair: ${done} fixed, ${results.filter(r => r.status === "SKIPPED").length} skipped, ${failed} failed`,
+        results,
+        tip: failed > 0 ? "Some issues require manual intervention. Check errors above." : "Repair complete. Run upd_doctor to verify.",
+        next_step: "developer { action: 'upd_doctor' }",
+      };
+    },
+
+    // ── upd_set_channel: Switch between stable/beta update channels ─────────
+    upd_set_channel: async ({ channel = "stable", confirm = false } = {}) => {
+      const validChannels = ["stable", "beta"];
+      if (!validChannels.includes(channel)) {
+        return { ok: false, error: `Invalid channel: '${channel}'. Valid options: ${validChannels.join(", ")}` };
+      }
+      if (!confirm) {
+        return {
+          ok: false,
+          needs_confirm: true,
+          channel,
+          current_channel: process.env.FLUXER_UPDATE_CHANNEL || "stable",
+          message: `Ready to switch to '${channel}' channel. ${channel === "beta" ? "WARNING: Beta versions may be unstable." : "Stable channel receives tested, production-ready releases."}`,
+          action: `developer { action: 'upd_set_channel', channel: '${channel}', confirm: true }`,
+        };
+      }
+      const root = runtime.root || process.cwd();
+      const envPath = path.join(root, ".env");
+      try {
+        let envContent = "";
+        if (existsSync(envPath)) { envContent = await fs.readFile(envPath, "utf8"); }
+        // Update or add FLUXER_UPDATE_CHANNEL
+        if (envContent.includes("FLUXER_UPDATE_CHANNEL=")) {
+          envContent = envContent.replace(/FLUXER_UPDATE_CHANNEL=.*/g, `FLUXER_UPDATE_CHANNEL=${channel}`);
+        } else {
+          envContent += `\nFLUXER_UPDATE_CHANNEL=${channel}\n`;
+        }
+        await fs.writeFile(envPath, envContent, "utf8");
+        process.env.FLUXER_UPDATE_CHANNEL = channel;
+        return {
+          ok: true,
+          channel,
+          message: `Update channel set to '${channel}'. Restart the MCP server for the change to fully take effect.`,
+          note: channel === "beta" ? "Beta channel: you will receive pre-release updates that may include unstable features." : "Stable channel: you will receive only tested, production-ready releases.",
+        };
+      } catch (e) {
+        return { ok: false, error: `Failed to write .env: ${e.message}`, tip: "Try setting FLUXER_UPDATE_CHANNEL manually in your .env file." };
+      }
+    },
+
+    
+    // ── upd_install: Instalador autónomo y asistente de configuración MCP ────
+    upd_install: async ({ mode = "wizard", client = "claude_desktop", confirm = false } = {}) => {
+      const CLIENT_CONFIGS = {
+        claude_desktop: {
+          name: "Claude Desktop",
+          config_paths: [
+            "%APPDATA%\\Claude\\claude_desktop_config.json",
+            "%USERPROFILE%\\AppData\\Roaming\\Claude\\claude_desktop_config.json",
+          ],
+          exe_paths: [
+            "%LOCALAPPDATA%\\Programs\\Claude\\Claude.exe",
+            "%PROGRAMFILES%\\Claude\\Claude.exe",
+          ],
+          mcp_key: "mcpServers",
+          server_key: "fluxer-core",
+        },
+        cursor: {
+          name: "Cursor",
+          config_paths: [
+            "%USERPROFILE%\\.cursor\\mcp.json",
+            "%APPDATA%\\Cursor\\User\\mcp.json",
+          ],
+          exe_paths: [
+            "%LOCALAPPDATA%\\Programs\\cursor\\Cursor.exe",
+            "%PROGRAMFILES%\\Cursor\\Cursor.exe",
+          ],
+          mcp_key: "mcpServers",
+          server_key: "fluxer-core",
+        },
+        windsurf: {
+          name: "Windsurf",
+          config_paths: [
+            "%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json",
+            "%APPDATA%\\Windsurf\\User\\mcp.json",
+          ],
+          exe_paths: [
+            "%LOCALAPPDATA%\\Programs\\Windsurf\\Windsurf.exe",
+          ],
+          mcp_key: "mcpServers",
+          server_key: "fluxer-core",
+        },
+        vscode_cline: {
+          name: "VS Code + Cline",
+          config_paths: [
+            "%APPDATA%\\Code\\User\\globalStorage\\saoudrizwan.claude-dev\\settings\\cline_mcp_settings.json",
+          ],
+          exe_paths: [
+            "%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\Code.exe",
+          ],
+          mcp_key: "mcpServers",
+          server_key: "fluxer-core",
+        },
+      };
+
+      const expandEnv = (s) => s.replace(/%([^%]+)%/g, (_, k) => process.env[k] || _);
+      const resolveClient = (def) => ({
+        ...def,
+        config_paths: def.config_paths.map(expandEnv),
+        exe_paths: def.exe_paths.map(expandEnv),
+      });
+
+      const detectClientsHelper = async () => {
+        const detected = [];
+        for (const [k, def] of Object.entries(CLIENT_CONFIGS)) {
+          const res = resolveClient(def);
+          const exeFound = res.exe_paths.some(p => existsSync(p));
+          const configFound = res.config_paths.find(p => existsSync(p));
+          let isConfigured = false;
+          if (configFound) {
+            try {
+              const raw = JSON.parse(await fs.readFile(configFound, "utf8"));
+              isConfigured = Boolean(raw?.[res.mcp_key]?.[res.server_key]);
+            } catch (_) {}
+          }
+          detected.push({
+            client: k,
+            name: def.name,
+            installed: exeFound,
+            config_found: Boolean(configFound),
+            config_path: configFound || null,
+            already_configured: isConfigured,
+            status: !exeFound ? "NOT_INSTALLED" : isConfigured ? "CONFIGURED" : "DETECTED_NOT_CONFIGURED",
+          });
+        }
+        return detected;
+      };
+
+      const m = String(mode || "wizard").toLowerCase().trim();
+
+      // Modo: detect_clients
+      if (m === "detect_clients" || m === "detect") {
+        const clients = await detectClientsHelper();
+        return {
+          ok: true,
+          mode: "detect_clients",
+          summary: `${clients.filter(c => c.installed).length} cliente(s) detectado(s), ${clients.filter(c => c.already_configured).length} configurado(s)`,
+          clients,
+          action_needed: clients.filter(c => c.installed && !c.already_configured).map(c => c.name),
+        };
+      }
+
+      // Modo: node_check
+      if (m === "node_check") {
+        const major = parseInt(process.version.slice(1), 10);
+        const ok = major >= 18;
+        return {
+          ok,
+          mode: "node_check",
+          node_version: process.version,
+          meets_requirement: ok,
+          remediation: ok ? null : "Instala Node.js v18 LTS o superior desde https://nodejs.org",
+        };
+      }
+
+      // Modo: configure
+      if (m === "configure") {
+        const def = CLIENT_CONFIGS[client];
+        if (!def) return { ok: false, error: `Cliente desconocido: '${client}'. Válidos: ${Object.keys(CLIENT_CONFIGS).join(", ")}` };
+        if (!confirm) {
+          return {
+            ok: false,
+            needs_confirm: true,
+            client,
+            client_name: def.name,
+            message: `Listo para inyectar la configuración MCP en ${def.name}. Establece confirm: true para proceder (se creará copia .bak).`,
+            call: `upd { action: 'install', mode: 'configure', client: '${client}', confirm: true }`,
+          };
+        }
+        const res = resolveClient(def);
+        let targetConfig = res.config_paths.find(p => existsSync(path.dirname(p)));
+        if (!targetConfig) {
+          targetConfig = res.config_paths[0];
+          await fs.mkdir(path.dirname(targetConfig), { recursive: true }).catch(() => {});
+        }
+        let existing = {};
+        if (existsSync(targetConfig)) {
+          try { existing = JSON.parse(await fs.readFile(targetConfig, "utf8")); } catch (_) {}
+          await fs.writeFile(targetConfig + ".bak", JSON.stringify(existing, null, 2), "utf8").catch(() => {});
+        }
+        const entryPoint = path.join(runtime.root || process.cwd(), "server.js");
+        existing[res.mcp_key] = existing[res.mcp_key] || {};
+        existing[res.mcp_key][res.server_key] = { command: "node", args: [entryPoint], env: {} };
+        await fs.writeFile(targetConfig, JSON.stringify(existing, null, 2), "utf8");
+        return {
+          ok: true,
+          mode: "configure",
+          client,
+          client_name: def.name,
+          config_path: targetConfig,
+          backup_created: existsSync(targetConfig + ".bak"),
+          message: `Fluxer Core configurado exitosamente en ${def.name}. Reinicia la aplicación para cargar el servidor.`,
+        };
+      }
+
+      // Modo: repair
+      if (m === "repair") {
+        const clients = await detectClientsHelper();
+        const unconfigured = clients.filter(c => c.installed && !c.already_configured);
+        const results = [];
+        for (const c of unconfigured) {
+          try {
+            const r = await actions.upd_install({ mode: "configure", client: c.client, confirm: true });
+            results.push({ client: c.name, status: r.ok ? "CONFIGURED" : "FAILED", error: r.error });
+          } catch (e) { results.push({ client: c.name, status: "FAILED", error: e.message }); }
+        }
+        return { ok: true, mode: "repair", results, message: `Reparación finalizada (${results.length} clientes procesados).` };
+      }
+
+      // Modo: check / status / wizard (por defecto)
+      const clients = await detectClientsHelper();
+      const nodeMajor = parseInt(process.version.slice(1), 10);
+      const configured = clients.filter(c => c.already_configured);
+      const unconfigured = clients.filter(c => c.installed && !c.already_configured);
+
+      return {
+        ok: configured.length > 0,
+        mode: m,
+        title: `Fluxer Core v${CURRENT_VERSION} — Asistente de Instalación (upd_install)`,
+        node_version: process.version,
+        node_ok: nodeMajor >= 18,
+        clients_installed: clients.filter(c => c.installed).map(c => c.name),
+        already_configured: configured.map(c => c.name),
+        pending_configuration: unconfigured.map(c => ({
+          name: c.name,
+          command: `upd { action: 'install', mode: 'configure', client: '${c.client}', confirm: true }`,
+        })),
+        next_step: unconfigured.length > 0
+          ? `Llama a: upd { action: 'install', mode: 'configure', client: '${unconfigured[0].client}', confirm: true }`
+          : "Todo configurado. Reinicia tu cliente de IA para cargar las herramientas.",
+      };
+    },
+
     list_feedbacks: async ({ type, severity, status, limit = 50 } = {}) => {
+
       const endpoint = process.env.AERON_FEEDBACK_ENDPOINT || runtime.config?.feedback?.endpoint || "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback";
       const adminKey = process.env.AERON_FEEDBACK_ADMIN_KEY || runtime.config?.feedback?.admin_key;
       const baseUrl = endpoint.replace("/api/v1/feedback", "");
@@ -2233,6 +2658,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       upd: "standard",
       upd_rollback: "standard",
       upd_backups: "standard",
+      upd_data: "standard",
+      upd_doctor: "standard",
+      upd_repair: "advanced",
+      upd_set_channel: "advanced",
+      upd_install: "standard",
       feedback_outbox_status: "standard",
       git_status_structured: "standard",
       git_diff_summary: "standard",

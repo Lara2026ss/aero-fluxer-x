@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "10.4.0",
-  "description": "Fluxer Core MCP v10.4.0 — Public Distribution Release: Zero-Git Autonomous Updater, Hot-Reload Supervisor & Automated Installer Wizard",
+  "version": "11.0.5",
+  "description": "Fluxer Core MCP v11.0.5 — FL Studio Autonomous Suite: Real-Time DAW Menus, Patterns, Plugins, Options & Security Integration",
   "type": "module",
   "main": "server.js",
   "bin": {
