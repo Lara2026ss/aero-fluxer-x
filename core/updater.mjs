@@ -657,14 +657,18 @@ export async function executeAutoUpdate(options = {}) {
       await execAsync(`unzip -q -o "${archivePath}" -d "${extractedDir}" || tar -xzf "${archivePath}" -C "${extractedDir}"`);
     }
 
-    // Si el zip contiene una carpeta raíz única (e.g. repo-v9.1.0/), resolverla
+    // Si el zip contiene una carpeta raíz única (e.g. repo-v11.0.5/), resolverla
     let sourceContentDir = extractedDir;
-    const extractedEntries = await fs.readdir(extractedDir);
-    if (extractedEntries.length === 1) {
-      const singleDir = path.join(extractedDir, extractedEntries[0]);
-      const stat = await fs.stat(singleDir).catch(() => null);
-      if (stat && stat.isDirectory()) {
-        sourceContentDir = singleDir;
+    if (!existsSync(path.join(sourceContentDir, "package.json"))) {
+      const extractedEntries = await fs.readdir(extractedDir, { withFileTypes: true });
+      for (const entry of extractedEntries) {
+        if (entry.isDirectory() && entry.name !== "__MACOSX" && !entry.name.startsWith(".")) {
+          const candidate = path.join(extractedDir, entry.name);
+          if (existsSync(path.join(candidate, "package.json"))) {
+            sourceContentDir = candidate;
+            break;
+          }
+        }
       }
     }
 
@@ -714,6 +718,26 @@ export async function executeAutoUpdate(options = {}) {
     // 9. Aplicar la Actualización Selectiva / Diferencial (solo archivos modificados o necesarios)
     await logUpdaterMessage(repoRoot, "info", `Iniciando actualización diferencial sobre: ${repoRoot}`);
 
+    // Limpieza preventiva de archivos residuales desubicados en la raíz por versiones previas con bug
+    const strayFilesToClean = [
+      "version.mjs", "flstudio.mjs", "files.mjs", "system.mjs", "terminal.mjs",
+      "packages.mjs", "database.mjs", "security.mjs", "shortcuts.mjs", "guide.mjs",
+      "network.mjs", "diagnostics.mjs", "developer.mjs", "github.mjs", "runtime.mjs",
+      "registry.mjs", "router.mjs", "permissions.mjs", "config.mjs", "logger.mjs",
+      "memory.mjs", "compact.mjs", "ai.json", "browser.json", "database.json",
+      "developer.json", "diagnostics.json", "files.json", "guide.json", "network.json",
+      "packages.json", "security.json", "system.json", "terminal.json",
+      "upd.json", "web.json"
+    ];
+    for (const stray of strayFilesToClean) {
+      const strayPath = path.join(repoRoot, stray);
+      try {
+        if (existsSync(strayPath)) {
+          await fs.rm(strayPath, { force: true });
+        }
+      } catch (_) {}
+    }
+
     // Rutas estrictamente protegidas que NUNCA deben sobreescribirse ni alterarse
     const protectedPaths = new Set([
       "node_modules",
@@ -726,7 +750,7 @@ export async function executeAutoUpdate(options = {}) {
     ]);
 
     // Componentes y archivos oficiales autorizados para actualizar
-    const allowedRootFolders = new Set(["core", "tools", "doctor", "config", "contracts", "scripts"]);
+    const allowedRootFolders = new Set(["core", "tools", "doctor", "config", "contracts", "scripts", "docs", "tests"]);
     const allowedRootFiles = new Set([
       "server.js",
       "server.mjs",
@@ -737,6 +761,13 @@ export async function executeAutoUpdate(options = {}) {
       "release-manifest.json",
       "CHANGELOG.md",
       "README.md",
+      "SECURITY.md",
+      "CONTRIBUTING.md",
+      "LICENSE",
+      "install.bat",
+      "start.bat",
+      "aeron.config.example.json",
+      "shortcuts.example.json",
     ]);
 
     // Leer package.json previo para verificar si las dependencias cambiaron
@@ -754,7 +785,7 @@ export async function executeAutoUpdate(options = {}) {
       for (const entry of entries) {
         const relPath = relBase ? `${relBase}/${entry.name}` : entry.name;
         const srcPath = path.join(srcDir, entry.name);
-        const destPath = path.join(targetDir, entry.name);
+        const destPath = path.join(repoRoot, ...relPath.split("/"));
 
         if (!relBase) {
           if (protectedPaths.has(entry.name)) continue;
@@ -764,7 +795,7 @@ export async function executeAutoUpdate(options = {}) {
 
         if (entry.isDirectory()) {
           await fs.mkdir(destPath, { recursive: true });
-          await applyDifferentialSync(srcPath, targetDir, relPath);
+          await applyDifferentialSync(srcPath, destPath, relPath);
         } else if (entry.isFile()) {
           let needUpdate = true;
           try {
