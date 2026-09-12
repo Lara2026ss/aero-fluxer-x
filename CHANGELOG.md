@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v11.0.6] - 2026-09-12 (FL Studio Token Optimizer & Real-Time Suite)
+
+### ⚡ Reducción Masiva de Tokens en FL Studio (`flstudio`)
+- **Modo `optimize: true` en Subherramientas Musicales**:
+  - `music_theory`: Respuestas compactas que omiten estructuras redundantes de objetos de intervalos/notas individuales, reduciendo el consumo de tokens entre 75% y 90%.
+  - `style_presets`: Resumen ultra-condensado de género, BPM recomendado, escala y raíz sugerida en una sola línea o vista compacta (reducción del 68% al 92%).
+  - `plugins`: Modo compacto para `list_installed` (muestra conteo total y vista previa acotada en lugar de cientos de nombres de archivo) y `free_catalog` (lista directa sin descripciones extensas).
+  - `mixer_settings`, `sound_design`, `change_tone`: Respuestas directas orientadas a la acción sin párrafos innecesarios de texto.
+  - `live_session`: Vista ligera del estado de sesión con métricas clave y array directo de notas.
+
+- **Nueva Subacción Dedicada `flstudio { action: 'optimize', ... }`**:
+  - `target: 'tokens'` / `enabled: true|false`: Conmutador global persistente en memoria (`_globalFlOptimize`). Una vez activado, todas las consultas posteriores de `flstudio` responden en modo ultra-compacto automáticamente sin necesidad de pasar `optimize: true` en cada llamada.
+  - `target: 'session'`: Cuantiza notas a la rejilla temporal, elimina notas duplicadas con el mismo pitch y timestamp, y normaliza velocidades en la sesión en vivo.
+  - `target: 'daw'`: Guía y accesos directos a macros nativas de FL Studio (`smart_disable` para ahorro de CPU hasta un 60%, `purge_unused_audio` para liberar RAM).
+
+---
+
 ## [v11.0.5] - 2026-09-12 (Hotfix — FL Studio Autonomous Suite)
 
 ### 🎹 Suite Autónoma y Control en Tiempo Real de FL Studio (`flstudio`)

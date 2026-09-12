@@ -200,6 +200,15 @@ let _liveSession = {
   last_updated: new Date().toISOString(),
 };
 
+// ── Estado Global de Optimización de Tokens para FL Studio ────────────────────
+let _globalFlOptimize = false;
+
+function shouldOptimize(params = {}) {
+  if (params.optimize === false || params.compact === false) return false;
+  if (params.optimize === true || params.compact === true) return true;
+  return _globalFlOptimize;
+}
+
 const STYLE_PRESETS = {
   trap: { name: "Trap / Dark Trap", recommended_bpm: 140, scales: ["minor", "phrygian", "harmonic_minor"], recommended_root: "C#" },
   lofi: { name: "Lo-Fi Hip-Hop / Chillhop", recommended_bpm: 80, scales: ["dorian", "major", "minor"], recommended_root: "Eb" },
@@ -569,7 +578,8 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
     },
 
     // ── 9. Menú PLUGINS (Catálogo Real Instalado, Favoritos, Escaneo) ─────────
-    plugins: async ({ subaction = "list_installed", type = "generators" } = {}) => {
+    plugins: async ({ subaction = "list_installed", type = "generators", optimize = null, compact = null } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const sub = String(subaction).toLowerCase().trim();
 
       if (sub === "list_installed") {
@@ -594,6 +604,19 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
           } catch (_) {}
         }
 
+        if (opt) {
+          const sampleCount = 15;
+          return {
+            ok: true,
+            optimized: true,
+            category: type,
+            total_plugins_found: foundPlugins.length,
+            sample: foundPlugins.slice(0, sampleCount),
+            more_count: Math.max(0, foundPlugins.length - sampleCount),
+            tip: "Usa optimize: false para ver el listado exhaustivo completo.",
+          };
+        }
+
         return {
           ok: true,
           subaction: "list_installed",
@@ -604,6 +627,14 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
       }
 
       if (sub === "free_catalog") {
+        if (opt) {
+          return {
+            ok: true,
+            optimized: true,
+            catalog: FREE_PLUGINS.map(p => `${p.name} (${p.type})`),
+            instructions: "Instala en 'C:\\Program Files\\Common Files\\VST3' > Options > Manage Plugins > Find installed plugins.",
+          };
+        }
         return {
           ok: true,
           subaction: "free_catalog",
@@ -616,7 +647,7 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
         return {
           ok: true,
           subaction: "scan",
-          instruction: "Para escanear nuevos plugins: Abre FL Studio > Options > Manage Plugins > Haz clic en el botón amarillo 'Find installed plugins'.",
+          instruction: opt ? "FL Studio > Options > Manage Plugins > Find installed plugins." : "Para escanear nuevos plugins: Abre FL Studio > Options > Manage Plugins > Haz clic en el botón amarillo 'Find installed plugins'.",
         };
       }
 
@@ -632,7 +663,10 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
       progression = null,
       notes = null,
       style = null,
+      optimize = null,
+      compact = null,
     } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const sessionDir = path.join(runtime.root || process.cwd(), "storage", "fl_session");
       await fs.mkdir(sessionDir, { recursive: true }).catch(() => {});
       const sessionJsonPath = path.join(sessionDir, "live_session.json");
@@ -706,6 +740,20 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
 
       const flProc = getFlRunningProcess();
 
+      if (opt) {
+        return {
+          ok: true,
+          optimized: true,
+          mode: m,
+          fl_running: Boolean(flProc),
+          bpm: _liveSession.bpm,
+          key: `${_liveSession.root} ${_liveSession.scale}`,
+          progression: _liveSession.progression,
+          notes_count: _liveSession.notes.length,
+          live_file: sessionMidPath,
+        };
+      }
+
       return {
         ok: true,
         mode: m,
@@ -726,8 +774,10 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
     },
 
     // ── 11. Teoría Musical y Armonía ──────────────────────────────────────────
-    music_theory: async ({ mode = "scale", scale = "minor", root = "C", chord = "maj7" } = {}) => {
+    music_theory: async ({ mode = "scale", scale = "minor", root = "C", chord = "maj7", optimize = null, compact = null } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const rootSemi = parseNoteToMidi(`${root}4`);
+
       if (mode === "scale" || mode === "scales") {
         const intervals = SCALES[scale.toLowerCase()] || SCALES.minor;
         const notesInScale = intervals.map(i => ({
@@ -735,6 +785,17 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
           pitch_class: NOTE_NAMES_SHARP[(rootSemi + i) % 12],
           offset: i,
         }));
+
+        if (opt) {
+          return {
+            ok: true,
+            optimized: true,
+            scale: `${root} ${scale}`,
+            notes: notesInScale.map(n => n.pitch_class),
+            midi_root: rootSemi,
+          };
+        }
+
         return {
           ok: true,
           mode: "scale",
@@ -744,6 +805,7 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
           full_details: notesInScale,
         };
       }
+
       if (mode === "chord" || mode === "chords") {
         const intervals = CHORD_INTERVALS[chord.toLowerCase()] || CHORD_INTERVALS.maj;
         const cNotes = intervals.map(i => ({
@@ -751,6 +813,17 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
           pitch_class: NOTE_NAMES_SHARP[(rootSemi + i) % 12],
           midi: rootSemi + i,
         }));
+
+        if (opt) {
+          return {
+            ok: true,
+            optimized: true,
+            chord: `${root}${chord}`,
+            notes: cNotes.map(n => n.pitch_class),
+            midi: cNotes.map(n => n.midi),
+          };
+        }
+
         return {
           ok: true,
           mode: "chord",
@@ -760,6 +833,20 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
           midi_notes: cNotes.map(n => n.midi),
         };
       }
+
+      if (opt) {
+        return {
+          ok: true,
+          optimized: true,
+          progressions: {
+            trap: "i - VI - v - i",
+            lofi: "ii7 - V7 - Imaj7 - VI7",
+            synthwave: "i - bVII - bVI - bVII",
+            pop: "I - V - vi - IV",
+          },
+        };
+      }
+
       return {
         ok: true,
         mode: "progressions",
@@ -773,7 +860,8 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
     },
 
     // ── 12. Cambio de Tono y Afinación ────────────────────────────────────────
-    change_tone: async ({ notes = [], semitones = 0, tuning_hz = 440 } = {}) => {
+    change_tone: async ({ notes = [], semitones = 0, tuning_hz = 440, optimize = null, compact = null } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const shift = Number(semitones) || 0;
       const transposed = notes.map(n => {
         if (typeof n === "string") return midiToNoteName(parseNoteToMidi(n) + shift);
@@ -781,11 +869,22 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
         if (typeof n === "object") {
           const oldP = parseNoteToMidi(n.pitch ?? n.note ?? 60);
           const newP = Math.min(127, Math.max(0, oldP + shift));
-          return { ...n, pitch: newP, note: midiToNoteName(newP) };
+          return opt ? midiToNoteName(newP) : { ...n, pitch: newP, note: midiToNoteName(newP) };
         }
         return n;
       });
       const centsShift = Math.round(1200 * Math.log2(tuning_hz / 440));
+
+      if (opt) {
+        return {
+          ok: true,
+          optimized: true,
+          semitones: shift,
+          transposed,
+          cents: centsShift,
+        };
+      }
+
       return {
         ok: true,
         semitones_shifted: shift,
@@ -795,31 +894,216 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
     },
 
     // ── 13. Presets por Estilo ────────────────────────────────────────────────
-    style_presets: async ({ style = "all" } = {}) => {
+    style_presets: async ({ style = "all", optimize = null, compact = null } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const s = String(style).toLowerCase().trim();
-      if (s !== "all" && STYLE_PRESETS[s]) return { ok: true, style: s, preset: STYLE_PRESETS[s] };
+
+      if (s !== "all" && STYLE_PRESETS[s]) {
+        const p = STYLE_PRESETS[s];
+        if (opt) {
+          return {
+            ok: true,
+            optimized: true,
+            style: s,
+            bpm: p.recommended_bpm,
+            root: p.recommended_root,
+            scales: p.scales,
+          };
+        }
+        return { ok: true, style: s, preset: p };
+      }
+
+      if (opt) {
+        const compactStyles = {};
+        for (const [k, v] of Object.entries(STYLE_PRESETS)) {
+          compactStyles[k] = `${v.recommended_bpm} BPM | ${v.recommended_root} ${v.scales[0]}`;
+        }
+        return {
+          ok: true,
+          optimized: true,
+          styles: compactStyles,
+          tip: "Pasa style: '<nombre>' para ver detalles.",
+        };
+      }
+
       return { ok: true, available_styles: Object.keys(STYLE_PRESETS), presets: STYLE_PRESETS };
     },
 
     // ── 14. Diseño de Sonido ──────────────────────────────────────────────────
-    sound_design: async ({ type = "bass_808" } = {}) => {
+    sound_design: async ({ type = "bass_808", optimize = null, compact = null } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const recipes = {
         bass_808: { name: "Sub 808 Saturado", wave: "Sine + Triangle", cutoff: "180 Hz", distortion: "Fruity Soft Clipper / Tube", decay: "800ms" },
         synth_lead: { name: "Lead Brillante", wave: "Sawtooth (5 unisons, 18 cents)", filter: "Low-Pass 4.5 kHz", fx: "OTT + Delay 3/16" },
         ambient_pad: { name: "Pad Evolutivo", wave: "Wavetable + Saw", attack: "1500ms", release: "2500ms", fx: "Valhalla Supermassive" },
         trap_bell_pluck: { name: "Campanas Trap", wave: "Sine FM", attack: "0ms", decay: "350ms", fx: "Gross Beat (Half-Speed)" },
       };
-      return { ok: true, type, recipe: recipes[type.toLowerCase()] || recipes.bass_808 };
+      const rec = recipes[type.toLowerCase()] || recipes.bass_808;
+
+      if (opt) {
+        return {
+          ok: true,
+          optimized: true,
+          type,
+          patch: `${rec.name} | ${rec.wave} | ${rec.distortion || rec.fx || rec.filter}`,
+        };
+      }
+
+      return { ok: true, type, recipe: rec };
     },
 
     // ── 15. Cadenas de Mezcla ─────────────────────────────────────────────────
-    mixer_settings: async ({ track_type = "master" } = {}) => {
+    mixer_settings: async ({ track_type = "master", optimize = null, compact = null } = {}) => {
+      const opt = shouldOptimize({ optimize, compact });
       const chains = {
         master: { track: "Master (0)", fx: ["Parametric EQ 2 (Corte 30 Hz)", "Maximus (Compresión 3 bandas)", "Stereo Enhancer (Mono < 120 Hz)", "Fruity Limiter / Soft Clipper (-0.3 dB True Peak)"], target_lufs: "-14 LUFS (streaming) / -9 LUFS (club)" },
         vocal: { track: "Lead Vocal", fx: ["Pitcher / NewTone", "EQ 2 (Corte 100 Hz)", "Fruity Compressor", "De-Esser (6-8 kHz)", "Delay 3 + Reverb 2 (Send)"] },
         drum_bus: { track: "Drum Bus", fx: ["Transient Processor (+2dB attack)", "Soft Clipper", "Blood Overdrive (Saturación sutil)"] }
       };
-      return { ok: true, track_type, settings: chains[track_type.toLowerCase()] || chains.master };
+      const c = chains[track_type.toLowerCase()] || chains.master;
+
+      if (opt) {
+        return {
+          ok: true,
+          optimized: true,
+          track: c.track,
+          chain: c.fx,
+          lufs: c.target_lufs,
+        };
+      }
+
+      return { ok: true, track_type, settings: c };
+    },
+
+    // ── 16. Subherramienta OPTIMIZE (Control de Tokens, Cuantización y Limpieza) 
+    optimize: async ({
+      target = "session", // 'session' | 'toggle' | 'tokens' | 'daw' | 'status'
+      enabled = null,
+      grid = 0.25,
+      remove_duplicates = true,
+      normalize_velocity = true,
+    } = {}) => {
+      const t = String(target).toLowerCase().trim();
+
+      // Alternar o consultar el modo global de optimización de tokens
+      if (enabled !== null || t === "toggle" || t === "tokens") {
+        if (enabled !== null) {
+          _globalFlOptimize = Boolean(enabled);
+        } else {
+          _globalFlOptimize = !_globalFlOptimize;
+        }
+        return {
+          ok: true,
+          action: "optimize",
+          target: "tokens",
+          token_optimization_enabled: _globalFlOptimize,
+          status: _globalFlOptimize ? "COMPACT_MODE_ACTIVE" : "VERBOSE_MODE_ACTIVE",
+          message: _globalFlOptimize
+            ? "⚡ Modo de optimización de tokens ACTIVADO en FL Studio. Todas las subherramientas responderán con ultra-bajo consumo de tokens."
+            : "ℹ️ Modo de optimización de tokens DESACTIVADO en FL Studio. Las respuestas incluirán estructura completa extendida.",
+          tip: "Puedes alternar en cualquier momento con flstudio { action: 'optimize', enabled: true/false } o pasando optimize: true en cada subherramienta.",
+        };
+      }
+
+      // Optimización musical de notas de la sesión viva
+      if (t === "session" || t === "notes" || t === "midi") {
+        if (!_liveSession.notes || _liveSession.notes.length === 0) {
+          return {
+            ok: true,
+            action: "optimize",
+            target: "session",
+            notes_count: 0,
+            message: "La sesión no tiene notas registradas para optimizar. Añade notas primero con live_session.",
+          };
+        }
+
+        const initialCount = _liveSession.notes.length;
+        let optimizedNotes = [..._liveSession.notes];
+
+        // 1. Cuantización al grid (ej: 0.25 beats = 1/16th)
+        if (grid && Number(grid) > 0) {
+          const g = Number(grid);
+          optimizedNotes = optimizedNotes.map(n => ({
+            ...n,
+            start: Math.round(n.start / g) * g,
+            duration: Math.max(g * 0.9, Math.round(n.duration / g) * g),
+          }));
+        }
+
+        // 2. Eliminación de notas duplicadas (mismo pitch en el mismo tiempo de inicio)
+        if (remove_duplicates) {
+          const seen = new Set();
+          optimizedNotes = optimizedNotes.filter(n => {
+            const key = `${n.pitch}@${n.start.toFixed(3)}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        }
+
+        // 3. Normalización y suavizado de velocidad
+        if (normalize_velocity) {
+          optimizedNotes = optimizedNotes.map(n => ({
+            ...n,
+            velocity: Math.min(115, Math.max(65, Math.round(n.velocity || 96))),
+          }));
+        }
+
+        _liveSession.notes = optimizedNotes;
+        _liveSession.last_updated = new Date().toISOString();
+
+        // Actualizar archivo MIDI
+        const sessionDir = path.join(runtime.root || process.cwd(), "storage", "fl_session");
+        await fs.mkdir(sessionDir, { recursive: true }).catch(() => {});
+        const sessionJsonPath = path.join(sessionDir, "live_session.json");
+        const sessionMidPath = path.join(sessionDir, "live_workspace.mid");
+
+        await fs.writeFile(sessionJsonPath, JSON.stringify(_liveSession, null, 2), "utf8");
+        const midiBuf = createMidiFile({
+          notes: _liveSession.notes,
+          bpm: _liveSession.bpm,
+          trackName: _liveSession.track_title,
+        });
+        await fs.writeFile(sessionMidPath, midiBuf);
+
+        return {
+          ok: true,
+          action: "optimize",
+          target: "session",
+          initial_notes: initialCount,
+          optimized_notes: optimizedNotes.length,
+          duplicates_removed: initialCount - optimizedNotes.length,
+          quantized_to_grid: `${grid} beats`,
+          velocity_normalized: normalize_velocity,
+          message: `✨ Sesión optimizada con éxito (${optimizedNotes.length} notas limpias). Archivo MIDI actualizado.`,
+        };
+      }
+
+      // Optimización del DAW (Smart Disable y Purge)
+      if (t === "daw" || t === "project" || t === "cpu") {
+        const flProc = getFlRunningProcess();
+        return {
+          ok: true,
+          action: "optimize",
+          target: "daw",
+          fl_studio_running: Boolean(flProc),
+          macros_suggested: [
+            "flstudio { action: 'tools', subaction: 'macro', macro: 'smart_disable' } — Ahorra hasta 60% CPU desactivando plugins inactivos.",
+            "flstudio { action: 'tools', subaction: 'macro', macro: 'purge_unused_audio' } — Libera RAM eliminando samples huérfanos.",
+          ],
+          tip: "Ejecuta flstudio { action: 'tools', subaction: 'macro', macro: 'smart_disable' } para aplicar el ahorro de CPU en FL Studio.",
+        };
+      }
+
+      // Estado actual
+      return {
+        ok: true,
+        action: "optimize",
+        target: "status",
+        token_optimization_enabled: _globalFlOptimize,
+        session_notes_count: _liveSession.notes.length,
+        tip: "Opciones: flstudio { action: 'optimize', enabled: true } (activa ahorro de tokens) | flstudio { action: 'optimize', target: 'session' } (cuantiza y limpia notas)",
+      };
     },
   };
 
@@ -828,12 +1112,12 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
     edit: "standard", view: "standard", patterns: "standard", options: "advanced",
     tools: "standard", plugins: "standard", live_session: "standard",
     music_theory: "standard", change_tone: "standard", style_presets: "standard",
-    sound_design: "standard", mixer_settings: "standard"
+    sound_design: "standard", mixer_settings: "standard", optimize: "standard"
   };
 
   return domain(
     "flstudio",
-    "FL Studio Autonomous Suite v11.0.5. Acciones: detect | open { project_path? } | file { subaction: 'new'|'open'|'save'|'export'|'backup'|'info', path?, format? } | edit { subaction: 'undo'|'redo'|'cut'|'copy'|'paste'|'select_all'|'delete'|'duplicate'|'quantize' } | view { subaction: 'playlist'|'channel_rack'|'piano_roll'|'mixer'|'browser'|'plugin_picker'|'close_all' } | patterns { subaction: 'select'|'next'|'prev'|'rename'|'clone'|'split_by_channel' } | options { subaction: 'audio'|'midi'|'general'|'file', confirm_security? } | tools { subaction: 'macro'|'dump_score_log'|'chord_tool' } | plugins { subaction: 'list_installed'|'free_catalog'|'scan' } | live_session { mode: 'get'|'set_chords'|'add_notes'|'clear', progression, bpm, root, scale } | music_theory | change_tone | style_presets | sound_design | mixer_settings",
+    "FL Studio Suite v11.0.6 (con modo optimize para ahorro masivo de tokens). Acciones: detect | open { project_path? } | file { subaction: 'new'|'open'|'save'|'export'|'backup'|'info' } | edit | view | patterns | options | tools | plugins | live_session | music_theory { optimize? } | change_tone { optimize? } | style_presets { optimize? } | sound_design { optimize? } | mixer_settings { optimize? } | optimize { enabled?, target?: 'tokens'|'session'|'daw' }",
     actions,
     permissions
   );

@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "11.0.5",
-  "description": "Fluxer Core MCP v11.0.5 — FL Studio Autonomous Suite: Real-Time DAW Menus, Patterns, Plugins, Options & Security Integration",
+  "version": "11.0.6",
+  "description": "Fluxer Core MCP v11.0.6 — FL Studio Token Optimizer & Real-Time Suite: Compact Mode, Performance Macros & Lightweight Production",
   "type": "module",
   "main": "server.js",
   "bin": {
