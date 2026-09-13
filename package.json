@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "11.0.7",
-  "description": "Fluxer Core MCP v11.0.7 — AI Token Reducer & Binary Expander Suite: Ultra-Low Token Binary/Gzip Decompressor & One-Time Advisory",
+  "version": "11.0.8",
+  "description": "Fluxer Core MCP v11.0.8 — Token Advisory Toggle & Persistent Control: Toggle On/Off & Permanent Silence",
   "type": "module",
   "main": "server.js",
   "bin": {

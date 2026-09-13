@@ -137,6 +137,37 @@ async function runTests() {
   assert.equal(readGz, "Contenido super comprimido con GZIP");
   console.log("  ✓ files.write_file descomprime gzip y escribe contenido real en disco");
 
+  // 10. Desactivación Permanente y Toggle
+  console.log("\n🧪 Probando Toggle y Desactivación Permanente...");
+  // a) Desactivar mediante token_advisory({ enabled: false })
+  const offRes = await domain.actions.token_advisory({ enabled: false });
+  assert.equal(offRes.advisory_disabled, true, "Advisory debe quedar desactivado permanentemente");
+  console.log("  ✓ files.token_advisory({ enabled: false }) desactiva el aviso permanentemente");
+
+  // b) Ahora un write_file con texto plano largo en 1er intento debe escribir SIN emitir advertencia
+  resetAdvisoryCache();
+  const writeNoAdv = await domain.actions.write_file({ path: testFile, content: rawLongText, overwrite: true });
+  assert.equal(writeNoAdv.ok, true, "Debe escribir de inmediato sin advertencia al estar desactivado");
+  console.log("  ✓ Con aviso desactivado, write_file procede en el primer intento sin interrupciones");
+
+  // c) Toggle para reactivar
+  const toggleRes = await domain.actions.token_advisory({ toggle: true });
+  assert.equal(toggleRes.advisory_enabled, true, "Toggle debe reactivar el aviso");
+  console.log("  ✓ files.token_advisory({ toggle: true }) reactiva el aviso");
+
+  // d) Desactivación in-situ con disable_advisory_permanently: true
+  resetAdvisoryCache();
+  const writeInSitu = await domain.actions.write_file({
+    path: testFile,
+    content: rawLongText,
+    overwrite: true,
+    disable_advisory_permanently: true
+  });
+  assert.equal(writeInSitu.ok, true, "disable_advisory_permanently debe escribir de inmediato");
+  const statusAfter = await domain.actions.token_advisory();
+  assert.equal(statusAfter.advisory_disabled, true, "Debe quedar permanentemente desactivado tras disable_advisory_permanently");
+  console.log("  ✓ write_file({ disable_advisory_permanently: true }) desactiva avisos futuros");
+
   // Cleanup
   await fs.unlink(testFile).catch(() => {});
 

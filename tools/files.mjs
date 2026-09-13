@@ -12,9 +12,11 @@ import fsSync from "node:fs";
 import { Validator } from "../core/validator.mjs";
 import { VerificationEngine } from "../core/verification.mjs";
 import { FluxerError, ERROR_CODES } from "../core/errors.mjs";
-import { expandContent, checkTokenAdvisory } from "../core/token-optimizer.mjs";
+import { expandContent, checkTokenAdvisory, initAdvisoryState, setAdvisoryEnabled, toggleAdvisory, getAdvisoryStatus } from "../core/token-optimizer.mjs";
 
 export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }) {
+    initAdvisoryState(runtime.dirs?.storage || runtime.storage);
+
   const { getDirectoryTreeHelper, searchFilesHelper, grepFilesHelper, generateSimpleDiff, splitLines } = helpers;
 
   // ── Funciones auxiliares internas ──────────────────────────────────────────
@@ -466,6 +468,26 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
   }
 
   const actions = {
+      // ── Control de Avisos de Tokens (Toggle / Desactivar Permanentemente) ──
+      token_advisory: async ({ enabled = null, action = "status", toggle = false } = {}) => {
+        if (toggle) {
+          return toggleAdvisory();
+        }
+        if (typeof enabled === "boolean") {
+          return setAdvisoryEnabled(enabled);
+        }
+        if (action === "disable" || action === "off") {
+          return setAdvisoryEnabled(false);
+        }
+        if (action === "enable" || action === "on") {
+          return setAdvisoryEnabled(true);
+        }
+        if (action === "toggle") {
+          return toggleAdvisory();
+        }
+        return getAdvisoryStatus();
+      },
+
       // ── 1. Navegación & Búsqueda ───────────────────────────────────────────
       list_directory: async ({ path: p = ".", limit = 100, sortBy = "name", recursive = false, compact = false } = {}) => {
         const target = runtime.hp(p);
@@ -1185,11 +1207,11 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       },
 
       // ── 4. Escritura Atómica, Backups & Modificación Quirúrgica ────────────
-      write_file: async ({ path: p, content = "", overwrite = true, backup = false, encoding = "utf8", mode, patch, skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
+      write_file: async ({ path: p, content = "", overwrite = true, backup = false, encoding = "utf8", mode, patch, skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, disable_advisory_permanently = false, advisory = null, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
 
         // ── Puerta de Advertencia de Ahorro de Tokens ─────────────────────────
-        const advisory = checkTokenAdvisory({
+        const advCheck = checkTokenAdvisory({
           action: "write_file",
           target: p,
           content,
@@ -1199,13 +1221,15 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           force,
           confirm,
           confirmed,
+          disable_advisory_permanently,
+          advisory,
           macros,
           repeat,
           boilerplate,
           numbers
         });
-        if (!advisory.shouldProceed) {
-          return advisory.response;
+        if (!advCheck.shouldProceed) {
+          return advCheck.response;
         }
 
         // ── Expansión de Código Binario, Comprimido o Macros ──────────────────
@@ -1343,10 +1367,10 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      append_to_file: async ({ path: p, content = "", addNewline = true, encoding = "utf8", skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
+      append_to_file: async ({ path: p, content = "", addNewline = true, encoding = "utf8", skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, disable_advisory_permanently = false, advisory = null, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
 
-        const advisory = checkTokenAdvisory({
+        const advCheck = checkTokenAdvisory({
           action: "append_to_file",
           target: p,
           content,
@@ -1356,13 +1380,15 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           force,
           confirm,
           confirmed,
+          disable_advisory_permanently,
+          advisory,
           macros,
           repeat,
           boilerplate,
           numbers
         });
-        if (!advisory.shouldProceed) {
-          return advisory.response;
+        if (!advCheck.shouldProceed) {
+          return advCheck.response;
         }
 
         try {
@@ -2380,6 +2406,7 @@ try {
         remove_allowed_directory: "advanced",
         list_allowed_directories: "standard",
         sandbox_status: "standard",
+        token_advisory: "standard",
       }
     );
   }

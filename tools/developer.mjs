@@ -226,6 +226,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
   }
 
   const actions = {
+    token_advisory: async ({ enabled = null, action = "status", toggle = false } = {}) => {
+      if (toggle) return toggleAdvisory();
+      if (typeof enabled === "boolean") return setAdvisoryEnabled(enabled);
+      if (action === "disable" || action === "off") return setAdvisoryEnabled(false);
+      if (action === "enable" || action === "on") return setAdvisoryEnabled(true);
+      if (action === "toggle") return toggleAdvisory();
+      return getAdvisoryStatus();
+    },
+
     detect_project: async ({ path: p = "." } = {}) => {
       const target = runtime.hp(p);
       const types = [];
@@ -360,11 +369,11 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    create_skill: async ({ name, description, instructions = "", path: targetPath, rules = [], examples = [], references = [], scripts = [], overwrite = true, compact = false, compact_mode = false, encoding = "utf8", skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
+    create_skill: async ({ name, description, instructions = "", path: targetPath, rules = [], examples = [], references = [], scripts = [], overwrite = true, compact = false, compact_mode = false, encoding = "utf8", skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, disable_advisory_permanently = false, advisory = null, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
       if (!name) return { ok: false, error: "El parámetro 'name' es requerido para crear una skill." };
       if (!description) return { ok: false, error: "El parámetro 'description' es requerido para crear una skill." };
 
-      const advisory = checkTokenAdvisory({
+      const advCheck = checkTokenAdvisory({
         action: "create_skill",
         target: name,
         content: instructions || description,
@@ -374,13 +383,15 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         force,
         confirm,
         confirmed,
+        disable_advisory_permanently,
+        advisory,
         macros,
         repeat,
         boilerplate,
         numbers
       });
-      if (!advisory.shouldProceed) {
-        return advisory.response;
+      if (!advCheck.shouldProceed) {
+        return advCheck.response;
       }
 
       try {

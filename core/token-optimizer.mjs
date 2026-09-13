@@ -1,17 +1,81 @@
 /**
  * ══════════════════════════════════════════════════════════════════════════════
- * ⚡ FLUXER CORE — core/token-optimizer.mjs (v11.0.7)
+ * ⚡ FLUXER CORE — core/token-optimizer.mjs (v11.0.8 Hotfix)
  * Motor Autónomo de Expansión de Código Binario/Comprimido y Control de Tokens.
- * Permite a la IA escribir códigos ultra-cortos que se expanden a texto real
- * en disco, ahorrando entre 70% y 95% de tokens en operaciones de alto volumen.
+ * Incluye Toggle Global y Desactivación Permanente del Aviso de Tokens.
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
 import zlib from "node:zlib";
+import fsSync from "node:fs";
+import path from "node:path";
 
 // Caché en memoria para la advertencia rápida de una sola vez
 const _advisoryCache = new Map();
 const ADVISORY_TTL_MS = 10 * 60 * 1000; // 10 minutos
+
+// Estado global de desactivación permanente (toggle)
+let _advisoryGloballyDisabled = false;
+let _stateFilePath = null;
+
+export function initAdvisoryState(storageDir) {
+  if (storageDir) {
+    try {
+      _stateFilePath = path.join(storageDir, "token_advisory_state.json");
+      if (fsSync.existsSync(_stateFilePath)) {
+        const raw = fsSync.readFileSync(_stateFilePath, "utf8");
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.disabled === "boolean") {
+          _advisoryGloballyDisabled = parsed.disabled;
+        }
+      }
+    } catch (_) {}
+  }
+}
+
+function saveAdvisoryState() {
+  if (_stateFilePath) {
+    try {
+      fsSync.mkdirSync(path.dirname(_stateFilePath), { recursive: true });
+      fsSync.writeFileSync(
+        _stateFilePath,
+        JSON.stringify({ disabled: _advisoryGloballyDisabled, updatedAt: new Date().toISOString() }, null, 2),
+        "utf8"
+      );
+    } catch (_) {}
+  }
+}
+
+export function setAdvisoryEnabled(enabled) {
+  _advisoryGloballyDisabled = !enabled;
+  saveAdvisoryState();
+  return {
+    ok: true,
+    advisory_enabled: enabled,
+    advisory_disabled: !enabled,
+    status: enabled ? "ACTIVE_ONE_TIME_GATE" : "DISABLED_PERMANENTLY",
+    message: enabled
+      ? "⚡ Aviso de optimización de tokens ACTIVADO."
+      : "🔇 Aviso de optimización de tokens DESACTIVADO PERMANENTEMENTE. Ya no aparecerán advertencias en herramientas de escritura.",
+    tip: enabled
+      ? "Puedes desactivarlo con files.token_advisory({ enabled: false }) o disable_advisory_permanently: true."
+      : "Puedes reactivarlo en cualquier momento con files.token_advisory({ enabled: true })."
+  };
+}
+
+export function toggleAdvisory() {
+  return setAdvisoryEnabled(_advisoryGloballyDisabled);
+}
+
+export function getAdvisoryStatus() {
+  return {
+    ok: true,
+    advisory_enabled: !_advisoryGloballyDisabled,
+    advisory_disabled: _advisoryGloballyDisabled,
+    mode: _advisoryGloballyDisabled ? "DISABLED_PERMANENTLY" : "ACTIVE_ONE_TIME_GATE",
+    tip: "Usa token_advisory({ enabled: false }) o disable_advisory_permanently: true para desactivar permanentemente."
+  };
+}
 
 export const TOKEN_COMPRESSION_TYPES = [
   "gzip",
@@ -113,10 +177,6 @@ export function expandContent({
   if (normEnc === "bin" || normEnc === "binary" || normEnc === "bits") {
     try {
       const bits = String(content).replace(/[^01]/g, "");
-      if (bits.length % 8 !== 0) {
-        // Relleno a la derecha si faltan bits para completar el último byte
-        // o procesar bloques completos de 8
-      }
       const bytes = [];
       for (let i = 0; i < bits.length; i += 8) {
         const chunk = bits.slice(i, i + 8);
@@ -157,16 +217,13 @@ export function expandContent({
   }
 
   if (normEnc === "rle") {
-    // Run-length encoding format: "10#A5#B" -> "AAAAAAAAAABBBBB"
     const regex = /(\d+)#([^#]+)/g;
     let match;
     let result = "";
-    let lastIndex = 0;
     while ((match = regex.exec(String(content))) !== null) {
       const count = parseInt(match[1], 10);
       const text = match[2];
       result += text.repeat(count);
-      lastIndex = regex.lastIndex;
     }
     return result || String(content);
   }
@@ -197,17 +254,31 @@ export function checkTokenAdvisory({
   force = false,
   confirm = false,
   confirmed = false,
+  disable_advisory_permanently = false,
+  advisory = null,
   macros = null,
   repeat = null,
   boilerplate = null,
   numbers = null
 } = {}) {
-  // Si se solicita expresamente omitir la advertencia o ya está confirmada
+  // 0. Si el usuario o la IA desactiva permanentemente en esta llamada
+  if (disable_advisory_permanently === true || advisory === false) {
+    _advisoryGloballyDisabled = true;
+    saveAdvisoryState();
+    return { shouldProceed: true, disabled_permanently: true };
+  }
+
+  // 1. Si está desactivado globalmente / permanentemente (toggle OFF)
+  if (_advisoryGloballyDisabled) {
+    return { shouldProceed: true };
+  }
+
+  // 2. Si se solicita expresamente omitir la advertencia en este llamado
   if (skip_advisory || bypass_advisory || force || confirm || confirmed) {
     return { shouldProceed: true };
   }
 
-  // Si ya se especificó un método de compresión, macro o binario
+  // 3. Si ya se especificó un método de compresión, macro o binario
   if (macros || repeat || boilerplate || numbers) {
     return { shouldProceed: true };
   }
@@ -217,7 +288,7 @@ export function checkTokenAdvisory({
     return { shouldProceed: true };
   }
 
-  // Para textos cortos (< 150 caracteres), no interrumpir innecesariamente
+  // Para textos cortos (< 150 caracteres), no interrumpir
   const textLen = typeof content === "string" ? content.length : JSON.stringify(content || "").length;
   if (textLen < 150) {
     return { shouldProceed: true };
@@ -228,7 +299,6 @@ export function checkTokenAdvisory({
   const cached = _advisoryCache.get(key);
 
   // Si ya se mostró la advertencia en el intento anterior dentro de la ventana TTL:
-  // "esa advertencia aparece una vez en la tool call y al hacer el mismo tool call de nuevo pues se puede usar"
   if (cached && (now - cached) < ADVISORY_TTL_MS) {
     _advisoryCache.delete(key); // Consumir el pase
     return { shouldProceed: true, wasRetry: true };
@@ -254,7 +324,8 @@ export function checkTokenAdvisory({
         repeat: "repeat: { pattern: '...', times: N } — Repetición de bloques.",
         boilerplate: "boilerplate: 'mit_license' | 'html5_starter' | 'express_server' | 'skill_template' — Plantillas nativas."
       },
-      instrucciones_para_continuar: "▶️ Si deseas escribir en texto plano normal, simplemente VUELVE A EJECUTAR esta misma llamada (o agrega 'skip_advisory: true') y se procesará de inmediato.",
+      instrucciones_para_continuar: "▶️ Si deseas escribir en texto plano normal, simplemente VUELVE A EJECUTAR esta misma llamada (o agrega 'skip_advisory: true') y se procesará de inmediato.\n" +
+                                     "🔇 PARA DESACTIVAR ESTE AVISO PERMANENTEMENTE: Añade 'disable_advisory_permanently: true' en esta llamada, o ejecuta files.token_advisory({ enabled: false }).",
       can_proceed_on_retry: true,
       advisory_bypassed_for_next_call: true
     }

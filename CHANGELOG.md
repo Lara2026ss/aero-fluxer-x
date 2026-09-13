@@ -5,6 +5,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v11.0.8] - 2026-09-13 (Hotfix — Token Advisory Toggle & Persistent Control)
+
+### 🔇 Desactivación Permanente y Toggle del Aviso de Tokens
+- **Nueva Acción `token_advisory` en `files` y `developer`**:
+  - Permite a la IA o al usuario activar o desactivar permanentemente las advertencias rápidas de tokens:
+    - Desactivar permanentemente: `files.token_advisory({ enabled: false })` o `action: 'disable'`.
+    - Reactivar: `files.token_advisory({ enabled: true })` o `action: 'enable'`.
+    - Alternar (Toggle): `files.token_advisory({ toggle: true })`.
+    - Consultar estado: `files.token_advisory()`.
+- **Desactivación In-Situ en Cualquier Herramienta de Escritura**:
+  - En `write_file`, `append_to_file` o `create_skill`, pasar `disable_advisory_permanently: true` o `advisory: false` escribe el archivo de inmediato y desactiva permanentemente todos los avisos futuros.
+- **Persistencia en Disco**:
+  - El estado se persiste automáticamente en `storage/token_advisory_state.json` para mantenerse entre reinicios de proceso y sesiones.
+
+---
+
 ## [v11.0.7] - 2026-09-13 (AI Token Reducer & Binary Expander Suite)
 
 ### ⚡ Reductor Autónomo de Tokens y Expansor Binario en Herramientas de Alto Volumen
