@@ -5,6 +5,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v11.0.7] - 2026-09-13 (AI Token Reducer & Binary Expander Suite)
+
+### ⚡ Reductor Autónomo de Tokens y Expansor Binario en Herramientas de Alto Volumen
+- **Advertencia Rápida de Una Sola Vez ("One-Time Advisory Gate")**:
+  - En herramientas de alto consumo de tokens (`write_file`, `append_to_file`, `create_skill`, etc.), si la IA envía un bloque de texto plano extenso sin comprimir, el sistema emite una advertencia didáctica sugiriendo formatos ultra-cortos.
+  - **Reintento Inmediato sin Fricción**: Si la IA reitera la llamada (o envía `skip_advisory: true`), la advertencia se consume automáticamente y la herramienta escribe de inmediato.
+- **Formatos Binarios, Numéricos y Comprimidos Ultra-Cortos**:
+  - `gzip` / `deflate`: Base64 comprimido que descomprime en el servidor texto masivo con un 70% a 95% de ahorro en tokens de entrada.
+  - `bin` / `binary` / `bits`: Cadenas de bits ("01001000...") decodificadas directamente a UTF-8.
+  - `numbers` / `bytes`: Secuencias numéricas o arrays de bytes ([72, 101, ...]).
+  - `hex`: Representaciones hexadecimales puras.
+  - `template` + `macros`: Plantillas con diccionario de sustitución masiva.
+  - `repeat`: Generación de patrones repetitivos (`repeat: { pattern, times }`).
+  - `boilerplate`: Plantillas integradas (`mit_license`, `html5_starter`, `express_server`, `skill_template`).
+
+---
+
 ## [v11.0.6] - 2026-09-12 (FL Studio Token Optimizer & Real-Time Suite)
 
 ### ⚡ Reducción Masiva de Tokens en FL Studio (`flstudio`)

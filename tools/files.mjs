@@ -12,6 +12,7 @@ import fsSync from "node:fs";
 import { Validator } from "../core/validator.mjs";
 import { VerificationEngine } from "../core/verification.mjs";
 import { FluxerError, ERROR_CODES } from "../core/errors.mjs";
+import { expandContent, checkTokenAdvisory } from "../core/token-optimizer.mjs";
 
 export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }) {
   const { getDirectoryTreeHelper, searchFilesHelper, grepFilesHelper, generateSimpleDiff, splitLines } = helpers;
@@ -1184,7 +1185,36 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       },
 
       // ── 4. Escritura Atómica, Backups & Modificación Quirúrgica ────────────
-      write_file: async ({ path: p, content = "", overwrite = true, backup = false, encoding = "utf8", mode, patch } = {}) => {
+      write_file: async ({ path: p, content = "", overwrite = true, backup = false, encoding = "utf8", mode, patch, skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
+        if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+
+        // ── Puerta de Advertencia de Ahorro de Tokens ─────────────────────────
+        const advisory = checkTokenAdvisory({
+          action: "write_file",
+          target: p,
+          content,
+          encoding,
+          skip_advisory,
+          bypass_advisory,
+          force,
+          confirm,
+          confirmed,
+          macros,
+          repeat,
+          boilerplate,
+          numbers
+        });
+        if (!advisory.shouldProceed) {
+          return advisory.response;
+        }
+
+        // ── Expansión de Código Binario, Comprimido o Macros ──────────────────
+        try {
+          content = expandContent({ content, encoding, macros, repeat, boilerplate, numbers });
+          encoding = "utf8";
+        } catch (expErr) {
+          return { ok: false, error: expErr.message };
+        }
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
         if (mode === "patch" || patch) {
           const searchBlock = patch?.searchBlock || patch?.find || patch?.search;
@@ -1313,7 +1343,33 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      append_to_file: async ({ path: p, content = "", addNewline = true } = {}) => {
+      append_to_file: async ({ path: p, content = "", addNewline = true, encoding = "utf8", skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
+        if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+
+        const advisory = checkTokenAdvisory({
+          action: "append_to_file",
+          target: p,
+          content,
+          encoding,
+          skip_advisory,
+          bypass_advisory,
+          force,
+          confirm,
+          confirmed,
+          macros,
+          repeat,
+          boilerplate,
+          numbers
+        });
+        if (!advisory.shouldProceed) {
+          return advisory.response;
+        }
+
+        try {
+          content = expandContent({ content, encoding, macros, repeat, boilerplate, numbers });
+        } catch (expErr) {
+          return { ok: false, error: expErr.message };
+        }
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
         const target = runtime.hp(p);
         try {

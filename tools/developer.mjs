@@ -360,7 +360,36 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       };
     },
 
-    create_skill: async ({ name, description, instructions = "", path: targetPath, rules = [], examples = [], references = [], scripts = [], overwrite = true, compact = false, compact_mode = false } = {}) => {
+    create_skill: async ({ name, description, instructions = "", path: targetPath, rules = [], examples = [], references = [], scripts = [], overwrite = true, compact = false, compact_mode = false, encoding = "utf8", skip_advisory = false, bypass_advisory = false, force = false, confirm = false, confirmed = false, macros = null, repeat = null, boilerplate = null, numbers = null } = {}) => {
+      if (!name) return { ok: false, error: "El parámetro 'name' es requerido para crear una skill." };
+      if (!description) return { ok: false, error: "El parámetro 'description' es requerido para crear una skill." };
+
+      const advisory = checkTokenAdvisory({
+        action: "create_skill",
+        target: name,
+        content: instructions || description,
+        encoding,
+        skip_advisory,
+        bypass_advisory,
+        force,
+        confirm,
+        confirmed,
+        macros,
+        repeat,
+        boilerplate,
+        numbers
+      });
+      if (!advisory.shouldProceed) {
+        return advisory.response;
+      }
+
+      try {
+        if (instructions) {
+          instructions = expandContent({ content: instructions, encoding, macros, repeat, boilerplate, numbers });
+        }
+      } catch (expErr) {
+        return { ok: false, error: expErr.message };
+      }
       if (!name) return { ok: false, error: "El parámetro 'name' es requerido para crear una skill." };
       if (!description) return { ok: false, error: "El parámetro 'description' es requerido para crear una skill." };
 
