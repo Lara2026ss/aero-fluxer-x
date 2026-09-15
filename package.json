@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "11.0.8",
-  "description": "Fluxer Core MCP v11.0.8 — Token Advisory Toggle & Persistent Control: Toggle On/Off & Permanent Silence",
+  "version": "11.0.9",
+  "description": "Fluxer Core MCP v11.0.9 — Claude Desktop Audit Hotfix: diagnostics.test route, OneDrive Desktop resolution, semantic guide.search & RAM metrics",
   "type": "module",
   "main": "server.js",
   "bin": {

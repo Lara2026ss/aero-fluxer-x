@@ -234,7 +234,8 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     const parentCwd = path.dirname(cwdDir);
     const isParentSystem = isWindowsSystemDirectory(parentCwd) || parentCwd === path.dirname(parentCwd);
     const tempDir = os.tmpdir();
-    const desktopDir = path.join(homeDir, "Desktop");
+    const oneDriveDesktop = process.env.OneDrive ? path.join(process.env.OneDrive, "Desktop") : path.join(homeDir, "OneDrive", "Desktop");
+    const desktopDir = fsSync.existsSync(oneDriveDesktop) ? oneDriveDesktop : path.join(homeDir, "Desktop");
     const builtinSkills = path.join(homeDir, ".gemini", "antigravity", "builtin", "skills");
     const hasBuiltin = await fs.access(builtinSkills).then(() => true).catch(() => false);
 
@@ -245,6 +246,7 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       // 2. User home y subcarpetas estándar
       { path: homeDir, label: "user_home", domain: "files", note: "Directorio principal del usuario" },
       { path: desktopDir, label: "desktop", domain: "files", note: "Escritorio del usuario" },
+      ...(fsSync.existsSync(oneDriveDesktop) && oneDriveDesktop.toLowerCase() !== desktopDir.toLowerCase() ? [{ path: oneDriveDesktop, label: "desktop_onedrive", domain: "files", note: "Escritorio redirigido a OneDrive" }] : []),
       { path: runtime.dirs.documents, label: "documents", domain: "files", note: "Documentos del usuario" },
       { path: runtime.dirs.downloads, label: "downloads", domain: "files", note: "Descargas del usuario" },
       // 3. Temporales del sistema

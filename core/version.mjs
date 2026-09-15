@@ -5,11 +5,11 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "11.0.8";
+export const CURRENT_VERSION = "11.0.9";
 export const APP_NAME = "fluxer-core";
 export const BRAND_NAME = "Fluxer Core";
 export const CHANNEL = "public-release";
-export const RELEASE_CODENAME = "Token Advisory Toggle & Persistent Control Hotfix";
+export const RELEASE_CODENAME = "Claude Desktop Audit Hotfix & OneDrive Path Resilience";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
 export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 

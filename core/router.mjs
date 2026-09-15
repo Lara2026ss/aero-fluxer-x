@@ -557,6 +557,11 @@ export class Router {
       return { ok: true, tool, action, message: "Server shutting down for graceful restart." };
     }
 
+    // Normalización defensiva para clientes MCP (Claude Desktop, etc.)
+    if (tool === "diagnostics" && (action === "test" || action === "test_mcp")) {
+      action = "test";
+    }
+
     let resolved = this.registry.resolve(tool, action);
     if (!resolved) {
       // Búsqueda inversa: solo permitida si el llamador NO especificó un dominio registrado concreto.

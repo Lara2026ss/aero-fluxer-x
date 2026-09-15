@@ -385,6 +385,25 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
     }
   }
 
+  function resolveKnownWindowsFolder(folderName) {
+    if (process.platform !== "win32") return null;
+    const direct = path.join(home, folderName);
+    if (existsSync(direct)) return direct;
+    
+    // Comprobar redirecciones de OneDrive (Known Folder Move de Windows)
+    const candidates = [
+      process.env.OneDrive ? path.join(process.env.OneDrive, folderName) : null,
+      process.env.OneDriveConsumer ? path.join(process.env.OneDriveConsumer, folderName) : null,
+      process.env.OneDriveCommercial ? path.join(process.env.OneDriveCommercial, folderName) : null,
+      path.join(home, "OneDrive", folderName)
+    ].filter(Boolean);
+
+    for (const cand of candidates) {
+      if (existsSync(cand)) return cand;
+    }
+    return direct;
+  }
+
   function hp(value = ".") {
     let raw = String(value ?? ".").trim() || ".";
     raw = raw.replace(/\0/g, "").replace(/^["']|["']$/g, "").trim();
@@ -396,8 +415,28 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
       }
     }
     if (raw === "~") return home;
-    if (raw.startsWith("~/") || raw.startsWith("~\\")) return path.join(home, raw.slice(2));
+
+    // Normalizar accesos a carpetas de usuario (~/Desktop, ~/Documents, etc.) con resiliencia a OneDrive
+    const tildeMatch = raw.match(/^~[/\\]([^/\\]+)(?:[/\\](.*))?$/);
+    if (tildeMatch) {
+      const topFolder = tildeMatch[1];
+      const rest = tildeMatch[2] || "";
+      const knownFolder = resolveKnownWindowsFolder(topFolder);
+      if (knownFolder) {
+        return rest ? path.join(knownFolder, rest) : knownFolder;
+      }
+      return path.join(home, raw.slice(2));
+    }
+
     if (path.isAbsolute(raw)) return path.normalize(raw);
+
+    // Si se pasa "Desktop", "Documents", etc. como nombre relativo directo
+    const lower = raw.toLowerCase();
+    if (lower === "desktop" || lower === "documents" || lower === "downloads") {
+      const known = resolveKnownWindowsFolder(raw);
+      if (known && existsSync(known)) return known;
+    }
+
     return path.resolve(root, raw);
   }
 

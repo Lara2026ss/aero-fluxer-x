@@ -5,6 +5,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v11.0.9] - 2026-09-14 (Hotfix — Claude Desktop Audit & OneDrive Path Resilience)
+
+### 🐞 Corrección de Hallazgos de Auditoría (Claude Desktop Test)
+- **🔴 Corrección de Ruteo en `diagnostics.mcp_test` y `diagnostics.test`**:
+  - Implementada acción nativa `test` en `tools/diagnostics.mjs` con soporte para sub-objetivos (`network`, `storage`, `self`, `health` o `mcp`).
+  - Normalizador en `core/router.mjs` que mapea dinámicamente llamadas de clientes MCP como Claude Desktop a `diagnostics.test` / `diagnostics.mcp_test`, eliminando el error `unknown route: diagnostics.test`.
+- **🟠 Resiliencia a Redirección OneDrive en `files.list_directory`**:
+  - `core/runtime.mjs` (`hp()`) ahora detecta automáticamente si las carpetas de usuario (`~/Desktop`, `~/Documents`, `~/Downloads`) fueron redirigidas por OneDrive Known Folder Move (`%OneDrive%\Desktop`). Si la ruta tradicional no existe físicamente, resuelve de forma transparente a la ruta real de OneDrive.
+  - `tools/files.mjs` (`getAllowedDirectoriesList`) registra automáticamente tanto la ruta estándar como la ruta de OneDrive en la lista de sandbox, evitando errores `ENOENT` y falsos bloqueos de sandbox boundary.
+- **🟡 Relevancia Semántica Completa en `guide.search`**:
+  - Motor de búsqueda semántica con índice estructurado para los 13 dominios de herramientas (`terminal`, `files`, `system`, `packages`, `database`, `security`, etc.).
+  - Búsquedas como `"terminal"`, `"powershell"`, `"command"`, `"exec"` ahora devuelven relevancia `HIGH` apuntando al dominio `terminal` con ejemplos prácticos, en lugar de devolver genéricamente el índice.
+- **🟡 Refinamiento de Métricas de Memoria RAM**:
+  - `diagnostics.health_check` ahora desglosa la memoria del sistema operativo versus el RSS del proceso Node.js de Fluxer (~50 MB).
+  - Ajustado umbral de aviso al 92% para evitar falsas alarmas provocadas por el Standby/Superfetch caché de Windows en máquinas con 8-16 GB de RAM.
+
+---
+
 ## [v11.0.8] - 2026-09-13 (Hotfix — Token Advisory Toggle & Persistent Control)
 
 ### 🔇 Desactivación Permanente y Toggle del Aviso de Tokens

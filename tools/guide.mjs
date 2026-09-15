@@ -331,21 +331,150 @@ export function createGuideDomain({ runtime, domain }) {
 
     search: async ({ query = "" } = {}) => {
       if (!query) return { ok: false, error: "Provide a search query: guide { action: 'search', query: 'your question' }" };
-      const q = query.toLowerCase();
+      const q = String(query).toLowerCase().trim();
+      const tokens = q.split(/\s+/);
       const results = [];
-      if (q.includes("compact") || q.includes("token")) results.push({ action: "compact_mode", relevance: "HIGH", summary: "Compact mode toggle guide -- how to enable/disable and when" });
-      if (q.includes("update") || q.includes("upd") || q.includes("upgrade")) results.push({ action: "examples", domain: "upd", relevance: "HIGH", summary: "Update workflow examples" });
-      if (q.includes("install") || q.includes("setup") || q.includes("new")) results.push({ action: "examples", domain: "install", relevance: "HIGH", summary: "Installation wizard examples" });
-      if (q.includes("package") || q.includes("npm") || q.includes("winget") || q.includes("pip")) results.push({ action: "examples", domain: "packages", relevance: "HIGH", summary: "Package manager usage examples" });
-      if (q.includes("file") || q.includes("read") || q.includes("write") || q.includes("edit")) results.push({ action: "examples", domain: "files", relevance: "HIGH", summary: "File operation examples" });
-      if (q.includes("permission") || q.includes("access") || q.includes("denied")) results.push({ action: "permissions", relevance: "HIGH", summary: "Permission levels and elevation guide" });
-      if (q.includes("error") || q.includes("fail") || q.includes("broken") || q.includes("fix")) results.push({ action: "troubleshoot", relevance: "HIGH", summary: "Troubleshooting guide" });
-      if (q.includes("health") || q.includes("diagnos") || q.includes("check")) results.push({ action: "tool_usage", tool_name: "diagnostics", relevance: "HIGH", summary: "Diagnostics tool usage" });
-      if (q.includes("git") || q.includes("developer") || q.includes("skill")) results.push({ action: "tool_usage", tool_name: "developer", relevance: "HIGH", summary: "Developer tool usage" });
-      if (q.includes("fl") || q.includes("flstudio") || q.includes("music") || q.includes("midi")) results.push({ action: "tool_usage", tool_name: "flstudio", relevance: "HIGH", summary: "FL Studio Suite real-time tool usage" });
-      if (q.includes("network") || q.includes("internet") || q.includes("connect")) results.push({ action: "tool_usage", tool_name: "diagnostics", relevance: "MEDIUM", summary: "Network test in diagnostics" });
-      if (results.length === 0) results.push({ action: "index", relevance: "LOW", summary: "Browse the full guide index" });
-      return { ok: true, query, count: results.length, results, tip: "Call any of the suggested actions to get detailed information." };
+
+      // Catálogo exhaustivo de temas indexados por relevancia semántica
+      const INDEXED_TOPICS = [
+        {
+          id: "terminal",
+          keywords: ["terminal", "command", "cmd", "powershell", "shell", "exec", "script", "bash", "run_as_admin", "admin", "prompt", "session", "background", "process", "sudo"],
+          action: "tool_usage",
+          tool_name: "terminal",
+          summary: "Terminal domain: execute PowerShell/cmd commands, run scripts, manage sessions, and run admin tasks with security confirmation code gate.",
+          example: "terminal { action: 'command', command: 'Get-Process' }"
+        },
+        {
+          id: "files",
+          keywords: ["file", "files", "read", "write", "edit", "append", "patch", "lines", "json", "csv", "pdf", "docx", "xlsx", "compress", "zip", "backup", "desktop", "documents", "onedrive", "token_advisory", "gzip", "binary", "numbers"],
+          action: "tool_usage",
+          tool_name: "files",
+          summary: "Files domain: read, write, edit, replace, json dot-notation, CSV, Office/PDF docs, and token optimization (gzip, bin, numbers).",
+          example: "files { action: 'list_directory', path: '~/Desktop' }"
+        },
+        {
+          id: "system",
+          keywords: ["system", "hardware", "memory", "ram", "cpu", "processes", "power", "registry", "clipboard", "stats", "screenshot", "uptime", "perf", "performance"],
+          action: "tool_usage",
+          tool_name: "system",
+          summary: "System domain: inspect hardware, CPU, RAM, active processes, kill tasks, power controls, and clipboard.",
+          example: "system { action: 'get_system_info' }"
+        },
+        {
+          id: "packages",
+          keywords: ["package", "packages", "npm", "winget", "choco", "chocolatey", "scoop", "pip", "cargo", "install", "remove", "update", "audit"],
+          action: "tool_usage",
+          tool_name: "packages",
+          summary: "Packages domain: universal package management across winget, npm, choco, scoop, and pip.",
+          example: "packages { action: 'search', query: 'git', manager: 'winget' }"
+        },
+        {
+          id: "database",
+          keywords: ["database", "db", "sqlite", "sql", "query", "table", "tables", "notes", "remember", "export_table"],
+          action: "tool_usage",
+          tool_name: "database",
+          summary: "Database domain: execute native SQLite queries, manage tables, and persistent AI notes memory.",
+          example: "database { action: 'query', query: 'SELECT sqlite_version();' }"
+        },
+        {
+          id: "security",
+          keywords: ["security", "permission", "permissions", "elevation", "workflow", "approve", "confirm", "confirmation", "gate", "code", "audit", "encrypt", "hash", "scan"],
+          action: "permissions",
+          summary: "Security & permissions: elevation workflows, 4-character confirmation codes for terminal, audit logs, and encryption.",
+          example: "security { action: 'check_permissions' }"
+        },
+        {
+          id: "diagnostics",
+          keywords: ["diagnostics", "health", "health_check", "self_test", "mcp_test", "test", "report", "benchmark", "telemetry", "storage_test", "network_test", "ping"],
+          action: "tool_usage",
+          tool_name: "diagnostics",
+          summary: "Diagnostics domain: 14-point system health check, MCP tests, real network latency, disk benchmark, and telemetry.",
+          example: "diagnostics { action: 'health_check' }"
+        },
+        {
+          id: "compact_mode",
+          keywords: ["compact", "token", "tokens", "optimize", "optimization", "reduce", "savings", "short"],
+          action: "compact_mode",
+          summary: "Compact mode & Token Optimizer: AI-driven token reduction across tools, gzip/binary expanders, and session compact toggles.",
+          example: "diagnostics { action: 'set_compact', enabled: true }"
+        },
+        {
+          id: "flstudio",
+          keywords: ["fl", "flstudio", "music", "midi", "synth", "piano_roll", "daw", "plugins", "mixer", "tone", "scales", "chords", "patterns"],
+          action: "tool_usage",
+          tool_name: "flstudio",
+          summary: "FL Studio Suite: real-time DAW menus (file, edit, view, patterns, options), live session, chord generator, plugins & token optimizer.",
+          example: "flstudio { action: 'detect' }"
+        },
+        {
+          id: "upd",
+          keywords: ["update", "upd", "upgrade", "doctor", "rollback", "check", "version", "changelog", "patch"],
+          action: "examples",
+          domain: "upd",
+          summary: "Update Manager (upd): check GitHub releases, apply verified updates with auto-backup and 20-point doctor diagnostics.",
+          example: "upd { action: 'check' }"
+        },
+        {
+          id: "troubleshoot",
+          keywords: ["error", "fail", "failed", "broken", "fix", "repair", "issue", "bug", "timeout", "enoent", "denied"],
+          action: "troubleshoot",
+          summary: "Troubleshooting guide: solutions for common issues (timeouts, ENOENT paths, permission elevation, MCP client reconnect).",
+          example: "guide { action: 'troubleshoot', issue: 'enoent' }"
+        },
+        {
+          id: "developer",
+          keywords: ["developer", "git", "skill", "skills", "create_skill", "inspect_project", "tests", "build", "feedback"],
+          action: "tool_usage",
+          tool_name: "developer",
+          summary: "Developer domain: Git inspections, AI skills creation & validation, project testing and telemetry feedback.",
+          example: "developer { action: 'list_skills' }"
+        }
+      ];
+
+      for (const topic of INDEXED_TOPICS) {
+        let score = 0;
+        // Coincidencia exacta de ID
+        if (q === topic.id) score += 10;
+        if (q.includes(topic.id)) score += 5;
+
+        // Coincidencia de palabras clave
+        for (const kw of topic.keywords) {
+          if (q === kw) score += 6;
+          else if (q.includes(kw)) score += 3;
+          for (const token of tokens) {
+            if (token.length > 2 && kw.includes(token)) score += 2;
+          }
+        }
+
+        if (score > 0) {
+          results.push({
+            action: topic.action,
+            ...(topic.tool_name ? { tool_name: topic.tool_name } : {}),
+            ...(topic.domain ? { domain: topic.domain } : {}),
+            relevance: score >= 8 ? "HIGH" : (score >= 4 ? "MEDIUM" : "LOW"),
+            score,
+            summary: topic.summary,
+            example: topic.example
+          });
+        }
+      }
+
+      // Ordenar por relevancia descendente
+      results.sort((a, b) => b.score - a.score);
+
+      // Si no hubo coincidencia, devolver índice con sugerencias útiles
+      if (results.length === 0) {
+        results.push({ action: "index", relevance: "LOW", score: 1, summary: "Browse full guide index. Topics available: terminal, files, system, packages, database, security, diagnostics, flstudio, upd." });
+      }
+
+      return {
+        ok: true,
+        query,
+        count: results.length,
+        results: results.slice(0, 5),
+        tip: "Call any of the suggested actions to get detailed information."
+      };
     },
   };
 

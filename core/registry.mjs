@@ -382,6 +382,10 @@ export class Registry {
   constructor(runtime) {
     this.runtime = runtime;
     this.modules = new Map();
+    if (this.runtime) {
+      this.runtime._registry = this;
+      this.runtime.registry = this;
+    }
   }
 
   async load() {
@@ -560,6 +564,10 @@ export class Registry {
 
     results.sort((a, b) => b.score - a.score);
     return results.slice(0, limit);
+  }
+
+  getCount() {
+    return this.actionCount();
   }
 
   health() {
