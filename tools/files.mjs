@@ -9,10 +9,14 @@
  */
 import os from "node:os";
 import fsSync from "node:fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { Validator } from "../core/validator.mjs";
 import { VerificationEngine } from "../core/verification.mjs";
 import { FluxerError, ERROR_CODES } from "../core/errors.mjs";
 import { expandContent, checkTokenAdvisory, initAdvisoryState, setAdvisoryEnabled, toggleAdvisory, getAdvisoryStatus } from "../core/token-optimizer.mjs";
+
+const execFileAsync = promisify(execFile);
 
 export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }) {
     initAdvisoryState(runtime.dirs?.storage || runtime.storage);
@@ -20,6 +24,103 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
   const { getDirectoryTreeHelper, searchFilesHelper, grepFilesHelper, generateSimpleDiff, splitLines } = helpers;
 
   // ── Funciones auxiliares internas ──────────────────────────────────────────
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  }
+
+  async function sendToRecycleBin(targetPath) {
+    const isWin = os.platform() === "win32";
+    if (!isWin) {
+      throw new Error("La papelera de reciclaje nativa solo está soportada en Windows.");
+    }
+    const stat = await fs.stat(targetPath);
+    const isDir = stat.isDirectory();
+    const method = isDir ? "DeleteDirectory" : "DeleteFile";
+    const escaped = targetPath.replace(/'/g, "''");
+    const psScript = `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::${method}('${escaped}', 'OnlyErrorDialogs', 'SendToRecycleBin')`;
+    await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", psScript], {
+      timeout: 30000,
+      windowsHide: true,
+    });
+    return { ok: true, path: targetPath, recycled: true, isDirectory: isDir };
+  }
+
+  async function queryRecycleBin() {
+    const isWin = os.platform() === "win32";
+    if (!isWin) {
+      return { ok: false, error: "La papelera de reciclaje nativa solo está soportada en Windows." };
+    }
+    const psScript = `
+      $shell = New-Object -ComObject Shell.Application
+      $rb = $shell.Namespace(10)
+      $items = @()
+      foreach ($item in $rb.Items()) {
+        $items += [PSCustomObject]@{
+          name = $item.Name
+          path = $item.Path
+          size = $item.Size
+          type = $item.Type
+          modifyDate = $item.ModifyDate
+        }
+      }
+      $items | ConvertTo-Json -Compress
+    `;
+    const { stdout } = await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", psScript], {
+      timeout: 30000,
+      windowsHide: true,
+    });
+    const text = (stdout || "").trim();
+    let list = [];
+    if (text) {
+      try {
+        const parsed = JSON.parse(text);
+        list = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {}
+    }
+    let totalBytes = 0;
+    const items = list.map((i) => {
+      const sz = typeof i.size === "number" ? i.size : 0;
+      totalBytes += sz;
+      return {
+        name: i.name,
+        path: i.path,
+        size: sz,
+        type: i.type || "Unknown",
+        modifyDate: i.modifyDate,
+      };
+    });
+    return {
+      ok: true,
+      count: items.length,
+      totalBytes,
+      totalFormatted: formatBytes(totalBytes),
+      items,
+    };
+  }
+
+  async function clearRecycleBin(driveLetter = null) {
+    const isWin = os.platform() === "win32";
+    if (!isWin) {
+      return { ok: false, error: "La papelera de reciclaje nativa solo está soportada en Windows." };
+    }
+    let psScript = "Clear-RecycleBin -Force -ErrorAction SilentlyContinue";
+    if (driveLetter && typeof driveLetter === "string") {
+      const cleanDrive = driveLetter.replace(/[^a-zA-Z]/g, "").toUpperCase();
+      if (cleanDrive) {
+        psScript = `Clear-RecycleBin -DriveLetter ${cleanDrive} -Force -ErrorAction SilentlyContinue`;
+      }
+    }
+    await execFileAsync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", psScript], {
+      timeout: 60000,
+      windowsHide: true,
+    });
+    return { ok: true, cleared: true, driveLetter: driveLetter || "all" };
+  }
 
   function getNestedProp(obj, propPath) {
     if (!propPath || obj == null) return obj;
@@ -1593,12 +1694,42 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         }
       },
 
-      delete_path: async ({ path: p, recursive = true, force = true } = {}) => {
+      delete_path: async ({ path: p, recursive = true, force = true, recycle = false, to_trash = false, trash = false } = {}) => {
+        if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
+        const target = runtime.hp(p);
+        const sendToTrash = Boolean(recycle || to_trash || trash);
+        try {
+          if (sendToTrash) {
+            return await sendToRecycleBin(target);
+          }
+          await fs.rm(target, { recursive: Boolean(recursive), force: Boolean(force) });
+          return { ok: true, path: target, deleted: true, recycled: false };
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      recycle_path: async ({ path: p } = {}) => {
         if (!p) return { ok: false, error: "El parámetro 'path' es requerido." };
         const target = runtime.hp(p);
         try {
-          await fs.rm(target, { recursive: Boolean(recursive), force: Boolean(force) });
-          return { ok: true, path: target, deleted: true };
+          return await sendToRecycleBin(target);
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      list_recycle_bin: async () => {
+        try {
+          return await queryRecycleBin();
+        } catch (e) {
+          return { ok: false, error: e.message };
+        }
+      },
+
+      empty_recycle_bin: async ({ driveLetter = null, drive = null } = {}) => {
+        try {
+          return await clearRecycleBin(driveLetter || drive);
         } catch (e) {
           return { ok: false, error: e.message };
         }
@@ -1699,15 +1830,21 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
         return { ok: successCount === files.length, total: files.length, succeeded: successCount, failed: files.length - successCount, results };
       },
 
-      batch_delete: async ({ paths = [], stopOnError = false } = {}) => {
+      batch_delete: async ({ paths = [], stopOnError = false, recycle = false, to_trash = false, trash = false } = {}) => {
         if (!Array.isArray(paths) || paths.length === 0) return { ok: false, error: "Se requiere un array 'paths' con las rutas a eliminar." };
+        const sendToTrash = Boolean(recycle || to_trash || trash);
         const results = [];
         let successCount = 0;
         for (const item of paths) {
           const target = runtime.hp(item);
           try {
-            await fs.rm(target, { recursive: true, force: true });
-            results.push({ path: target, ok: true });
+            if (sendToTrash) {
+              const res = await sendToRecycleBin(target);
+              results.push({ path: target, ok: true, recycled: true });
+            } else {
+              await fs.rm(target, { recursive: true, force: true });
+              results.push({ path: target, ok: true, deleted: true, recycled: false });
+            }
             successCount++;
           } catch (e) {
             results.push({ path: target, ok: false, error: e.message });
@@ -2482,6 +2619,15 @@ try {
     actions.list_files = actions.list_directory;
     actions.get_metadata = actions.get_file_info;
     actions.get_info = actions.get_file_info;
+    actions.recycle_file = actions.recycle_path;
+    actions.delete_to_trash = actions.recycle_path;
+    actions.move_to_trash = actions.recycle_path;
+    actions.trash_path = actions.recycle_path;
+    actions.trash = actions.recycle_path;
+    actions.get_recycle_bin = actions.list_recycle_bin;
+    actions.trash_status = actions.list_recycle_bin;
+    actions.clear_recycle_bin = actions.empty_recycle_bin;
+    actions.purge_trash = actions.empty_recycle_bin;
 
     const SANDBOX_EXCLUDED_ACTIONS = new Set([
       "list_allowed_directories",
@@ -2489,6 +2635,12 @@ try {
       "validate_path",
       "add_allowed_directory",
       "remove_allowed_directory",
+      "list_recycle_bin",
+      "get_recycle_bin",
+      "trash_status",
+      "empty_recycle_bin",
+      "clear_recycle_bin",
+      "purge_trash",
     ]);
 
     const wrappedActions = {};
@@ -2517,12 +2669,24 @@ try {
 
     return domain(
       "files",
-      "Operaciones avanzadas de archivos: lectura paginada, escritura segura con backups, edición precisa por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.",
+      "Operaciones avanzadas de archivos: lectura paginada, escritura segura con backups, edición precisa por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF, papelera de reciclaje y compresión universal.",
       wrappedActions,
       {
         delete_path: "advanced",
         delete_file: "advanced",
         delete: "advanced",
+        recycle_path: "advanced",
+        recycle_file: "advanced",
+        delete_to_trash: "advanced",
+        move_to_trash: "advanced",
+        trash_path: "advanced",
+        trash: "advanced",
+        list_recycle_bin: "standard",
+        get_recycle_bin: "standard",
+        trash_status: "standard",
+        empty_recycle_bin: "advanced",
+        clear_recycle_bin: "advanced",
+        purge_trash: "advanced",
         write_file: "standard",
         create_file: "standard",
         write_json: "standard",

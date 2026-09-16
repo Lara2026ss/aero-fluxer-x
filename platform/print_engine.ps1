@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Alias("Action")]
     [ValidateSet("list_printers", "get_capabilities", "search_printers", "get_pdf_info", "jobs", "cancel_job", "purge_queue", "configure", "print")]
     [string]$Operation = "list_printers",
@@ -366,14 +366,76 @@ function Action-Configure {
     }
 }
 
+# Cargar ensamblado System.Runtime.WindowsRuntime para soporte AsTask en PowerShell 5.1 / .NET Framework (AFX-FB-LCT3M5 Fix)
+try {
+    [Windows.Data.Pdf.PdfDocument, Windows.Data.Pdf, ContentType = WindowsRuntime] | Out-Null
+    [Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime] | Out-Null
+    $frameworkDll = [System.IO.Path]::Combine([System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory(), "System.Runtime.WindowsRuntime.dll")
+    if (Test-Path $frameworkDll) {
+        [System.Reflection.Assembly]::LoadFrom($frameworkDll) | Out-Null
+    }
+} catch {}
+
+function Await-WinRT {
+    param($AsyncOp, [Type]$ResultType = [System.Object])
+    if (-not $AsyncOp) { return $null }
+
+    # 1. Si el objeto ya tiene método GetAwaiter nativo (.NET Core / PowerShell 7)
+    try {
+        if ($AsyncOp.GetType().GetMethod("GetAwaiter")) {
+            return $AsyncOp.GetAwaiter().GetResult()
+        }
+    } catch {}
+
+    # 2. PowerShell 5.1 / .NET Framework: usar AsTask vía reflexión con System.WindowsRuntimeSystemExtensions
+    try {
+        $extType = [Type]::GetType("System.WindowsRuntimeSystemExtensions, System.Runtime.WindowsRuntime")
+        if (-not $extType) {
+            $extType = [System.WindowsRuntimeSystemExtensions]
+        }
+        if ($extType) {
+            if ($ResultType -ne [System.Void] -and $ResultType -ne [System.Object]) {
+                $targetMethod = $extType.GetMethods() | Where-Object {
+                    $_.Name -eq "AsTask" -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1 -and
+                    $_.GetParameters()[0].ParameterType.Name.StartsWith("IAsyncOperation")
+                } | Select-Object -First 1
+
+                if ($targetMethod) {
+                    $closedMethod = $targetMethod.MakeGenericMethod($ResultType)
+                    $task = $closedMethod.Invoke($null, @($AsyncOp))
+                    $task.Wait()
+                    return $task.Result
+                }
+            } else {
+                $actionMethod = $extType.GetMethods() | Where-Object {
+                    $_.Name -eq "AsTask" -and -not $_.IsGenericMethod -and $_.GetParameters().Count -eq 1
+                } | Select-Object -First 1
+
+                if ($actionMethod) {
+                    $task = $actionMethod.Invoke($null, @($AsyncOp))
+                    $task.Wait()
+                    return $null
+                }
+            }
+        }
+    } catch {}
+
+    # 3. Fallback directo si soporta GetAwaiter
+    return $AsyncOp.GetAwaiter().GetResult()
+}
+
 # ── 9. PRINT EXECUTION ───────────────────────────────────────────────────────
 function RenderPdfPage {
     param([string]$PdfPath, [int]$PageNumber, [int]$TargetDpi = 300)
     [Windows.Data.Pdf.PdfDocument, Windows.Data.Pdf, ContentType = WindowsRuntime] | Out-Null
     [Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime] | Out-Null
     $resolved = (Resolve-Path $PdfPath).Path
-    $file = [Windows.Storage.StorageFile]::GetFileFromPathAsync($resolved).GetAwaiter().GetResult()
-    $doc = [Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($file).GetAwaiter().GetResult()
+
+    $fileOp = [Windows.Storage.StorageFile]::GetFileFromPathAsync($resolved)
+    $file = Await-WinRT $fileOp ([Windows.Storage.StorageFile])
+
+    $docOp = [Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($file)
+    $doc = Await-WinRT $docOp ([Windows.Data.Pdf.PdfDocument])
 
     $idx0 = $PageNumber - 1
     if ($idx0 -lt 0 -or $idx0 -ge $doc.PageCount) {
@@ -388,10 +450,15 @@ function RenderPdfPage {
     $renderOpt.DestinationHeight = $targetH
 
     $stream = [Windows.Storage.Streams.InMemoryRandomAccessStream]::new()
-    $page.RenderToStreamAsync($stream, $renderOpt).GetAwaiter().GetResult()
+    $renderOp = $page.RenderToStreamAsync($stream, $renderOpt)
+    Await-WinRT $renderOp ([System.Void]) | Out-Null
     $stream.Seek(0)
 
-    $netStream = $stream.AsStreamForRead()
+    $netStream = try {
+        [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+    } catch {
+        try { $stream.AsStreamForRead() } catch { [System.IO.WindowsRuntimeStreamExtensions]::AsStream($stream) }
+    }
     $bmp = [System.Drawing.Bitmap]::FromStream($netStream)
     return $bmp
 }
@@ -568,8 +635,33 @@ function Action-Print {
     }
 
     $startTime = [DateTime]::UtcNow
-    $doc.Print()
-    $doc.Dispose()
+    try {
+        $doc.Print()
+    } catch {
+        $printError = $_.Exception.Message
+        $fallbackOk = $false
+        # Fallback a PrintTo para impresoras físicas en caso de incompatibilidad GDI/controlador
+        if ($ext -in @(".pdf", ".png", ".jpg", ".jpeg", ".txt")) {
+            try {
+                $pInfo = New-Object System.Diagnostics.ProcessStartInfo
+                $pInfo.FileName = $resolvedSrc
+                $pInfo.Verb = "PrintTo"
+                $pInfo.Arguments = "`"$Name`""
+                $pInfo.CreateNoWindow = $true
+                $pInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+                $proc = [System.Diagnostics.Process]::Start($pInfo)
+                if ($proc) {
+                    $proc.WaitForExit(10000)
+                    $fallbackOk = $true
+                }
+            } catch {}
+        }
+        if (-not $fallbackOk) {
+            throw "Error ejecutando impresión en '$Name': $printError"
+        }
+    } finally {
+        $doc.Dispose()
+    }
 
     # Observar Spooler dentro de ventana de 3 segundos
     $detectedJobId = $null

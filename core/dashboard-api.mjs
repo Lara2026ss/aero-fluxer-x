@@ -545,6 +545,7 @@ const dashboardHtml = `<!DOCTYPE html>
             <div class="notif-item-title">
               <span class="badge \${badgeClass}">\${n.badge || 'PERMISO REQUERIDO'}</span>
               <span>\${n.tool ? n.tool + '.' + n.action : n.title}</span>
+              \${n.clientName ? \`<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); font-size: 0.72rem;">🤖 \${n.clientName}</span>\` : ''}
               \${n.confirmationCode ? \`<span class="notif-code-tag">CÓDIGO: \${n.confirmationCode}</span>\` : ''}
             </div>
             <span style="color: var(--text-muted); font-size: 0.75rem;">\${new Date(n.createdAt).toLocaleTimeString()}</span>

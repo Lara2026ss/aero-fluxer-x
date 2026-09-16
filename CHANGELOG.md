@@ -7,6 +7,30 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ## [v20.0.0] - 2026-09-15 (Major Phoenix Release — Clean Architecture, Notification Center, Dynamic Image-to-PDF & Smart Shortcuts)
 
+### 🗑️ Gestión de Papelera de Reciclaje en `files` (`tools/files.mjs`)
+- **Eliminación Segura hacia la Papelera de Reciclaje de Windows**:
+  - Nuevas subherramientas: `files.recycle_path` (alias `recycle_file`, `delete_to_trash`, `trash_path`, `trash`).
+  - Integración en `files.delete_path` y `files.delete_file`: si se pasa `recycle: true` o `to_trash: true`, el archivo o directorio se envía a la Papelera de reciclaje en vez de destruirlo permanentemente.
+  - Integración en `files.batch_delete`: soporte para `recycle: true` / `to_trash: true` en operaciones por lotes.
+- **Inspección y Vaciado de la Papelera**:
+  - `files.list_recycle_bin` (alias `get_recycle_bin`, `trash_status`): Lista en detalle los elementos en la papelera de reciclaje con nombre original, ruta, peso y fecha de modificación, junto con conteo y peso total formateado.
+  - `files.empty_recycle_bin` (alias `clear_recycle_bin`, `purge_trash`): Vacía de forma segura y completa la papelera de reciclaje (opcionalmente por letra de unidad con `driveLetter`).
+
+### 🖨️ Corrección Crítica en Impresión Física y Renderizado WinRT (`AFX-FB-LCT3M5`)
+- **Resolución de Error COM `System.__ComObject no contiene ningún método llamado 'GetAwaiter'`**:
+  - `platform/print_engine.ps1`: Carga dinámica de `System.Runtime.WindowsRuntime.dll` e implementación del helper de reflexión `Await-WinRT` sobre `System.WindowsRuntimeSystemExtensions::AsTask` para resolver las llamadas asíncronas de WinRT en Windows PowerShell 5.1 (`GetFileFromPathAsync`, `LoadFromFileAsync`, `RenderToStreamAsync`).
+  - Corrección de conversión de streams usando `[System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)`.
+  - Fallback resiliente con `PrintTo` y `win32print` cuando la impresora de red requiere spool directo.
+
+### 🤖 Estabilización de Cambio de Clientes IA y Conexiones MCP Silenciosas
+- **Eliminación de Popups Molestos de Conexión/Desconexión**:
+  - `server.mjs`: Las notificaciones de conexión y desconexión (`notifyClient`) son internas para el logger y el dashboard, desactivando toasts nativos molestos de Windows (`options.native = false`).
+  - Se eliminó la etiqueta `"desconocida"`, resolviendo dinámicamente el nombre del cliente MCP (`"Agente IA"`).
+- **Persistencia y Unificación de Elevación entre Clientes IA**:
+  - `core/permissions.mjs`: Las elevaciones de permisos de sesión otorgadas se reconocen de manera consistente entre diferentes agentes de IA durante la sesión activa.
+  - `core/notifications.mjs`: Desduplicación inteligente de notificaciones por código de confirmación y cierre coordinado de solicitudes pendientes.
+  - `core/dashboard-api.mjs`: Tarjetas de autorización con distintivo visual del cliente IA solicitante (`🤖 Agente IA`).
+
 ### 🔔 Centro de Notificaciones y Autorización Integrado en Fluxer (`core/notifications.mjs` & Dashboard UI)
 - **Notificaciones In-App Nativas en Fluxer (sin popups molestos de Windows)**:
   - Resuelve feedback **AFX-FB-4ZTRFG**: Las notificaciones de solicitudes de permisos de IA ya no son globos o popups de Windows en el PC del usuario, sino tarjetas interactivas integradas en el Dashboard de Fluxer con Server-Sent Events (SSE) en tiempo real.

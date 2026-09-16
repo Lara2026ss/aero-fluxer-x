@@ -33,6 +33,7 @@ export class NotificationCenter extends EventEmitter {
   setEnabled(val) {
     this.enabled = Boolean(val);
     this.emit("config_changed", { enabled: this.enabled });
+    this.save().catch(() => {});
     return this.enabled;
   }
 
@@ -40,8 +41,12 @@ export class NotificationCenter extends EventEmitter {
     if (!this.storageFile) return;
     try {
       const content = await fs.readFile(this.storageFile, "utf8");
-      const list = JSON.parse(content);
-      if (Array.isArray(list)) {
+      const parsed = JSON.parse(content);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.enabled === "boolean") {
+          this.enabled = parsed.enabled;
+        }
+        const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.notifications) ? parsed.notifications : []);
         for (const item of list) {
           if (item && item.id) {
             this.notifications.set(item.id, item);
@@ -59,8 +64,12 @@ export class NotificationCenter extends EventEmitter {
   async save() {
     if (!this.storageFile) return;
     try {
-      const serialized = JSON.stringify([...this.notifications.values()].slice(-this.maxItems), null, 2);
-      await fs.writeFile(this.storageFile, serialized, "utf8");
+      const payload = {
+        enabled: this.enabled,
+        notifications: [...this.notifications.values()].slice(-this.maxItems),
+        savedAt: new Date().toISOString(),
+      };
+      await fs.writeFile(this.storageFile, JSON.stringify(payload, null, 2), "utf8");
     } catch (e) {
       this.logger?.warn("notifications_save_error", { error: e.message });
     }
@@ -116,16 +125,19 @@ export class NotificationCenter extends EventEmitter {
     requestId = null,
     args = null,
     ttlMs = 10 * 60 * 1000,
+    clientName = null,
+    status = "pending",
   } = {}) {
     this.prune();
     const id = `ntf_${Date.now().toString(36)}_${crypto.randomBytes(2).toString("hex")}`;
     const classification = this.classifyLevel(level);
+    const clientLabel = clientName && String(clientName).toLowerCase() !== "desconocida" ? clientName : "Cliente MCP";
 
     const entry = {
       id,
       title: title || `Notificación de Fluxer`,
       message: message || "",
-      type, // "permission_request" | "alert" | "info"
+      type, // "permission_request" | "alert" | "info" | "client_lifecycle"
       level,
       category: classification.category,
       badge: classification.badge,
@@ -134,11 +146,12 @@ export class NotificationCenter extends EventEmitter {
       action,
       confirmationCode,
       requestId,
+      clientName: clientLabel,
       args: args ? { ...args } : null,
-      status: "pending", // "pending" | "approved" | "denied" | "dismissed"
+      status, // "pending" | "approved" | "denied" | "dismissed" | "resolved"
       createdAt: Date.now(),
-      expiresAt: Date.now() + ttlMs,
-      read: false,
+      expiresAt: status === "pending" ? Date.now() + ttlMs : null,
+      read: status !== "pending",
     };
 
     this.notifications.set(id, entry);
@@ -148,11 +161,38 @@ export class NotificationCenter extends EventEmitter {
   }
 
   /**
-   * Crea una notificación específica de solicitud de permisos para la IA.
+   * Crea o actualiza una notificación específica de solicitud de permisos para la IA.
+   * Evita duplicaciones si la misma IA u otra IA reintenta la misma acción con código activo.
    */
-  notifyPermissionRequest({ tool, action, args, required, current, requestId, confirmationCode, ttlMs = 5 * 60 * 1000 }) {
+  notifyPermissionRequest({ tool, action, args, required, current, requestId, confirmationCode, ttlMs = 5 * 60 * 1000, clientName = null }) {
+    this.prune();
     const classification = this.classifyLevel(required);
-    
+    const clientLabel = (clientName && String(clientName).toLowerCase() !== "desconocida") ? clientName : "Cliente MCP";
+
+    // 1. Evitar acumulación de tarjetas duplicadas: si ya hay una pendiente con el mismo código, request o acción
+    const existing = this.find(confirmationCode || requestId) ||
+      [...this.notifications.values()].find(n => n.status === "pending" && n.tool === tool && n.action === action);
+
+    if (existing && existing.status === "pending") {
+      existing.expiresAt = Date.now() + ttlMs;
+      existing.level = required;
+      existing.category = classification.category;
+      existing.badge = classification.badge;
+      existing.riskLabel = classification.riskLabel;
+      existing.clientName = clientLabel;
+      if (confirmationCode) existing.confirmationCode = confirmationCode;
+      if (requestId) existing.requestId = requestId;
+      if (args) existing.args = { ...args };
+      existing.updatedAt = Date.now();
+      existing.title = (classification.category === "admin_elevation" || classification.category === "critical")
+        ? `⚠️ Elevación de Administrador Solicitada [${existing.confirmationCode || confirmationCode}]`
+        : `🔔 Autorización Requerida: ${tool}.${action} [${existing.confirmationCode || confirmationCode}]`;
+      existing.message = `La IA (${clientLabel}) solicita ejecutar '${tool}.${action}' que requiere permisos de nivel '${classification.badge}'. Haz clic en 'Autorizar' para conceder acceso o en 'X' para denegar.`;
+      this.emit("updated", existing);
+      this.save().catch(() => {});
+      return existing;
+    }
+
     let title = "";
     if (classification.category === "admin_elevation" || classification.category === "critical") {
       title = `⚠️ Elevación de Administrador Solicitada [${confirmationCode}]`;
@@ -160,7 +200,7 @@ export class NotificationCenter extends EventEmitter {
       title = `🔔 Autorización Requerida: ${tool}.${action} [${confirmationCode}]`;
     }
 
-    const message = `La IA solicita ejecutar '${tool}.${action}' que requiere permisos de nivel '${classification.badge}'. Haz clic en 'Autorizar' para conceder acceso o en 'X' para denegar.`;
+    const message = `La IA (${clientLabel}) solicita ejecutar '${tool}.${action}' que requiere permisos de nivel '${classification.badge}'. Haz clic en 'Autorizar' para conceder acceso o en 'X' para denegar.`;
 
     return this.create({
       title,
@@ -173,6 +213,8 @@ export class NotificationCenter extends EventEmitter {
       requestId,
       args,
       ttlMs,
+      clientName: clientLabel,
+      status: "pending",
     });
   }
 
@@ -234,10 +276,16 @@ export class NotificationCenter extends EventEmitter {
       }
     }
 
+    // Sincronizar todas las notificaciones pendientes asociadas
+    for (const other of this.notifications.values()) {
+      if (other.status === "pending" && ((code && other.confirmationCode === code) || (reqId && other.requestId === reqId) || (notif && other.id === notif.id))) {
+        other.status = "approved";
+        other.resolvedAt = Date.now();
+        other.read = true;
+      }
+    }
+
     if (notif) {
-      notif.status = "approved";
-      notif.resolvedAt = Date.now();
-      notif.read = true;
       this.emit("resolved", { action: "approve", notification: notif });
       this.save().catch(() => {});
     }
@@ -269,11 +317,17 @@ export class NotificationCenter extends EventEmitter {
       }
     }
 
+    // Sincronizar todas las notificaciones pendientes asociadas
+    for (const other of this.notifications.values()) {
+      if (other.status === "pending" && ((code && other.confirmationCode === code) || (reqId && other.requestId === reqId) || (notif && other.id === notif.id))) {
+        other.status = "denied";
+        other.resolvedAt = Date.now();
+        other.denyReason = reason;
+        other.read = true;
+      }
+    }
+
     if (notif) {
-      notif.status = "denied";
-      notif.resolvedAt = Date.now();
-      notif.denyReason = reason;
-      notif.read = true;
       this.emit("resolved", { action: "deny", notification: notif });
       this.save().catch(() => {});
     }
@@ -344,6 +398,7 @@ export class NotificationCenter extends EventEmitter {
       action: n.action,
       confirmationCode: n.confirmationCode,
       requestId: n.requestId,
+      clientName: n.clientName || "Cliente MCP",
       status: n.status,
       createdAt: new Date(n.createdAt).toISOString(),
       expiresAt: n.expiresAt ? new Date(n.expiresAt).toISOString() : null,
@@ -358,5 +413,18 @@ export class NotificationCenter extends EventEmitter {
       if (notif.status === "pending") count++;
     }
     return count;
+  }
+
+  clearResolved() {
+    this.prune();
+    let cleared = 0;
+    for (const [id, notif] of this.notifications) {
+      if (notif.status !== "pending") {
+        this.notifications.delete(id);
+        cleared++;
+      }
+    }
+    if (cleared > 0) this.save().catch(() => {});
+    return { ok: true, cleared, remaining: this.notifications.size };
   }
 }

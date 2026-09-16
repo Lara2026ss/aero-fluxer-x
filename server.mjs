@@ -31,7 +31,11 @@ const VERSION = CURRENT_VERSION;
 const SERVER_NAME = APP_NAME;
 
 function notifyClient(clientName, event = "connect", version = VERSION, options = {}) {
-  const displayAI = (clientName || "desconocida").replace(/"/g, "'").trim();
+  // Las notificaciones de conexión/desconexión son internas para el logger/dashboard y NO generan toasts molestos en la PC del usuario
+  if (!options.native) {
+    return;
+  }
+  const displayAI = (clientName || "Agente IA").replace(/"/g, "'").trim();
   const actionText = event === "connect" ? "conectó exitosamente a" : "desconectó exitosamente de";
   const msg = `La Inteligencia Artificial "${displayAI}" se ${actionText} Fluxer Core v${version}`;
   sendNativeNotification("FLUXER CORE MCP", msg, options);
@@ -354,27 +358,33 @@ export async function startServer() {
 
   await refreshState();
   
-  const clientName = runtime.client?.name || "desconocida";
-  await runtime.logger.info(`La Inteligencia Artificial "${clientName}" se conectó a Aeron Fluxer X v${VERSION}`, {
+  const getClientName = () => {
+    const name = runtime.client?.name;
+    return (name && name !== "desconocida") ? name : "Agente IA";
+  };
+  
+  await runtime.logger.info(`La Inteligencia Artificial "${getClientName()}" se conectó a Aeron Fluxer X v${VERSION}`, {
     version: VERSION,
     root: ROOT,
     tools: tools.length,
     plugins: pluginsLoaded.length,
-    client: clientName,
+    client: getClientName(),
   });
-  notifyClient(clientName, "connect", VERSION, { sync: false });
+  notifyClient(getClientName(), "connect", VERSION, { sync: false, native: false });
 
   let hasDisconnected = false;
   const notifyDisconnect = (reason = "shutdown") => {
     if (hasDisconnected) return;
     hasDisconnected = true;
-    try { notifyClient(clientName, "disconnect", VERSION, { sync: false }); } catch {}
+    const cName = getClientName();
+    try { notifyClient(cName, "disconnect", VERSION, { sync: false, native: false }); } catch {}
   };
 
   const shutdown = async (signal) => {
     notifyDisconnect(signal);
     dashboard?.close?.();
-    await runtime.logger.info(`La Inteligencia Artificial "${clientName}" se desconectó de Aeron Fluxer X v${VERSION}`);
+    const cName = getClientName();
+    await runtime.logger.info(`La Inteligencia Artificial "${cName}" se desconectó de Aeron Fluxer X v${VERSION} (${signal})`);
     await runtime.shutdown(signal);
     process.exit(0);
   };

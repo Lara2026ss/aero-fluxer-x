@@ -787,6 +787,7 @@ export class Router {
               current,
               requestId,
               confirmationCode,
+              clientName: this.runtime.client?.name || "Agente IA",
             });
           } catch (e) {
             this.runtime.logger?.warn("notification_create_error", { error: e.message });

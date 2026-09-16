@@ -277,7 +277,8 @@ export class PermissionEngine {
     const valid = perms.filter((p) => {
       if (!p || !p.level) return false;
       if (p.expiresAt && new Date(p.expiresAt).getTime() <= now) return false;
-      if (p.principal && p.principal !== principal) return false;
+      // Compatibilidad fluida entre clientes IA: Si el permiso fue otorgado a 'default', '*' o al mismo principal, es válido
+      if (p.principal && p.principal !== "*" && principal !== "*" && p.principal !== "default" && principal !== "default" && p.principal !== principal) return false;
       return p.scope === "*" || p.scope === scope;
     });
 
@@ -301,7 +302,7 @@ export class PermissionEngine {
   getWorkflow(principal = "default") {
     const perms = this.active();
     const now = Date.now();
-    const workflow = perms.find(p => p.workflowId && p.principal === principal && (!p.expiresAt || new Date(p.expiresAt).getTime() > now));
+    const workflow = perms.find(p => p.workflowId && (p.principal === principal || p.principal === "default" || principal === "default" || p.principal === "*") && (!p.expiresAt || new Date(p.expiresAt).getTime() > now));
     if (!workflow) return null;
     
     const expiresMs = new Date(workflow.expiresAt).getTime();
@@ -521,13 +522,18 @@ export class PermissionEngine {
   }
 
   hasVisualCaptureGrant(principal = "default") {
-    const grant = this._sessionVisualGrants?.get(principal);
-    if (!grant) return false;
-    if (Date.now() >= grant.expiresAt) {
-      this._sessionVisualGrants.delete(principal);
-      return false;
+    if (!this._sessionVisualGrants || this._sessionVisualGrants.size === 0) return false;
+    const now = Date.now();
+    for (const [p, grant] of this._sessionVisualGrants) {
+      if (grant && grant.expiresAt > now) {
+        if (p === principal || p === "default" || principal === "default" || p === "*") {
+          return true;
+        }
+      } else if (grant && grant.expiresAt <= now) {
+        this._sessionVisualGrants.delete(p);
+      }
     }
-    return true;
+    return false;
   }
 
   grantVisualCapture({ durationMinutes = 5, principal = "default" } = {}) {
