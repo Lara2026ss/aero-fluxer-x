@@ -5,6 +5,17 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v12.0.1] - 2026-09-15 (Hotfix — Post-Update Client Restart Guidance & MCP Reload Wait)
+
+### 🔄 Instrucciones de Reinicio Específicas por Cliente tras Actualizar (`upd`)
+- **Espera del Reinicio Completo del Proceso MCP**:
+  - `core/client-restart.mjs` y `tools/developer.mjs`: Se refinaron las directivas para evitar reinicios prematuros del cliente antes de que el supervisor MCP (`launcher.mjs`) o el proceso Node.js finalice su reinicio en memoria.
+  - **Claude Desktop**: Instruye explícitamente: *"Espera a que se reinicie por completo el MCP y después reinicia Claude Desktop."*
+  - **Google Antigravity**: Instruye esperar a que el servidor complete el reinicio y luego reiniciar/recargar la lista de servidores MCP (botón 🔄 en Installed MCP Servers).
+  - **Otros clientes / Desktops no reconocidos**: Pide explícitamente esperar a que el servidor MCP se actualice y reinicie por completo antes de reiniciar la aplicación host.
+
+---
+
 ## [v12.0.0] - 2026-09-15 (Major Release — Windows-Native PrintCenter Domain & Hardened Visual Architecture)
 
 ### 🖨️ Nuevo Dominio Nativo de Impresión de Windows (`printcenter`)

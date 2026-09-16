@@ -1,4 +1,4 @@
-import os from "node:os";
+﻿import os from "node:os";
 import https from "node:https";
 import http from "node:http";
 import crypto from "node:crypto";
@@ -1597,7 +1597,7 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         status_message: isGenuinelyUpdated && verdict === "GENUINE_UPDATE_VERIFIED"
           ? `✅ Verificación exitosa: El MCP está ejecutando y tiene instalado en disco la versión más reciente (v${runningVersion}). Sin simulación.`
           : verdict === "UPDATE_APPLIED_PENDING_RESTART"
-            ? `⚠️ Los archivos en disco fueron actualizados a v${diskVersion}, pero el proceso MCP en memoria aún corre v${runningVersion}. Reinicia tu cliente MCP para cargar la nueva versión.`
+            ? `⚠️ Los archivos en disco fueron actualizados a v${diskVersion}, pero el proceso MCP en memoria aún corre v${runningVersion}. Espera a que se reinicie por completo el servidor MCP y después reinicia tu cliente MCP para cargar la nueva versión.`
             : verdict === "AHEAD_OF_REMOTE"
               ? `🚀 El MCP instalado actualmente corre una versión más avanzada (v${runningVersion}) que la última versión pública remota (v${latestRemote}). Compilación de desarrollo/pre-lanzamiento verificada.`
               : `ℹ️ El MCP instalado actualmente está en v${runningVersion} (disco: v${diskVersion}, remoto: v${latestRemote}). Se requiere ejecutar 'upd' para actualizar.`

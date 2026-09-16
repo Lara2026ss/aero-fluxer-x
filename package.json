@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "12.0.0",
-  "description": "Fluxer Core MCP v12.0.0 — Windows-native PrintCenter Domain, Hardened WGC Visual Capture & Hardware Bi-directional Engine",
+  "version": "12.0.1",
+  "description": "Fluxer Core MCP v12.0.1 — Hotfix: Post-Update Restart Instructions & MCP Reload Wait, Windows-native PrintCenter Domain & Hardened WGC Visual Capture",
   "type": "module",
   "main": "server.js",
   "bin": {

@@ -5,11 +5,11 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "12.0.0";
+export const CURRENT_VERSION = "12.0.1";
 export const APP_NAME = "fluxer-core";
 export const BRAND_NAME = "Fluxer Core";
 export const CHANNEL = "public-release";
-export const RELEASE_CODENAME = "Windows-Native PrintCenter Domain & Hardened Visual Architecture";
+export const RELEASE_CODENAME = "Post-Update Restart Instructions & MCP Reload Wait Hotfix";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
 export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 
