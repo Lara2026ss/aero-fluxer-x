@@ -1,7 +1,7 @@
 {
   "name": "fluxer-xz",
   "version": "30.0.1",
-  "description": "Fluxer XZ v30.0.1 (Hotfix) — Native Notification Security Lifecycle & Click-to-Approve",
+  "description": "Fluxer XZ v30.0.1 (Hotfix) — Native Security Lifecycle & Multi-PDF Merge Engine",
   "type": "module",
   "main": "server.js",
   "bin": {
@@ -23,24 +23,23 @@
     "doctor": "node doctor.mjs",
     "health": "node -e \"import('./core/health.mjs').then(m => m.runHealthCheck({})).then(r => console.log(r.formattedReport))\"",
     "update": "node update.mjs",
-    "update:check": "node update.mjs",
-    "update:apply": "node update.mjs --apply",
-    "update:rollback": "node update.mjs --rollback",
-    "check": "node --check server.mjs && node --check server.js && node --check core/runtime.mjs && node --check core/registry.mjs && node --check core/router.mjs && node --check core/permissions.mjs",
-    "test": "node tests/test_fluxer_suite.mjs",
-    "build": "node scripts/build_modern_registry.mjs"
+    "rollback": "node -e \"import('./core/updater/updater-runtime.mjs').then(m => m.rollback())\"",
+    "audit:cache": "node -e \"import('./core/cache-policy.mjs').then(m => m.auditCacheRetention()).then(r => console.log(r))\"",
+    "test:adversarial": "node tests/adversarial_injection_test.mjs",
+    "test:regression": "node tests/v8_1_0_regression_suite.mjs",
+    "test:matrix": "node tests/tool_action_matrix_verification.mjs",
+    "test": "node tests/test_fluxer_suite.mjs"
   },
   "keywords": [
     "mcp",
     "fluxer",
-    "runtime",
+    "fluxer-xz",
     "windows",
-    "linux",
-    "modular",
-    "ai-agent",
-    "permission-engine",
-    "security"
+    "automation",
+    "flstudio",
+    "printcenter",
+    "terminal"
   ],
-  "author": "mau",
+  "author": "Agy / Mauricio",
   "license": "MIT"
 }
