@@ -567,6 +567,16 @@ export class Router {
         descargar: "download",
         download_media: "download",
       },
+      printcenter: {
+        vista_previa: "preview",
+        layout: "preview",
+        previsualizar: "preview",
+        imprimir: "print",
+        print_folder: "print",
+        print_batch: "print",
+        printers: "list_printers",
+        list: "list_printers",
+      },
     };
 
     const registeredDomains = this.registry.moduleNames();

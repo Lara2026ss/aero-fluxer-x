@@ -5,11 +5,11 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "20.2.0";
+export const CURRENT_VERSION = "20.5.0";
 export const APP_NAME = "fluxer-core";
 export const BRAND_NAME = "Fluxer Core";
 export const CHANNEL = "public-release";
-export const RELEASE_CODENAME = "Aero Fluxer v20.2 Phoenix — Interactive Guides for Image-to-PDF, Print Center & Recycle Bin Workflows";
+export const RELEASE_CODENAME = "Aero Fluxer v20.5 Titan — Print Previews, ASCII Layouts, DOCX/Word Pipeline, Render Styles & Folder Batch Printing";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
 export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 
