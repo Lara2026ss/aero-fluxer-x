@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { exec, execSync } from "node:child_process";
 import { assertWindows } from "./core/platform/windows.mjs";
-import { CURRENT_VERSION, APP_NAME } from "./core/version.mjs";
+import { CURRENT_VERSION, APP_NAME, BRAND_NAME } from "./core/version.mjs";
 import { createRuntime } from "./core/runtime.mjs";
 import { Registry } from "./core/registry.mjs";
 import { Router } from "./core/router.mjs";
@@ -29,7 +29,7 @@ assertWindows({ strict: false });
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = CURRENT_VERSION;
-const SERVER_NAME = APP_NAME;
+const SERVER_NAME = BRAND_NAME;
 
 let inProcessLastConnect = 0;
 let inProcessLastDisconnect = 0;
