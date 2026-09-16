@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FLUXER — tools/files.mjs
  * Dominio: filesystem, lectura/escritura avanzada, documentos, archivos comprimidos, inspección.
  * Capacidad superior con operaciones atómicas, backups de seguridad, edición quirúrgica por líneas,
@@ -2328,91 +2328,143 @@ try {
           return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
         }
       },
-      image_to_pdf: async ({ path: rawPath, targetPath: rawTargetPath, paper_size = "letter", orientation = "portrait", margin = 20, fit = "contain" } = {}) => {
+      image_to_pdf: async ({
+        path: rawPath,
+        images = null,
+        paths = null,
+        targetPath: rawTargetPath,
+        output = null,
+        paper_size = "letter",
+        orientation = "portrait",
+        margin = 20,
+        fit = "contain",
+        quality = "estandar",
+      } = {}) => {
         try {
-          const srcPath = Validator.validatePath(rawPath, { fieldName: "path", required: true });
-          const stat = await fs.stat(srcPath).catch(() => null);
-          if (!stat || !stat.isFile()) {
-            return { ok: false, error: `El archivo de imagen no existe o no es accesible: ${srcPath}`, code: "NOT_FOUND" };
+          // Normalizar lista de imágenes de entrada (soporta path único o array de imágenes)
+          let rawList = [];
+          if (Array.isArray(images) && images.length > 0) rawList = images;
+          else if (Array.isArray(paths) && paths.length > 0) rawList = paths;
+          else if (rawPath) rawList = [rawPath];
+
+          if (rawList.length === 0) {
+            return { ok: false, error: "Se requiere al menos un archivo de imagen en 'path' o 'images'.", code: "INVALID_INPUT" };
           }
 
-          const ext = path.extname(srcPath).toLowerCase().replace(/^\./, "");
+          const resolvedList = [];
+          for (const item of rawList) {
+            const p = Validator.validatePath(item, { fieldName: "image_path", required: true });
+            const s = await fs.stat(p).catch(() => null);
+            if (!s || !s.isFile()) {
+              return { ok: false, error: `El archivo de imagen no existe o no es accesible: ${p}`, code: "NOT_FOUND" };
+            }
+            resolvedList.push(p);
+          }
+
           let outPath;
-          if (rawTargetPath) {
-            outPath = Validator.validatePath(rawTargetPath, { fieldName: "targetPath", required: true });
+          const target = rawTargetPath || output;
+          if (target) {
+            outPath = Validator.validatePath(target, { fieldName: "targetPath", required: true });
           } else {
-            outPath = path.join(path.dirname(srcPath), path.basename(srcPath, path.extname(srcPath)) + ".pdf");
+            const first = resolvedList[0];
+            const baseName = resolvedList.length > 1
+              ? `album_${path.basename(first, path.extname(first))}_${resolvedList.length}img.pdf`
+              : `${path.basename(first, path.extname(first))}.pdf`;
+            outPath = path.join(path.dirname(first), baseName);
           }
 
           const { PDFDocument } = await import("pdf-lib");
           const pdfDoc = await PDFDocument.create();
-          const imgBytes = await fs.readFile(srcPath);
-          let embeddedImg;
-          if (ext === "png") {
-            embeddedImg = await pdfDoc.embedPng(imgBytes);
-          } else if (ext === "jpg" || ext === "jpeg") {
-            embeddedImg = await pdfDoc.embedJpg(imgBytes);
-          } else {
-            const tempPng = path.join(os.tmpdir(), `fluxer_i2p_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
-            const ps = `Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile('${srcPath.replace(/'/g, "''")}'); $img.Save('${tempPng.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()`;
-            await runtime.run(`powershell -NoProfile -NonInteractive -Command "${ps}"`);
-            const pngData = await fs.readFile(tempPng);
-            await fs.unlink(tempPng).catch(() => {});
-            embeddedImg = await pdfDoc.embedPng(pngData);
-          }
 
           const SIZES = {
             letter: [612, 792],
             a4: [595.28, 841.89],
-            legal: [612, 1008]
+            legal: [612, 1008],
+            a3: [841.89, 1190.55],
+            a5: [419.53, 595.28],
           };
 
-          let pageWidth, pageHeight;
           const normSize = String(paper_size).toLowerCase();
-          if (normSize === "fit") {
-            pageWidth = embeddedImg.width + (Number(margin) || 0) * 2;
-            pageHeight = embeddedImg.height + (Number(margin) || 0) * 2;
-          } else {
-            const baseSize = SIZES[normSize] || SIZES.letter;
-            const isLandscape = String(orientation).toLowerCase() === "landscape";
-            pageWidth = isLandscape ? baseSize[1] : baseSize[0];
-            pageHeight = isLandscape ? baseSize[0] : baseSize[1];
+          const reqOrientation = String(orientation).toLowerCase();
+
+          for (const imgPath of resolvedList) {
+            const ext = path.extname(imgPath).toLowerCase().replace(/^\./, "");
+            const imgBytes = await fs.readFile(imgPath);
+
+            let embeddedImg;
+            if (ext === "png") {
+              embeddedImg = await pdfDoc.embedPng(imgBytes);
+            } else if (ext === "jpg" || ext === "jpeg") {
+              embeddedImg = await pdfDoc.embedJpg(imgBytes);
+            } else {
+              const tempPng = path.join(os.tmpdir(), `fluxer_i2p_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
+              const ps = `Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile('${imgPath.replace(/'/g, "''")}'); $img.Save('${tempPng.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()`;
+              await runtime.run(`powershell -NoProfile -NonInteractive -Command "${ps}"`);
+              const pngData = await fs.readFile(tempPng);
+              await fs.unlink(tempPng).catch(() => {});
+              embeddedImg = await pdfDoc.embedPng(pngData);
+            }
+
+            let pageWidth, pageHeight;
+            const isAuto = reqOrientation === "auto";
+            const imgIsLandscape = embeddedImg.width > embeddedImg.height;
+            const effectiveLandscape = isAuto ? imgIsLandscape : reqOrientation === "landscape";
+
+            if (normSize === "fit") {
+              const safeMargin = Math.max(0, Number(margin) || 0);
+              pageWidth = embeddedImg.width + (safeMargin * 2);
+              pageHeight = embeddedImg.height + (safeMargin * 2);
+            } else {
+              const baseSize = SIZES[normSize] || SIZES.letter;
+              pageWidth = effectiveLandscape ? Math.max(baseSize[0], baseSize[1]) : Math.min(baseSize[0], baseSize[1]);
+              pageHeight = effectiveLandscape ? Math.min(baseSize[0], baseSize[1]) : Math.max(baseSize[0], baseSize[1]);
+            }
+
+            const page = pdfDoc.addPage([pageWidth, pageHeight]);
+            const safeMargin = Math.max(0, Number(margin) || 0);
+            const printableWidth = Math.max(1, pageWidth - (safeMargin * 2));
+            const printableHeight = Math.max(1, pageHeight - (safeMargin * 2));
+
+            let drawWidth = embeddedImg.width;
+            let drawHeight = embeddedImg.height;
+
+            if (normSize !== "fit" || fit === "contain") {
+              const scale = Math.min(printableWidth / embeddedImg.width, printableHeight / embeddedImg.height, 1);
+              drawWidth = embeddedImg.width * scale;
+              drawHeight = embeddedImg.height * scale;
+            } else if (fit === "cover") {
+              const scale = Math.max(printableWidth / embeddedImg.width, printableHeight / embeddedImg.height);
+              drawWidth = embeddedImg.width * scale;
+              drawHeight = embeddedImg.height * scale;
+            } else if (fit === "stretch" || fit === "fill") {
+              drawWidth = printableWidth;
+              drawHeight = printableHeight;
+            }
+
+            const drawX = safeMargin + ((printableWidth - drawWidth) / 2);
+            const drawY = safeMargin + ((printableHeight - drawHeight) / 2);
+
+            page.drawImage(embeddedImg, {
+              x: drawX,
+              y: drawY,
+              width: drawWidth,
+              height: drawHeight,
+            });
           }
-
-          const page = pdfDoc.addPage([pageWidth, pageHeight]);
-          const safeMargin = Math.max(0, Number(margin) || 0);
-          const printableWidth = Math.max(1, pageWidth - (safeMargin * 2));
-          const printableHeight = Math.max(1, pageHeight - (safeMargin * 2));
-
-          let drawWidth = embeddedImg.width;
-          let drawHeight = embeddedImg.height;
-          if (normSize !== "fit" || fit === "contain") {
-            const scale = Math.min(printableWidth / embeddedImg.width, printableHeight / embeddedImg.height, 1);
-            drawWidth = embeddedImg.width * scale;
-            drawHeight = embeddedImg.height * scale;
-          }
-
-          const drawX = safeMargin + ((printableWidth - drawWidth) / 2);
-          const drawY = safeMargin + ((printableHeight - drawHeight) / 2);
-
-          page.drawImage(embeddedImg, {
-            x: drawX,
-            y: drawY,
-            width: drawWidth,
-            height: drawHeight
-          });
 
           const pdfBytes = await pdfDoc.save();
           await fs.writeFile(outPath, pdfBytes);
+
           return {
             ok: true,
             path: outPath,
             format: "pdf",
             sizeBytes: pdfBytes.length,
-            pages: 1,
+            pages: resolvedList.length,
+            images_processed: resolvedList.length,
             paper_size: normSize,
-            orientation: String(orientation).toLowerCase(),
-            originalFormat: ext
+            orientation: reqOrientation,
+            quality,
           };
         } catch (err) {
           return { ok: false, error: err.message, code: err.code || "PROCESS_FAILED" };

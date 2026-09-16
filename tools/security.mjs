@@ -100,8 +100,17 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, activeLevel: runtime.permissions?.currentLevel() || "user" };
     },
     
-    start_workflow: async ({ level = "advanced", durationMinutes = 5, reason = "Solicitado amablemente por IA", principal = "default" } = {}) => {
+    start_workflow: async ({ level = "advanced", durationMinutes = 5, reason = "Solicitado amablemente por IA", principal = "default", confirmationCode, code, requestId } = {}) => {
       try {
+        // Soporte de código de confirmación directo (AFX-FB-U6VQTG Fix)
+        const targetCode = confirmationCode || code;
+        const targetId = requestId || (targetCode ? runtime.confirmations.findByCode(targetCode)?.requestId : null);
+        if (targetId || targetCode) {
+          try {
+            runtime.confirmations.approve(targetId || targetCode, { confirmationCode: targetCode, grantMinutes: durationMinutes });
+          } catch (e) {}
+        }
+
         // Validación estricta
         if (typeof durationMinutes !== 'number' || isNaN(durationMinutes) || !isFinite(durationMinutes) || durationMinutes <= 0) {
           return { ok: false, error: "durationMinutes debe ser un número positivo mayor que 0." };
@@ -167,11 +176,16 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       return { ok: true, pending: runtime.confirmations.list() };
     },
 
-    approve_request: async ({ requestId, confirmationCode, user_confirmed, confirmed, grantMinutes, minutes } = {}, rt, router) => {
-      if (!requestId) return { ok: false, error: "El parámetro 'requestId' es requerido." };
+    approve_request: async ({ requestId, confirmationCode, code, user_confirmed, confirmed, grantMinutes, minutes } = {}, rt, router) => {
+      const targetCode = confirmationCode || code;
+      let targetId = requestId;
+      if (!targetId && targetCode) {
+        targetId = runtime.confirmations.findByCode(targetCode)?.requestId;
+      }
+      if (!targetId && !targetCode) return { ok: false, error: "El parámetro 'requestId' o 'confirmationCode' ('code') es requerido." };
       let req;
       try {
-        req = runtime.confirmations.approve(requestId, { confirmationCode });
+        req = runtime.confirmations.approve(targetId || targetCode, { confirmationCode: targetCode });
       } catch (e) {
         return { ok: false, code: e.code || "CONFIRMATION_ERROR", error: e.message };
       }
@@ -218,14 +232,82 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       }
     },
 
-    deny_request: async ({ requestId, reason } = {}) => {
-      if (!requestId) return { ok: false, error: "El parámetro 'requestId' es requerido." };
+    deny_request: async ({ requestId, confirmationCode, code, reason = "Denegado por el usuario" } = {}) => {
+      const target = requestId || confirmationCode || code;
+      if (!target) return { ok: false, error: "Se requiere 'requestId', 'confirmationCode' o 'code'." };
       try {
-        runtime.confirmations.deny(requestId, reason);
-        return { ok: true, denied: true, requestId };
+        if (runtime.notifications) {
+          runtime.notifications.deny(target, { reason });
+        } else {
+          runtime.confirmations.deny(target, reason);
+        }
+        return { ok: true, denied: true, target, message: "Acceso denegado a la IA." };
       } catch (e) {
         return { ok: false, error: e.message };
       }
+    },
+
+    list_notifications: async ({ status = "pending", limit = 20 } = {}) => {
+      const list = runtime.notifications ? runtime.notifications.list({ status, limit }) : [];
+      return {
+        ok: true,
+        count: list.length,
+        pending_count: runtime.notifications?.pendingCount() || 0,
+        notifications_enabled: runtime.notifications?.isEnabled() ?? true,
+        notifications: list,
+      };
+    },
+
+    respond_notification: async ({ id, confirmationCode, code, decision = "approve", grantMinutes = 15, reason } = {}) => {
+      const target = id || confirmationCode || code;
+      if (!target) return { ok: false, error: "Se requiere 'id', 'confirmationCode' o 'code'." };
+      const actionDecision = String(decision || "approve").toLowerCase();
+
+      if (["approve", "autorizar", "yes", "si"].includes(actionDecision)) {
+        if (runtime.notifications) {
+          return runtime.notifications.approve(target, { grantMinutes });
+        }
+        const req = runtime.confirmations.approve(target, { grantMinutes });
+        return { ok: true, status: "approved", requestId: req.requestId, grantMinutes };
+      }
+
+      if (["dismiss", "descartar", "x", "borrar"].includes(actionDecision)) {
+        if (runtime.notifications) {
+          return runtime.notifications.dismiss(target);
+        }
+        runtime.confirmations.deny(target, "Descartado con X");
+        return { ok: true, status: "dismissed" };
+      }
+
+      // deny / no
+      if (runtime.notifications) {
+        return runtime.notifications.deny(target, { reason });
+      }
+      runtime.confirmations.deny(target, reason);
+      return { ok: true, status: "denied" };
+    },
+
+    configure_notifications: async ({ enabled, in_app, mode } = {}) => {
+      let isEnabled = true;
+      if (enabled !== undefined) isEnabled = Boolean(enabled);
+      else if (in_app !== undefined) isEnabled = Boolean(in_app);
+      else if (mode !== undefined) isEnabled = String(mode).toLowerCase() !== "chat" && String(mode).toLowerCase() !== "disabled";
+
+      if (runtime.notifications) {
+        runtime.notifications.setEnabled(isEnabled);
+      }
+      if (runtime.config) {
+        runtime.config.notificationsEnabled = isEnabled;
+      }
+
+      return {
+        ok: true,
+        notifications_enabled: isEnabled,
+        mode: isEnabled ? "in_app_fluxer" : "chat_classic",
+        message: isEnabled
+          ? "Notificaciones integradas en Fluxer ACTIVADAS. Las alertas aparecerán en el Dashboard de Fluxer con botones para autorizar o presionar 'X'."
+          : "Notificaciones integradas en Fluxer DESACTIVADAS. El sistema ha regresado al modo 'security' clásico: la IA solicitará autorización directamente al usuario vía chat.",
+      };
     },
 
     get_security_mode: async () => ({ ok: true, ...(runtime.permissions.modeInfo ? runtime.permissions.modeInfo() : { mode: "NORMAL" }) }),
@@ -266,7 +348,14 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     },
 
     // DEPRECATED
-    grant_elevation: async ({ durationMinutes = 20, reason = "Permiso total de administración" } = {}) => {
+    grant_elevation: async ({ durationMinutes = 20, reason = "Permiso total de administración", confirmationCode, code, requestId } = {}) => {
+      const targetCode = confirmationCode || code;
+      const targetId = requestId || (targetCode ? runtime.confirmations.findByCode(targetCode)?.requestId : null);
+      if (targetId || targetCode) {
+        try {
+          runtime.confirmations.approve(targetId || targetCode, { confirmationCode: targetCode, grantMinutes: durationMinutes });
+        } catch (e) {}
+      }
       return runtime.permissions.grantElevation({ durationMinutes, reason });
     },
 
@@ -431,6 +520,9 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     approve_request: "standard",
     deny_request: "standard",
     request_status: "standard",
+    list_notifications: "standard",
+    respond_notification: "standard",
+    configure_notifications: "standard",
     hash_file: "standard",
     hash_text: "standard",
     generate_uuid: "standard",

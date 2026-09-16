@@ -458,6 +458,7 @@ export class PermissionEngine {
     this._audit("workflow_started", { workflowId, level, canonicalLevel, expiresAt: expiresAt.toISOString(), principal });
     
     return { 
+      ok: true,
       workflowId, 
       principal, 
       level, 

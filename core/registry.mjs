@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FLUXER MCP — core/registry.mjs
  * Compositor delgado: importa dominios de tools/ y los registra.
  * Toda la lógica de negocio vive en tools/*.mjs — este archivo solo orquesta.
@@ -379,8 +379,8 @@ function generateSimpleDiff(oldStr, newStr, leftPath = "a", rightPath = "b") {
 // ── Registry Class ───────────────────────────────────────────────────────────
 
 export class Registry {
-  constructor(runtime) {
-    this.runtime = runtime;
+  constructor(runtimeOrOptions) {
+    this.runtime = runtimeOrOptions?.runtime ?? runtimeOrOptions;
     this.modules = new Map();
     if (this.runtime) {
       this.runtime._registry = this;

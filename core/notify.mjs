@@ -21,8 +21,16 @@ export function sendNativeNotification(title, message, options = {}) {
       $template = "<toast><visual><binding template='ToastGeneric'><text>$xmlTitle</text><text>$xmlText</text></binding></visual></toast>"
       $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
       $xml.LoadXml($template)
-      $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
-      [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('AERON FLUXER X').Show($toast)
+      $appIds = @('AERON FLUXER X', '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe', 'Microsoft.Windows.Shell.RunDialog')
+      $sent = $false
+      foreach ($appId in $appIds) {
+        try {
+          [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
+          $sent = $true
+          break
+        } catch {}
+      }
+      if (-not $sent) { throw "ToastNotifier failed for all AUMIDs" }
     } catch {
       try {
         Add-Type -AssemblyName System.Windows.Forms,System.Drawing -ErrorAction SilentlyContinue
@@ -31,8 +39,8 @@ export function sendNativeNotification(title, message, options = {}) {
         $n.BalloonTipTitle = $title
         $n.BalloonTipText = $text
         $n.Visible = $true
-        $n.ShowBalloonTip(2000)
-        Start-Sleep -Milliseconds 400
+        $n.ShowBalloonTip(3000)
+        Start-Sleep -Milliseconds 1000
         $n.Dispose()
       } catch {}
     }

@@ -6,7 +6,7 @@ const dashboardHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FLUXER v7.0 Runtime Dashboard</title>
+  <title>FLUXER Runtime Dashboard</title>
   <style>
     :root {
       --bg: #0d0f17;
@@ -31,12 +31,12 @@ const dashboardHtml = `<!DOCTYPE html>
       flex-direction: column;
     }
     header {
-      padding: 1.5rem 2rem;
+      padding: 1.25rem 2rem;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(13, 15, 23, 0.8);
+      background: rgba(13, 15, 23, 0.85);
       backdrop-filter: blur(12px);
       position: sticky;
       top: 0;
@@ -44,14 +44,14 @@ const dashboardHtml = `<!DOCTYPE html>
     }
     h1 {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 600;
       background: linear-gradient(to right, var(--neon-cyan), var(--neon-violet));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
     }
     .live-dot {
       width: 10px;
@@ -68,13 +68,28 @@ const dashboardHtml = `<!DOCTYPE html>
     }
     .header-stats {
       display: flex;
-      gap: 2rem;
+      align-items: center;
+      gap: 1.5rem;
       color: var(--text-muted);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
     .header-stats span {
       color: var(--text);
       font-weight: 500;
+    }
+    #notif-pill {
+      display: none;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--neon-amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      font-weight: 600;
+      font-size: 0.8rem;
+      animation: pulse 2s infinite;
+      cursor: pointer;
     }
     main {
       padding: 2rem;
@@ -92,9 +107,9 @@ const dashboardHtml = `<!DOCTYPE html>
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
     }
     .card {
       background: var(--card-bg);
@@ -105,63 +120,197 @@ const dashboardHtml = `<!DOCTYPE html>
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.75rem;
     }
     .card:hover {
-      transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0,0,0,0.4);
       border-color: rgba(255,255,255,0.15);
     }
     .card-title {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 600;
     }
     .card-value {
-      font-size: 2rem;
+      font-size: 1.8rem;
       font-weight: 300;
       color: var(--text);
     }
     .card-sub {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
     }
     .progress-bar {
       width: 100%;
-      height: 8px;
+      height: 6px;
       background: rgba(255,255,255,0.1);
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
       margin-top: auto;
     }
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--neon-cyan), var(--neon-violet));
-      border-radius: 4px;
+      border-radius: 3px;
       transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .queue-breakdown {
       display: flex;
       gap: 0.5rem;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
     }
     .badge {
-      padding: 0.2rem 0.5rem;
+      padding: 0.15rem 0.45rem;
       border-radius: 4px;
       background: rgba(255,255,255,0.1);
+      font-size: 0.75rem;
     }
-    .badge.critical { color: var(--neon-rose); background: rgba(244,63,94,0.1); }
-    .badge.high { color: var(--neon-amber); background: rgba(245,158,11,0.1); }
-    .badge.normal { color: var(--neon-cyan); background: rgba(6,182,212,0.1); }
+    .badge.critical { color: var(--neon-rose); background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); }
+    .badge.high { color: var(--neon-amber); background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); }
+    .badge.normal { color: var(--neon-cyan); background: rgba(6,182,212,0.15); }
     .badge.low { color: var(--text-muted); }
+
+    /* ── Notification Section ─────────────────────────────── */
+    .notif-section {
+      background: rgba(139, 92, 246, 0.03);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .notif-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .notif-section-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .notif-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      animation: slideIn 0.3s ease;
+      transition: all 0.2s ease;
+    }
+    .notif-item.admin_elevation, .notif-item.critical {
+      border-color: rgba(244, 63, 94, 0.35);
+      background: rgba(244, 63, 94, 0.04);
+    }
+    .notif-item.strong_permission {
+      border-color: rgba(245, 158, 11, 0.35);
+      background: rgba(245, 158, 11, 0.04);
+    }
+    .notif-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-right: 1.5rem;
+    }
+    .notif-item-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .notif-code-tag {
+      font-family: monospace;
+      font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: var(--neon-cyan);
+      letter-spacing: 0.05em;
+    }
+    .notif-item-msg {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    .notif-btn-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.35rem;
+    }
+    .btn-approve {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.45rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+    }
+    .btn-approve:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.45);
+    }
+    .btn-deny {
+      background: rgba(244, 63, 94, 0.12);
+      color: var(--neon-rose);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.2s ease;
+    }
+    .btn-deny:hover {
+      background: rgba(244, 63, 94, 0.22);
+      border-color: var(--neon-rose);
+    }
+    .btn-close-x {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0.25rem 0.45rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-close-x:hover {
+      color: var(--neon-rose);
+      background: rgba(244, 63, 94, 0.15);
+    }
     
     .feed {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-      max-height: 500px;
+      max-height: 480px;
       overflow-y: auto;
       padding-right: 0.5rem;
     }
@@ -172,10 +321,10 @@ const dashboardHtml = `<!DOCTYPE html>
       background: rgba(255,255,255,0.02);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1rem;
+      padding: 0.85rem 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.4rem;
       animation: slideIn 0.3s ease;
     }
     @keyframes slideIn {
@@ -195,12 +344,12 @@ const dashboardHtml = `<!DOCTYPE html>
       padding: 0.2rem 0.4rem;
       border-radius: 4px;
     }
-    .feed-action { font-weight: 500; }
+    .feed-action { font-weight: 500; font-size: 0.9rem; }
     .feed-meta {
       display: flex;
       gap: 1rem;
       color: var(--text-muted);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
     }
     .chip {
       padding: 0.1rem 0.4rem;
@@ -239,8 +388,11 @@ const dashboardHtml = `<!DOCTYPE html>
 </head>
 <body>
   <header>
-    <h1><div class="live-dot"></div> FLUXER v7.0 Runtime Dashboard</h1>
+    <h1><div class="live-dot"></div> FLUXER Runtime Dashboard</h1>
     <div class="header-stats">
+      <div id="notif-pill" onclick="document.getElementById('notif-section').scrollIntoView({ behavior: 'smooth' })">
+        🔔 <span id="notif-pill-text">0 Permisos Pendientes</span>
+      </div>
       <div>Uptime: <span id="uptime">00:00:00</span></div>
       <div>Client: <span id="client-info">Detecting...</span></div>
     </div>
@@ -248,6 +400,24 @@ const dashboardHtml = `<!DOCTYPE html>
   
   <main>
     <div class="left-col">
+      <!-- 🔔 CENTRO DE NOTIFICACIONES Y AUTORIZACIÓN DE IA INTEGRADO -->
+      <section class="notif-section" id="notif-section">
+        <div class="notif-section-header">
+          <div class="notif-section-title">
+            <span>🔔 Centro de Notificaciones & Autorización IA</span>
+            <span id="notif-header-count" class="badge low">0 pendientes</span>
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">
+            Autoriza con un clic o presiona '✕' para denegar a la IA
+          </span>
+        </div>
+        <div id="notif-container">
+          <div id="notif-empty" style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border); border-radius: 8px;">
+            ✓ No hay autorizaciones pendientes. La IA opera dentro de los límites estándar permitidos.
+          </div>
+        </div>
+      </section>
+
       <div class="grid">
         <div class="card">
           <div class="card-title">Memory Usage</div>
@@ -289,9 +459,8 @@ const dashboardHtml = `<!DOCTYPE html>
       </div>
       
       <div class="card" style="flex: 1;">
-        <div class="card-title" style="margin-bottom: 1rem;">Real-time Execution Feed</div>
+        <div class="card-title" style="margin-bottom: 0.5rem;">Real-time Execution Feed</div>
         <div class="feed" id="feed">
-          <!-- Feed items injected via JS -->
           <div class="feed-item" style="opacity: 0.5; text-align: center; padding: 2rem;">Waiting for events...</div>
         </div>
       </div>
@@ -299,8 +468,9 @@ const dashboardHtml = `<!DOCTYPE html>
     
     <div class="right-col">
       <div class="card">
-        <div class="card-title" style="margin-bottom: 1rem;">REST Endpoints</div>
+        <div class="card-title" style="margin-bottom: 0.5rem;">REST Endpoints</div>
         <div class="rest-links">
+          <a href="/notifications" target="_blank" class="rest-link">Notifications <code>JSON</code></a>
           <a href="/status" target="_blank" class="rest-link">Status <code>JSON</code></a>
           <a href="/tools" target="_blank" class="rest-link">Tools <code>JSON</code></a>
           <a href="/metrics" target="_blank" class="rest-link">Metrics <code>JSON</code></a>
@@ -315,7 +485,6 @@ const dashboardHtml = `<!DOCTYPE html>
   <script>
     document.getElementById('client-info').textContent = navigator.userAgent.split(' ')[0] || 'Browser';
     
-    // Uptime formatter
     let startTime = Date.now();
     setInterval(() => {
       const diff = Math.floor((Date.now() - startTime) / 1000);
@@ -325,12 +494,140 @@ const dashboardHtml = `<!DOCTYPE html>
       document.getElementById('uptime').textContent = \`\${h}:\${m}:\${s}\`;
     }, 1000);
 
+    // ── GESTIÓN INTEGRADA DE NOTIFICACIONES ────────────────────────────────────
+    async function loadNotifications() {
+      try {
+        const res = await fetch('/api/notifications');
+        const data = await res.json();
+        renderNotifications(data.notifications || []);
+      } catch {}
+    }
+
+    function renderNotifications(notifs) {
+      const container = document.getElementById('notif-container');
+      const pill = document.getElementById('notif-pill');
+      const pillText = document.getElementById('notif-pill-text');
+      const headerCount = document.getElementById('notif-header-count');
+
+      const pending = notifs.filter(n => n.status === 'pending');
+      
+      if (pending.length > 0) {
+        pill.style.display = 'flex';
+        pillText.textContent = \`\${pending.length} Permiso\${pending.length > 1 ? 's' : ''} Pendiente\${pending.length > 1 ? 's' : ''}\`;
+        headerCount.textContent = \`\${pending.length} pendiente\${pending.length > 1 ? 's' : ''}\`;
+        headerCount.className = 'badge high';
+      } else {
+        pill.style.display = 'none';
+        headerCount.textContent = '0 pendientes';
+        headerCount.className = 'badge low';
+      }
+
+      if (pending.length === 0) {
+        container.innerHTML = \`
+          <div id="notif-empty" style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border); border-radius: 8px;">
+            ✓ No hay autorizaciones pendientes. La IA opera dentro de los límites estándar permitidos.
+          </div>
+        \`;
+        return;
+      }
+
+      container.innerHTML = '';
+      pending.forEach(n => {
+        const item = document.createElement('div');
+        item.className = \`notif-item \${n.category || 'standard'}\`;
+        item.id = \`notif-\${n.id}\`;
+
+        const badgeClass = (n.category === 'admin_elevation' || n.category === 'critical') ? 'critical' : 'high';
+
+        item.innerHTML = \`
+          <button class="btn-close-x" onclick="dismissNotif('\${n.id}')" title="Denegar acceso y descartar">✕</button>
+          <div class="notif-item-top">
+            <div class="notif-item-title">
+              <span class="badge \${badgeClass}">\${n.badge || 'PERMISO REQUERIDO'}</span>
+              <span>\${n.tool ? n.tool + '.' + n.action : n.title}</span>
+              \${n.confirmationCode ? \`<span class="notif-code-tag">CÓDIGO: \${n.confirmationCode}</span>\` : ''}
+            </div>
+            <span style="color: var(--text-muted); font-size: 0.75rem;">\${new Date(n.createdAt).toLocaleTimeString()}</span>
+          </div>
+          <div class="notif-item-msg">\${n.message}</div>
+          <div class="notif-btn-row">
+            <button class="btn-approve" onclick="approveNotif('\${n.id}', '\${n.confirmationCode || ''}')">
+              ✓ Autorizar Acceso (15 min)
+            </button>
+            <button class="btn-deny" onclick="denyNotif('\${n.id}', '\${n.confirmationCode || ''}')">
+              ✕ Denegar / No
+            </button>
+          </div>
+        \`;
+        container.appendChild(item);
+      });
+    }
+
+    async function approveNotif(id, code) {
+      const el = document.getElementById(\`notif-\${id}\`);
+      if (el) el.style.opacity = '0.5';
+      try {
+        const res = await fetch('/api/notifications/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, confirmationCode: code, grantMinutes: 15 }),
+        });
+        const result = await res.json();
+        if (el) {
+          el.innerHTML = \`<div style="color: var(--neon-emerald); font-weight: 600; font-size: 0.85rem; padding: 0.5rem 0;">✓ Acceso concedido a la IA exitosamente (15 min).</div>\`;
+          setTimeout(() => loadNotifications(), 1500);
+        }
+      } catch (e) {
+        if (el) el.style.opacity = '1';
+        alert('Error autorizando: ' + e.message);
+      }
+    }
+
+    async function denyNotif(id, code) {
+      const el = document.getElementById(\`notif-\${id}\`);
+      if (el) el.style.opacity = '0.5';
+      try {
+        await fetch('/api/notifications/deny', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, confirmationCode: code, reason: 'Denegado por el usuario en Dashboard' }),
+        });
+        if (el) {
+          el.innerHTML = \`<div style="color: var(--neon-rose); font-weight: 600; font-size: 0.85rem; padding: 0.5rem 0;">✕ Acceso denegado a la IA.</div>\`;
+          setTimeout(() => loadNotifications(), 1200);
+        }
+      } catch (e) {
+        if (el) el.style.opacity = '1';
+      }
+    }
+
+    async function dismissNotif(id) {
+      const el = document.getElementById(\`notif-\${id}\`);
+      if (el) {
+        el.style.transform = 'translateX(20px)';
+        el.style.opacity = '0';
+      }
+      try {
+        await fetch('/api/notifications/dismiss', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        });
+        setTimeout(() => loadNotifications(), 300);
+      } catch {}
+    }
+
+    loadNotifications();
+
+    // ── SSE REAL-TIME EVENTS ──────────────────────────────────────────────────
     const evtSource = new EventSource('/events');
     
+    evtSource.addEventListener('notification_created', () => loadNotifications());
+    evtSource.addEventListener('notification_resolved', () => loadNotifications());
+    evtSource.addEventListener('notification_dismissed', () => loadNotifications());
+
     evtSource.addEventListener('metrics', (e) => {
       const data = JSON.parse(e.data);
-      
-      // Update Memory
       if (data.memory) {
         const rssMB = Math.round(data.memory.rss / 1024 / 1024);
         const heapMB = Math.round(data.memory.heapUsed / 1024 / 1024);
@@ -338,15 +635,10 @@ const dashboardHtml = `<!DOCTYPE html>
         document.getElementById('mem-sub').textContent = \`RSS: \${rssMB} MB | Heap: \${heapMB} MB\`;
         document.getElementById('mem-bar').style.width = \`\${Math.min((rssMB / 2048) * 100, 100)}%\`;
       }
-      
-      // Update CPU
       if (data.cpu && data.cpu.loadavg) {
         document.getElementById('cpu-val').textContent = data.cpu.loadavg[0].toFixed(2);
         document.getElementById('cpu-sub').textContent = \`\${data.cpu.loadavg[0].toFixed(2)} / \${data.cpu.loadavg[1].toFixed(2)} / \${data.cpu.loadavg[2].toFixed(2)}\`;
       }
-      
-      // Fetch queue dynamically if possible or assume metrics provides it. 
-      // If metrics doesn't provide queue, we do a background fetch to /queue
       fetch('/queue').then(r => r.json()).then(q => {
         document.getElementById('queue-val').textContent = \`\${q.active || q.size} / \${q.max || '∞'}\`;
         document.getElementById('queue-bar').style.width = \`\${q.pct || 0}%\`;
@@ -359,8 +651,6 @@ const dashboardHtml = `<!DOCTYPE html>
           \`;
         }
       }).catch(() => {});
-      
-      // Cache
       if (data.cache) {
         const total = data.cache.hits + data.cache.misses;
         const rate = total > 0 ? Math.round((data.cache.hits / total) * 100) : 0;
@@ -368,8 +658,6 @@ const dashboardHtml = `<!DOCTYPE html>
         document.getElementById('cache-sub').textContent = \`Hits: \${data.cache.hits} | Misses: \${data.cache.misses}\`;
         document.getElementById('cache-bar').style.width = \`\${rate}%\`;
       }
-      
-      // Latency
       if (data.latency) {
         document.getElementById('lat-val').textContent = \`\${data.latency.p50 || 0}ms\`;
         document.getElementById('lat-sub').textContent = \`P50: \${data.latency.p50 || 0} | P95: \${data.latency.p95 || 0} | P99: \${data.latency.p99 || 0}\`;
@@ -379,15 +667,11 @@ const dashboardHtml = `<!DOCTYPE html>
     evtSource.addEventListener('tool_result', (e) => {
       const data = JSON.parse(e.data);
       const feed = document.getElementById('feed');
-      
-      // Remove placeholder
       if (feed.children.length === 1 && feed.children[0].textContent.includes('Waiting')) {
         feed.innerHTML = '';
       }
-      
       const item = document.createElement('div');
       item.className = 'feed-item';
-      
       const timeStr = new Date(data.ts).toLocaleTimeString();
       const chipClass = data.ok ? 'ok' : 'fail';
       const chipText = data.ok ? 'OK' : 'FAIL';
@@ -402,9 +686,7 @@ const dashboardHtml = `<!DOCTYPE html>
           <span>⏱ \${data.durationMs || 0}ms</span>
         </div>
       \`;
-      
       feed.prepend(item);
-      
       if (feed.children.length > 50) {
         feed.removeChild(feed.lastChild);
       }
@@ -425,10 +707,8 @@ export async function startDashboardApi({
   host = "127.0.0.1",
   port = 8765,
 }) {
-  // Registro de clientes SSE activos
   const sseClients = new Set();
 
-  /** Emite un evento SSE a todos los clientes conectados. */
   function broadcast(eventName, data) {
     if (!sseClients.size) return;
     const msg = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -463,11 +743,39 @@ export async function startDashboardApi({
   router._dashboardAfterHook = afterHook;
   router.after(afterHook);
 
-  // Handlers REST estándar — compatibles con v5+
+  // Suscribir eventos del NotificationCenter al SSE broadcast
+  let cleanupNotifEvents = null;
+  if (runtime.notifications) {
+    const onCreated = (n) => broadcast("notification_created", n);
+    const onResolved = (n) => broadcast("notification_resolved", n);
+    const onDismissed = (n) => broadcast("notification_dismissed", n);
+
+    runtime.notifications.on("created", onCreated);
+    runtime.notifications.on("resolved", onResolved);
+    runtime.notifications.on("dismissed", onDismissed);
+
+    cleanupNotifEvents = () => {
+      runtime.notifications.off("created", onCreated);
+      runtime.notifications.off("resolved", onResolved);
+      runtime.notifications.off("dismissed", onDismissed);
+    };
+  }
+
+  // Handlers REST estándar
   const routes = {
+    "/notifications": async () => ({
+      ok: true,
+      pendingCount: runtime.notifications?.pendingCount?.() || 0,
+      notifications: runtime.notifications?.list?.() || [],
+    }),
+    "/api/notifications": async () => ({
+      ok: true,
+      pendingCount: runtime.notifications?.pendingCount?.() || 0,
+      notifications: runtime.notifications?.list?.() || [],
+    }),
     "/status": async () => ({
       ok: true,
-      title: "FLUXER v8.0 Dashboard",
+      title: "FLUXER Dashboard",
       state: await runtime.readState(),
     }),
     "/tools": async () => registry.snapshot().modules,
@@ -484,8 +792,6 @@ export async function startDashboardApi({
         return "No hay logs disponibles.";
       }
     },
-
-    // v6: estado de la cola de tareas
     "/queue": async () => ({
       active: runtime.taskQueue.active,
       size: runtime.taskQueue.queueSize,
@@ -495,27 +801,19 @@ export async function startDashboardApi({
         ? +((runtime.taskQueue.queueSize / runtime.taskQueue.maxQueue) * 100).toFixed(1)
         : 0,
     }),
-
-    // v7: modo de seguridad
     "/security": async () => ({
       ok: true,
       ...(runtime.permissions.modeInfo ? runtime.permissions.modeInfo() : { mode: "NORMAL" }),
     }),
-
-    // v7: audit log
     "/audit": async () => {
       const entries = await runtime.auditLog?.readRecent(100) || [];
       return { ok: true, count: entries.length, entries };
     },
-
-    // v7: configuración (sin secretos)
     "/config": async () => {
       const cfg = { ...runtime.config };
-      if (cfg.ai) cfg.ai = { ...cfg.ai }; // shallow copy
+      if (cfg.ai) cfg.ai = { ...cfg.ai };
       return { ok: true, config: cfg };
     },
-
-    // v7: salud completa del sistema
     "/health/full": async () => {
       const { runHealthCheck } = await import("./health.mjs");
       return runHealthCheck({ runtime, registry, config: runtime.config });
@@ -523,13 +821,19 @@ export async function startDashboardApi({
   };
 
   const server = http.createServer(async (req, res) => {
-    // CORS para herramientas locales de desarrollo
     res.setHeader("Access-Control-Allow-Origin", "127.0.0.1");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Fluxer-Token");
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
 
     try {
       const url = new URL(req.url, `http://${host}:${port}`);
 
-      // Verificación de autenticación cuando FLUXER_DASHBOARD_TOKEN está configurado
       const requiredToken = process.env.FLUXER_DASHBOARD_TOKEN || runtime?.config?.dashboard?.token;
       if (requiredToken) {
         const authHeader = req.headers["authorization"] || req.headers["x-fluxer-token"] || "";
@@ -542,35 +846,72 @@ export async function startDashboardApi({
         }
       }
 
-      // ——— Endpoint HTML Dashboard: GET / o GET /dashboard ———
-      if (
-        req.method === "GET" &&
-        (url.pathname === "/" || url.pathname === "/dashboard")
-      ) {
+      // GET / o /dashboard
+      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/dashboard")) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(dashboardHtml);
         return;
       }
 
-      // ——— Endpoint SSE: GET /events ———
+      // GET /events (SSE)
       if (url.pathname === "/events") {
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
         });
-        // Instrucción de reconexion automática en 3s
         res.write("retry: 3000\n\n");
-        // Snapshot inmediato al conectar
-        res.write(
-          `event: metrics\ndata: ${JSON.stringify(runtime.metrics.snapshot())}\n\n`,
-        );
+        res.write(`event: metrics\ndata: ${JSON.stringify(runtime.metrics.snapshot())}\n\n`);
         sseClients.add(res);
         req.on("close", () => sseClients.delete(res));
         return;
       }
 
-      // ——— Endpoints REST ———
+      // Endpoints interactivos de Notificaciones / Autorizaciones
+      if (req.method === "POST" && ["/api/notifications/approve", "/api/notifications/deny", "/api/notifications/dismiss"].includes(url.pathname)) {
+        let body = {};
+        try {
+          const raw = await new Promise((resolve) => {
+            let buf = "";
+            req.on("data", (chunk) => (buf += chunk));
+            req.on("end", () => resolve(buf));
+          });
+          body = raw ? JSON.parse(raw) : {};
+        } catch {}
+
+        const target = body.id || body.confirmationCode || body.code;
+        let responsePayload;
+
+        if (url.pathname === "/api/notifications/approve") {
+          responsePayload = runtime.notifications
+            ? runtime.notifications.approve(target, { grantMinutes: body.grantMinutes || 15 })
+            : { ok: false, error: "Notification center not available" };
+        } else if (url.pathname === "/api/notifications/deny") {
+          responsePayload = runtime.notifications
+            ? runtime.notifications.deny(target, { reason: body.reason || "Denegado por el usuario" })
+            : { ok: false, error: "Notification center not available" };
+        } else {
+          responsePayload = runtime.notifications
+            ? runtime.notifications.dismiss(target)
+            : { ok: false, error: "Notification center not available" };
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(responsePayload, null, 2));
+        return;
+      }
+
+      if (req.method === "DELETE" && url.pathname.startsWith("/api/notifications/")) {
+        const id = url.pathname.replace("/api/notifications/", "").trim();
+        const responsePayload = runtime.notifications
+          ? runtime.notifications.dismiss(id)
+          : { ok: false, error: "Notification center not available" };
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(responsePayload, null, 2));
+        return;
+      }
+
+      // Endpoints REST estándar
       const handler = routes[url.pathname];
       if (!handler) {
         res.writeHead(404, { "content-type": "application/json" });
@@ -586,9 +927,9 @@ export async function startDashboardApi({
     }
   });
 
-  // Limpiar intervalo SSE y afterHook cuando el servidor se cierra
   server.on("close", () => {
     clearInterval(metricsInterval);
+    if (cleanupNotifEvents) cleanupNotifEvents();
     if (router?.afterHooks) {
       const idx = router.afterHooks.indexOf(afterHook);
       if (idx !== -1) router.afterHooks.splice(idx, 1);

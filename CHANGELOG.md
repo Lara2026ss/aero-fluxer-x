@@ -5,6 +5,54 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v3.0.0] - 2026-09-15 (Major Phoenix Release — Clean Architecture, Notification Center, Dynamic Image-to-PDF & Smart Shortcuts)
+
+### 🔔 Centro de Notificaciones y Autorización Integrado en Fluxer (`core/notifications.mjs` & Dashboard UI)
+- **Notificaciones In-App Nativas en Fluxer (sin popups molestos de Windows)**:
+  - Resuelve feedback **AFX-FB-4ZTRFG**: Las notificaciones de solicitudes de permisos de IA ya no son globos o popups de Windows en el PC del usuario, sino tarjetas interactivas integradas en el Dashboard de Fluxer con Server-Sent Events (SSE) en tiempo real.
+  - El usuario puede ver en vivo qué IA solicita permisos (`admin_elevation`, `system_root`, `developer`, `strong_permission`), el motivo, el código de confirmación y su tiempo de expiración (TTL).
+  - **Botón de Autorización Directa**: Clic en `✓ Autorizar Acceso (15 min)` aprueba inmediatamente el token en memoria sin que el usuario tenga que copiar/pegar comandos.
+  - **Botón de Denegación ('X')**: Clic en `✕` descarta la notificación y rechaza la solicitud de elevación.
+- **Interruptor Configurable por Chat**:
+  - Si el usuario le pide a la IA desactivar las notificaciones (`security.configure_notifications { enabled: false }` o `in_app: false`), Fluxer regresa automáticamente al modo clásico de seguridad donde la IA pide confirmación mediante el chat tradicional.
+
+### 🛡️ Estabilización de Códigos de Confirmación y Elevación (`AFX-FB-U6VQTG`)
+- **Reutilización Estable de Códigos Pendientes**:
+  - `core/confirmation.mjs`: Si una solicitud de elevación para una acción/dominio ya tiene un código activo sin expirar, se reutiliza el mismo código en vez de regenerarlo en cada ciclo o fallo de llamada.
+  - Búsqueda directa mediante `confirmation.findByCode(code)`.
+  - `security.grant_elevation` y `security.deny_request` aceptan directamente `confirmationCode` / `code` además de `requestId`.
+  - Enrutador MCP normalizado para aceptar estados de flujo de seguridad como `"active"`, `"enabled"` y `"completed"`.
+
+### 🖼️ Motor Dinámico de Imagen a PDF (`files.image_to_pdf`)
+- **Conversión de Álbum Multi-Imagen**:
+  - Soporta conversión de múltiples imágenes en un único documento PDF ordenado mediante `images: ["img1.png", "img2.jpg"]`.
+  - Modos de orientación inteligente: `auto` (detecta según las dimensiones de cada imagen), `portrait` y `landscape`.
+  - Perfiles de calidad semántica: `alta` (compresión mínima/alta fidelidad), `estandar` y `basica` (optimizado para tamaño compacto).
+  - Tamaños de papel configurables: `fit` (la página adopta exactamente el tamaño y proporción de la imagen), `letter`, `a4`, `legal`.
+  - Modos de encuadre: `contain`, `cover` y `stretch`, con control granular de márgenes (`margins`).
+
+### ⚡ Flujos de Automatización Inteligente en `shortcuts`
+- **Piping Dinámico de Variables entre Pasos**:
+  - Directivas `captureAs` y `capture`: Capturan el resultado de un paso (salida completa o propiedad específica) y la inyectan dinámicamente en los pasos subsiguientes con sintaxis `${variable}` o `${step.prop}`.
+- **Ejecución Condicional y Resiliencia**:
+  - Directivas `when` / `condition`: Evalúa si un paso debe ejecutarse según valores de variables capturadas (`"${step1.status} == 'ok'"`).
+  - Directiva `retries`: Reintentos automáticos con retroceso en pasos de red o IO susceptibles a fallos transitorios.
+  - Directiva `dryRun: true`: Simulación y validación previa del grafo de ejecución sin invocar cambios reales.
+- **Plantillas Predefinidas Listas para Usar**:
+  - `system_health_audit`: Auditoría rápida de salud y recursos.
+  - `web_research_pack`: Recopilación de fuentes y extracción de contenido en un solo flujo.
+  - `clean_and_repair`: Mantenimiento y diagnóstico del sistema.
+
+### 🌐 Inteligencia Web y Búsqueda de Opciones Múltiples (`web.search_images`)
+- Búsqueda multi-opción enriquecida con extracción directa vía DuckDuckGo y fallback en Wikimedia Commons.
+- Devuelve múltiples alternativas visuales independientes con dimensiones, miniaturas, títulos y URLs directas para que la IA y el usuario elijan con precisión.
+
+### 🧹 Optimización y Reducción Drástica de Almacenamiento
+- Limpieza integral del directorio raíz de Fluxer X: se eliminaron más de 65 archivos duplicados y residuales que ya se encuentran modularizados en `core/`, `doctor/` y `scripts/`.
+- Huella de almacenamiento reducida y código más limpio, modular y fácil de mantener.
+
+---
+
 ## [v12.2.0] - 2026-09-15 (Autonomous Web Intelligence, Secure Media Ingestion, Image-to-PDF & Print Quality Engine)
 
 ### 🌐 Nuevo Dominio de Inteligencia Web y Descarga Segura de Medios (`web`)

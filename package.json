@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "12.2.0",
-  "description": "Fluxer Core MCP v12.2.0 — Web Domain (DuckDuckGo, Wikipedia, Reddit, Safe Media Downloader), Image-to-PDF Conversion & PrintCenter Quality Resolution",
+  "version": "3.0.0",
+  "description": "Fluxer Core MCP v3.0 — Clean Major Architecture, Integrated Notification Center, Dynamic Image-to-PDF, Smart Shortcuts & Web Intelligence",
   "type": "module",
   "main": "server.js",
   "bin": {

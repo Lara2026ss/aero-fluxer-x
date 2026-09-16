@@ -664,9 +664,28 @@ export function createSystemDomain({ runtime, os, dns, net, domain, httpFetchTex
       },
 
       // ── Notificaciones / Utilidades ──────────────────────────────────────────
-      send_notification: async ({ title = "AERON FLUXER X", message = "" } = {}) => {
-        const sent = sendNativeNotification(title, message);
-        return { ok: true, sent };
+      send_notification: async ({ title = "AERON FLUXER X", message = "", level = "standard", type = "info", native = false } = {}) => {
+        let inFluxer = null;
+        if (runtime.notifications) {
+          inFluxer = runtime.notifications.create({
+            title,
+            message,
+            level,
+            type,
+          });
+        }
+        let nativeSent = false;
+        if (native) {
+          nativeSent = sendNativeNotification(title, message);
+        }
+        return {
+          ok: true,
+          in_fluxer: true,
+          notificationId: inFluxer?.id || null,
+          title,
+          message,
+          native_sent: nativeSent,
+        };
       },
 
       sleep: async (args = {}) => {

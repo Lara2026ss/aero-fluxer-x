@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 🌐 FLUXER CORE MCP — tools/web.mjs
  * Dominio modular oficial de navegación, búsqueda y descarga segura de medios en la Web.
  * 
@@ -223,44 +223,94 @@ export function createWebDomain({ runtime, domain }) {
     /**
      * 🖼️ web.search_images: Busca imágenes específicas listas para descargar y usar
      */
-    search_images: async ({ query, limit = 5 } = {}) => {
+    search_images: async ({ query, limit = 6 } = {}) => {
       if (!query || typeof query !== "string" || !query.trim()) {
         return { ok: false, error: "Se requiere 'query' para buscar imágenes." };
       }
 
       const q = query.trim();
-      const maxResults = Math.max(1, Math.min(Number(limit) || 5, 15));
+      const maxResults = Math.max(1, Math.min(Number(limit) || 6, 20));
       const images = [];
+      const seenUrls = new Set();
 
+      function addImage(item) {
+        if (!item?.url || seenUrls.has(item.url)) return;
+        seenUrls.add(item.url);
+        images.push(item);
+      }
+
+      // 1. DuckDuckGo Web Image Search (imágenes reales con enlaces directos y distintas fuentes)
       try {
-        // Consultar Wikimedia Commons API para imágenes de alta calidad con licencia libre garantizada
-        const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=${maxResults}&prop=imageinfo&iiprop=url|size|mime&format=json`;
-        const res = await fetch(commonsUrl, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(8000) });
-        if (res.ok) {
-          const data = await res.json();
-          const pages = data.query?.pages || {};
-          for (const p of Object.values(pages)) {
-            const info = p.imageinfo?.[0];
-            if (info?.url) {
-              images.push({
-                title: (p.title || "").replace(/^File:/i, ""),
-                url: info.url,
-                width: info.width,
-                height: info.height,
-                mime_type: info.mime,
-                source: "wikimedia_commons",
-              });
+        const pageRes = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`, {
+          headers: { "User-Agent": USER_AGENT },
+          signal: AbortSignal.timeout(6000),
+        });
+        const html = await pageRes.text();
+        const vqdMatch = html.match(/vqd=([0-9-]+)/i) || html.match(/vqd="([^"]+)"/i);
+        if (vqdMatch && vqdMatch[1]) {
+          const vqd = vqdMatch[1];
+          const imgRes = await fetch(`https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${vqd}`, {
+            headers: { "User-Agent": USER_AGENT, Referer: "https://duckduckgo.com/" },
+            signal: AbortSignal.timeout(6000),
+          });
+          if (imgRes.ok) {
+            const data = await imgRes.json();
+            for (const item of (data.results || []).slice(0, maxResults)) {
+              if (item.image) {
+                addImage({
+                  id: images.length + 1,
+                  title: item.title || q,
+                  url: item.image,
+                  thumbnail: item.thumbnail || null,
+                  source_page: item.url || null,
+                  dimensions: item.width && item.height ? `${item.width}x${item.height}` : null,
+                  width: item.width || null,
+                  height: item.height || null,
+                  source: "web_search",
+                });
+              }
             }
           }
         }
       } catch (_) {}
 
-      // Fallback a Unsplash Source si commons no dio suficientes
+      // 2. Wikimedia Commons API (imágenes libres en alta resolución)
+      if (images.length < maxResults) {
+        try {
+          const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=${maxResults}&prop=imageinfo&iiprop=url|size|mime&format=json`;
+          const res = await fetch(commonsUrl, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(6000) });
+          if (res.ok) {
+            const data = await res.json();
+            const pages = data.query?.pages || {};
+            for (const p of Object.values(pages)) {
+              if (images.length >= maxResults) break;
+              const info = p.imageinfo?.[0];
+              if (info?.url) {
+                addImage({
+                  id: images.length + 1,
+                  title: (p.title || "").replace(/^File:/i, ""),
+                  url: info.url,
+                  thumbnail: info.thumburl || info.url,
+                  source_page: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
+                  dimensions: `${info.width}x${info.height}`,
+                  width: info.width,
+                  height: info.height,
+                  mime_type: info.mime,
+                  source: "wikimedia_commons",
+                });
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Fallback seguro si las redes fallan
       if (images.length === 0) {
-        images.push({
+        addImage({
+          id: 1,
           title: `Imagen representativa de ${q}`,
-          url: `https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1000&q=80`,
-          mime_type: "image/jpeg",
+          url: `https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1200&q=80`,
+          dimensions: "1200x800",
           source: "stock_fallback",
         });
       }
@@ -269,8 +319,16 @@ export function createWebDomain({ runtime, domain }) {
         ok: true,
         query: q,
         count: images.length,
+        options_available: images.length,
+        options: images.map((img) => ({
+          option_id: img.id,
+          title: img.title,
+          url: img.url,
+          dimensions: img.dimensions || "desconocido",
+          source: img.source,
+        })),
         images,
-        instruction_for_ai: "Para guardar cualquiera de estas imágenes en la carpeta de descargas del usuario, usa: web.download { url: '<url_de_la_imagen>' }.",
+        instruction_for_ai: "Tienes múltiples opciones de imágenes disponibles. Puedes elegir una de ellas y guardarla con web.download { url: '<url_elegida>' } o convertirla a PDF con files.image_to_pdf.",
       };
     },
 

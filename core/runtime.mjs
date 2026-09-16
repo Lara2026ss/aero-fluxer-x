@@ -18,6 +18,7 @@ import { compactValue } from "./compact.mjs";
 import { loadBuildMeta } from "./build-meta.mjs";
 import { runElevated, detectElevationAgent } from "./elevate.mjs";
 import { ConfirmationStore } from "./confirmation.mjs";
+import { NotificationCenter } from "./notifications.mjs";
 import { loadConfig } from "./config.mjs";
 import { existsSync } from "node:fs";
 import { AuditLog } from "./audit-log.mjs";
@@ -125,6 +126,10 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
   // pendiente que el cliente MCP (Claude) muestra al humano antes de
   // reintentar vía security.approve_request.
   const confirmations = new ConfirmationStore({ logger });
+
+  // Centro de Notificaciones y Autorizaciones integrado en Fluxer
+  const notifications = new NotificationCenter({ logger, confirmations, permissions, dirs });
+  await notifications.load();
 
   const metrics = new Metrics({ memory });
   const taskQueue = new TaskQueue({
@@ -503,6 +508,7 @@ export async function createRuntime({ root, version = CURRENT_VERSION, brand = B
     isReady: bootstrap.isReady,
     waitForReady: (timeout) => bootstrap.waitForReady(timeout),
     confirmations,
+    notifications,
     metrics,
     taskQueue,
     circuitBreaker,

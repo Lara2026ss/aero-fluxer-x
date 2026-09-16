@@ -56,9 +56,23 @@ export class ConfirmationStore {
   // llamada MCP completamente aparte (security.approve_request/deny_request).
   request({ tool, action, args, required, current }) {
     this.prune();
+    const now = Date.now();
+
+    // Estabilidad de código de confirmación (AFX-FB-U6VQTG Fix):
+    // Si ya existe una solicitud pendiente válida para la misma herramienta y acción,
+    // reutilizar el código y requestId existente para evitar regeneración dinámica continua.
+    for (const [id, existing] of this.pending) {
+      if (existing.status === "pending" && existing.tool === tool && existing.action === action && existing.expiresAt > now) {
+        existing.expiresAt = now + this.ttlMs;
+        existing.args = args;
+        existing.required = required;
+        existing.current = current;
+        return { requestId: existing.requestId, confirmationCode: existing.confirmationCode, entry: existing };
+      }
+    }
+
     const requestId = crypto.randomUUID();
     const confirmationCode = crypto.randomBytes(2).toString("hex").toUpperCase();
-    const now = Date.now();
 
     const entry = {
       requestId,
@@ -87,43 +101,64 @@ export class ConfirmationStore {
     return { requestId, confirmationCode, entry };
   }
 
+  findByCode(code) {
+    if (!code) return null;
+    this.prune();
+    const clean = String(code).trim().toUpperCase();
+    const now = Date.now();
+    for (const [id, req] of this.pending) {
+      if (req.status === "pending" && req.confirmationCode === clean && req.expiresAt > now) {
+        return req;
+      }
+    }
+    return null;
+  }
+
   get(requestId) {
     this.prune();
     return this.pending.get(requestId) ?? null;
   }
 
-  approve(requestId, options = {}) {
-    const req = this.get(requestId);
+  approve(requestIdOrCode, options = {}) {
+    let req = null;
+    if (requestIdOrCode) {
+      req = this.get(requestIdOrCode) || this.findByCode(requestIdOrCode);
+    }
+    const code = options.confirmationCode || options.code;
+    if (!req && code) {
+      req = this.findByCode(code);
+    }
     if (!req) {
-      const err = new Error(`confirmation_not_found: ${requestId}`);
+      const err = new Error(`confirmation_not_found: No se encontró solicitud pendiente para '${requestIdOrCode || code}'.`);
       err.code = "CONFIRMATION_NOT_FOUND";
       throw err;
     }
     if (req.status !== "pending") {
-      const err = new Error(`confirmation_already_${req.status}: ${requestId}`);
+      const err = new Error(`confirmation_already_${req.status}: ${req.requestId}`);
       err.code = `CONFIRMATION_ALREADY_${req.status.toUpperCase()}`;
       throw err;
     }
-    if (options.confirmationCode && String(options.confirmationCode).trim().toUpperCase() !== req.confirmationCode) {
+    const checkCode = options.confirmationCode || options.code;
+    if (checkCode && String(checkCode).trim().toUpperCase() !== req.confirmationCode) {
       const err = new Error(`confirmation_code_mismatch: El código de confirmación no coincide con la solicitud.`);
       err.code = "CONFIRMATION_CODE_MISMATCH";
       throw err;
     }
     req.status = "approved";
-    req.grantMinutes = Number(options.grantMinutes || 0);
-    this.logger?.info("confirmation_approved", { requestId, tool: req.tool, action: req.action, grantMinutes: req.grantMinutes });
+    req.grantMinutes = Number(options.grantMinutes || options.durationMinutes || options.minutes || 0);
+    this.logger?.info("confirmation_approved", { requestId: req.requestId, confirmationCode: req.confirmationCode, tool: req.tool, action: req.action, grantMinutes: req.grantMinutes });
     return req;
   }
 
-  deny(requestId, reason = "denied by user") {
-    const req = this.get(requestId);
-    if (!req) throw new Error(`confirmation_not_found: ${requestId}`);
+  deny(requestIdOrCode, reason = "denied by user") {
+    const req = this.get(requestIdOrCode) || this.findByCode(requestIdOrCode);
+    if (!req) throw new Error(`confirmation_not_found: ${requestIdOrCode}`);
     if (req.status !== "pending") {
-      throw new Error(`confirmation_already_${req.status}: ${requestId}`);
+      throw new Error(`confirmation_already_${req.status}: ${req.requestId}`);
     }
     req.status = "denied";
     req.denyReason = reason;
-    this.logger?.info("confirmation_denied", { requestId, tool: req.tool, action: req.action, reason });
+    this.logger?.info("confirmation_denied", { requestId: req.requestId, confirmationCode: req.confirmationCode, tool: req.tool, action: req.action, reason });
     return req;
   }
 

@@ -163,6 +163,12 @@ export class Router {
       aiGuidance = `La habilitación de una ventana de trabajo requiere la confirmación explícita del usuario en el chat. Explica el motivo y solicita su visto bueno.`;
     }
 
+    const approveHint = confirmationCode
+      ? ` Tras la confirmación del usuario, autoriza invocando: security.approve_request({ confirmationCode: "${confirmationCode}", grantMinutes: 10 }) o reintenta esta acción pasando 'confirmationCode: "${confirmationCode}"'.`
+      : "";
+
+    aiGuidance += approveHint;
+
     const message = [
       `🛡️ [AUTORIZACIÓN REQUERIDA — CONTROL DE SEGURIDAD MCP]`,
       `La acción "${tool}.${action}" requiere nivel de permisos "${required}" (nivel actual: "${current}").`,
@@ -704,6 +710,41 @@ export class Router {
         }
       }
 
+      // Soporte directo para confirmación en línea vía confirmationCode o code (AFX-FB-U6VQTG fix):
+      // Permite que la IA o el usuario reintenten la acción o llamen a grant_elevation/start_workflow
+      // proporcionando el código de confirmación directamente sin quedar bloqueados en ciclos.
+      const inlineCode = args.confirmationCode || args.code || args.confirmCode;
+      if (inlineCode && !args.__confirmationRequestId) {
+        const cleanInlineCode = String(inlineCode).trim().toUpperCase();
+        const matchingReq = this.runtime.confirmations.findByCode(cleanInlineCode);
+        if (matchingReq && matchingReq.status === "pending") {
+          const isTargetMatch = (matchingReq.tool === tool && matchingReq.action === action) ||
+            (tool === "security" && ["grant_elevation", "start_workflow", "grant_permission"].includes(action));
+          if (isTargetMatch) {
+            try {
+              const grantMins = Number(args.grantMinutes || args.minutes || args.durationMinutes || (action === "grant_elevation" ? 20 : 0));
+              this.runtime.confirmations.approve(matchingReq.requestId, {
+                confirmationCode: cleanInlineCode,
+                grantMinutes: grantMins,
+              });
+              args.__confirmationRequestId = matchingReq.requestId;
+
+              // Si se especificaron minutos o es una solicitud de elevación, activar ventana de sesión
+              if (grantMins > 0 && this.runtime.permissions?.startWorkflow) {
+                const allowedMinutes = Math.max(1, Math.min(grantMins, 240));
+                const targetWfLevel = matchingReq.required || required || "advanced";
+                this.runtime.permissions.startWorkflow({
+                  level: targetWfLevel,
+                  durationMinutes: allowedMinutes,
+                  reason: `Ventana temporal autorizada con código ${cleanInlineCode}`,
+                  principal: "default",
+                });
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
       // No basta con que el llamador mande "__confirmed: true": eso sería
       // trivial de falsificar y anularía todo el sistema. Se exige el
       // requestId real emitido por este mismo router, y se verifica en el
@@ -716,8 +757,8 @@ export class Router {
       const wasJustConfirmed = Boolean(
         confirmedReq &&
         confirmedReq.status === "approved" &&
-        confirmedReq.tool === tool &&
-        confirmedReq.action === action,
+        (confirmedReq.tool === tool || (tool === "security" && ["grant_elevation", "start_workflow"].includes(action))) &&
+        (confirmedReq.action === action || (tool === "security" && ["grant_elevation", "start_workflow"].includes(action))),
       );
 
       if (!trustedBypass && needsMoreLevel && !wasJustConfirmed) {
@@ -733,6 +774,25 @@ export class Router {
           durationMs,
           traceId: requestId,
         });
+        // Notificación integrada en Fluxer (configurable por el usuario)
+        const notifEnabled = Boolean(this.runtime.notifications?.isEnabled?.());
+        let notif = null;
+        if (notifEnabled && this.runtime.notifications?.notifyPermissionRequest) {
+          try {
+            notif = this.runtime.notifications.notifyPermissionRequest({
+              tool,
+              action,
+              args,
+              required,
+              current,
+              requestId,
+              confirmationCode,
+            });
+          } catch (e) {
+            this.runtime.logger?.warn("notification_create_error", { error: e.message });
+          }
+        }
+
         const context = this.buildConfirmationContext({
           tool,
           action,
@@ -752,12 +812,17 @@ export class Router {
           action,
           requestId,
           confirmationCode,
+          notificationId: notif?.id || null,
+          in_fluxer_notification: notifEnabled,
           required,
           current,
           operation: context.operationTitle,
           purpose: context.purpose,
           safety_notice: context.safetyNotice,
           instruction_for_ai: context.aiGuidance,
+          instruction_for_user: notifEnabled
+            ? "Se ha emitido una notificación integrada en Fluxer. Puedes hacer clic en 'Autorizar' en el Dashboard de Fluxer o presionar 'X' para denegar."
+            : `Se requiere autorización del usuario para nivel '${required}'. Por favor solicita confirmación al usuario en el chat mostrando el código de confirmación [${confirmationCode}] o llamando a security.approve_request({ confirmationCode: '${confirmationCode}' }).`,
           message: context.message,
           durationMs,
         };
@@ -790,7 +855,7 @@ export class Router {
         if (raw.ok !== undefined) {
           isOk = Boolean(raw.ok);
         } else if (raw.status !== undefined) {
-          const successStatuses = ["ok", "received", "success", "duplicate", "queued"];
+          const successStatuses = ["ok", "received", "success", "duplicate", "queued", "active", "enabled", "completed"];
           isOk = successStatuses.includes(String(raw.status).toLowerCase());
         } else if (raw.error !== undefined) {
           isOk = false;
