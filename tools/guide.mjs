@@ -9,6 +9,10 @@ export function createGuideDomain({ runtime, domain }) {
       version: CURRENT_VERSION,
       title: `Fluxer Core MCP v${CURRENT_VERSION} -- Guide Index`,
       sections: [
+        { action: "image_to_pdf_guide", summary: "Guía completa: Conversión de Imágenes a PDF (álbumes, tamaños fit/A4/letter, orientación auto y calidad)" },
+        { action: "print_guide", summary: "Guía completa: De PDF a Impresión Física (detección de impresoras, preflight sin gasto, spooler y jobs)" },
+        { action: "recycle_bin_guide", summary: "Guía completa: Papelera de Reciclaje (eliminar a papelera, listar contenido y vaciado seguro)" },
+        { action: "workflow_media_to_print", summary: "Flujo Integral: Buscar/descargar imagen web -> Convertir a PDF -> Preflight -> Imprimir en papel" },
         { action: "quick_start", summary: "Get started in 5 minutes -- new user setup" },
         { action: "tools", summary: "All tool domains overview (files, system, packages, terminal, flstudio, etc.)" },
         { action: "tool_usage", params: ["tool_name"], summary: "Detailed usage for a specific tool domain" },
@@ -21,7 +25,7 @@ export function createGuideDomain({ runtime, domain }) {
         { action: "faq", summary: "Frequently asked questions" },
         { action: "search", params: ["query"], summary: "Search across all guide content" },
       ],
-      tip: "Call guide { action: 'quick_start' } to get started, or guide { action: 'search', query: '...' } to find specific info.",
+      tip: "Call guide { action: 'image_to_pdf_guide' } or guide { action: 'print_guide' } for dedicated step-by-step guides.",
     }),
 
     quick_start: async () => ({
@@ -37,6 +41,170 @@ export function createGuideDomain({ runtime, domain }) {
       ],
       github: "https://github.com/Lara2026ss/aero-fluxer-x",
       version: CURRENT_VERSION,
+    }),
+
+    image_to_pdf_guide: async () => ({
+      ok: true,
+      title: "Guía Maestra: Conversión de Imágenes a PDF (files.image_to_pdf)",
+      overview: "Convierte imágenes individuales o álbumes multi-imagen a documentos PDF vectoriales optimizados, con control granular de dimensiones, orientación, márgenes y perfiles de calidad.",
+      tool: "files",
+      action: "image_to_pdf",
+      aliases: ["convert_image_to_pdf", "img2pdf"],
+      parameters: {
+        path: "Ruta de la imagen de entrada (para conversión de una sola imagen). Ej: 'fotos/diagrama.png'",
+        images: "Array de rutas de imágenes para compilar en un solo PDF multi-página ordenado. Ej: ['portada.png', 'pagina1.jpg', 'pagina2.png']",
+        outPath: "Ruta del archivo PDF de salida. Si se omite, se genera con el mismo nombre y extensión .pdf.",
+        paper_size: "Tamaño del lienzo: 'fit' (la hoja se adapta exactamente a las proporciones de la imagen sin bandas blancas), 'letter' (carta), 'a4', 'legal'. Por defecto: 'fit'.",
+        orientation: "Orientación de la página: 'auto' (detecta si la imagen es horizontal o vertical y ajusta automáticamente), 'portrait' (vertical), 'landscape' (horizontal). Por defecto: 'auto'.",
+        quality: "Perfil de compresión: 'alta' (mínima compresión, máxima nitidez para texto/gráficos), 'estandar' (balance equilibrado), 'basica' (ultra compacto).",
+        fit: "Modo de escalado dentro de la página: 'contain' (mantiene aspect ratio completo dentro de los márgenes), 'cover' (llena la página recortando sobrantes), 'stretch' (estira sin respetar proporción). Por defecto: 'contain'.",
+        margins: "Margen en puntos tipográficos (ej: 0, 10, 20). Por defecto: 0 para 'fit' o 20 para tamaños estándar de papel.",
+      },
+      recipes: [
+        {
+          title: "Conversión de Imagen Individual a su Tamaño Exacto (Sin bordes blancos)",
+          code: "files { action: 'image_to_pdf', path: 'grafico.png', paper_size: 'fit', quality: 'alta' }",
+          description: "Ideal para infografías, planos, capturas de pantalla y diagramas técnicos.",
+        },
+        {
+          title: "Compilación de Álbum o Documento Escaneado Multi-Página",
+          code: "files { action: 'image_to_pdf', images: ['escaneo_pag1.jpg', 'escaneo_pag2.jpg'], outPath: 'documento_completo.pdf', paper_size: 'a4', orientation: 'auto', quality: 'alta' }",
+          description: "Une varias fotos de páginas en un único PDF ordenado listo para compartir o imprimir.",
+        },
+        {
+          title: "Ficha en Tamaño Carta con Márgenes Profesionales",
+          code: "files { action: 'image_to_pdf', path: 'foto.jpg', outPath: 'ficha.pdf', paper_size: 'letter', orientation: 'portrait', fit: 'contain', margins: 25 }",
+          description: "Centra la fotografía en una hoja tamaño carta con márgenes limpios para impresión en oficina.",
+        },
+      ],
+      best_practices: [
+        "Para gráficos con texto o esquemas técnicos, usa siempre quality: 'alta' para evitar artefactos de compresión.",
+        "Si la imagen ya tiene la proporción deseada, usa paper_size: 'fit' para evitar márgenes blancos no deseados.",
+        "Para documentos oficiales en América usa paper_size: 'letter'; para Europa e internacional usa paper_size: 'a4'.",
+      ],
+    }),
+
+    print_guide: async () => ({
+      ok: true,
+      title: "Guía Maestra: Imprimir Documentos PDF en Windows (printcenter)",
+      overview: "El motor printcenter permite descubrir impresoras físicas y virtuales, realizar preflights de comprobación sin gasto de papel ni tinta, y enviar trabajos a impresión con resolución de fallos COM/WinRT garantizada.",
+      tool: "printcenter",
+      workflow_steps: [
+        {
+          step: 1,
+          title: "Descubrir impresoras instaladas en el sistema",
+          command: "printcenter { action: 'list_printers' }",
+          detail: "Lista todas las impresoras locales, de red USB/WiFi y virtuales (ej: 'Microsoft Print to PDF', 'HP Lara Smart Tank', 'Canon', 'Epson'). Devuelve si está en línea, puerto y estado.",
+        },
+        {
+          step: 2,
+          title: "Preflight preventivo (Validación sin gastar papel ni tinta)",
+          command: "printcenter { action: 'preflight', file: 'documento.pdf', printer: 'HP Lara Smart Tank' }",
+          detail: "Valida que el archivo exista, analiza el número de páginas, las dimensiones, DPI estimado, modo de color y compatibilidad del controlador antes de enviar el trabajo.",
+        },
+        {
+          step: 3,
+          title: "Impresión real en impresora física o de red",
+          command: "printcenter { action: 'print', file: 'documento.pdf', printer: 'HP Lara Smart Tank', quality: 'alta', copies: 1, duplex: 'none', color: 'color' }",
+          detail: "Envía el documento al spooler de impresión de Windows. Gracias al hotfix v20.0+ con reflexión WinRT, la conversión asíncrona de páginas funciona sin errores de COM object.",
+        },
+        {
+          step: 4,
+          title: "Monitoreo y control de la cola de impresión",
+          command: "printcenter { action: 'jobs', printer: 'HP Lara Smart Tank' }",
+          detail: "Permite ver los trabajos pendientes. Para cancelar un trabajo atascado: printcenter { action: 'cancel_job', jobId: 123 } o printcenter { action: 'purge_queue', printer: '...' }.",
+        },
+      ],
+      parameters: {
+        file: "Ruta absoluta o relativa del archivo PDF o documento a imprimir (Requerido).",
+        printer: "Nombre exacto de la impresora destino (tal como aparece en list_printers). Si se omite, se usa la impresora predeterminada de Windows.",
+        quality: "Nivel de calidad: 'alta' (600+ DPI), 'estandar' (300 DPI), 'basica' (borrador / economía de tinta).",
+        copies: "Número de copias a imprimir (ej: 1, 2).",
+        pages: "Rango específico de páginas a imprimir (ej: '1', '1-3', '2,4,6').",
+        duplex: "Modo doble cara: 'none' (una cara), 'vertical' (giro borde largo), 'horizontal' (giro borde corto).",
+        color: "Modo cromático: 'color' o 'monochrome' (blanco y negro / escala de grises).",
+        orientation: "Orientación de la página: 'portrait' o 'landscape'.",
+      },
+      troubleshooting: [
+        {
+          problem: "Error COM Object GetAwaiter en PowerShell",
+          solution: "Solucionado nativamente en v20.0+ mediante reflexión en System.WindowsRuntimeSystemExtensions::AsTask en platform/print_engine.ps1.",
+        },
+        {
+          problem: "La impresora no responde o está en pausa",
+          solution: "Verifica con printcenter { action: 'get_printer', printer: '...' } si el estado es 'Online' o 'Error'. Si la cola está saturada, ejecuta printcenter { action: 'purge_queue' }.",
+        },
+      ],
+    }),
+
+    recycle_bin_guide: async () => ({
+      ok: true,
+      title: "Guía de Papelera de Reciclaje y Eliminación Segura (files)",
+      overview: "Permite enviar archivos a la Papelera de Reciclaje nativa de Windows preservando la capacidad de recuperación del usuario, además de inspeccionar y vaciar la papelera.",
+      tool: "files",
+      actions: {
+        recycle_path: {
+          syntax: "files { action: 'recycle_path', path: 'documento.txt' }",
+          aliases: ["recycle_file", "delete_to_trash", "trash_path", "trash"],
+          description: "Mueve el archivo o directorio especificado a la papelera de reciclaje sin eliminarlo permanentemente.",
+        },
+        delete_path_with_recycle: {
+          syntax: "files { action: 'delete_path', path: 'archivo.txt', recycle: true }",
+          description: "La subherramienta tradicional delete_path acepta ahora el flag recycle: true (o to_trash: true) para dirigir el borrado a la papelera.",
+        },
+        batch_delete_with_recycle: {
+          syntax: "files { action: 'batch_delete', paths: ['a.txt', 'b.txt'], recycle: true }",
+          description: "Envía múltiples elementos a la papelera en una sola llamada.",
+        },
+        list_recycle_bin: {
+          syntax: "files { action: 'list_recycle_bin' }",
+          aliases: ["get_recycle_bin", "trash_status"],
+          description: "Lista el contenido de la papelera con nombre original, ruta, tamaño y fecha, más el peso total formateado.",
+        },
+        empty_recycle_bin: {
+          syntax: "files { action: 'empty_recycle_bin' }",
+          aliases: ["clear_recycle_bin", "purge_trash"],
+          description: "Vacía de forma permanente la papelera de reciclaje. Opcionalmente acepta driveLetter: 'C' para vaciar una sola unidad.",
+        },
+      },
+    }),
+
+    workflow_media_to_print: async () => ({
+      ok: true,
+      title: "Flujo Integral: De Imagen Web a Impresión Física en Papel",
+      description: "Paso a paso para buscar una imagen en internet, convertirla a PDF optimizado y enviarla a imprimir a una impresora física sin errores.",
+      pipeline: [
+        {
+          step: 1,
+          action: "web.search_images",
+          example: "web { action: 'search_images', query: 'diagrama arquitectura software', limit: 4 }",
+          note: "Explora y devuelve múltiples opciones con resolución y enlace directo.",
+        },
+        {
+          step: 2,
+          action: "web.download",
+          example: "web { action: 'download', url: 'https://ejemplo.com/diagrama.png', filename: 'diagrama_descargado.png' }",
+          note: "Descarga segura con validación de magic bytes (rechaza scripts o binarios camuflados).",
+        },
+        {
+          step: 3,
+          action: "files.image_to_pdf",
+          example: "files { action: 'image_to_pdf', path: 'diagrama_descargado.png', outPath: 'diagrama_imprimible.pdf', paper_size: 'letter', orientation: 'auto', quality: 'alta' }",
+          note: "Genera el PDF con alta fidelidad y orientación automática.",
+        },
+        {
+          step: 4,
+          action: "printcenter.preflight",
+          example: "printcenter { action: 'preflight', file: 'diagrama_imprimible.pdf', printer: 'HP Lara Smart Tank' }",
+          note: "Comprobación previa sin gasto de tinta.",
+        },
+        {
+          step: 5,
+          action: "printcenter.print",
+          example: "printcenter { action: 'print', file: 'diagrama_imprimible.pdf', printer: 'HP Lara Smart Tank', quality: 'alta', copies: 1 }",
+          note: "Envía el documento al spooler físico con renderizado WinRT.",
+        },
+      ],
     }),
 
     tools: async () => ({
@@ -64,15 +232,18 @@ export function createGuideDomain({ runtime, domain }) {
     tool_usage: async ({ tool_name = "all" } = {}) => {
       const usage = {
         files: {
-          description: "Advanced file system operations.",
+          description: "Advanced file system operations, media conversion and trash management.",
           tips: [
+            "Use image_to_pdf { path: 'img.png', paper_size: 'fit' } or with images:[...] for multi-page PDF albums.",
+            "Use recycle_path { path: 'file.txt' } or delete_path { path: 'file.txt', recycle: true } to safely send to Windows Recycle Bin.",
+            "Use list_recycle_bin and empty_recycle_bin to inspect and clean the trash.",
             "Use read_file with compact:true to skip metadata and save tokens.",
             "Use surgical_edit or str_replace for precise targeted edits.",
             "Use find_and_replace_in_files for bulk changes across multiple files.",
             "Use directory_tree with compact:true for large directories.",
             "Use json_manager for safe JSON dot-notation editing without overwriting.",
           ],
-          example: "files { action: 'read_file', path: 'config.json' }",
+          example: "files { action: 'image_to_pdf', images: ['p1.png', 'p2.jpg'], outPath: 'album.pdf' }",
         },
         packages: {
           description: "Universal package manager supporting winget, choco, npm, pip, cargo, etc.",
@@ -168,6 +339,26 @@ export function createGuideDomain({ runtime, domain }) {
             "Use download { url: '...' } para descargar imágenes o videos con verificación estricta de seguridad.",
           ],
           example: "web { action: 'search', query: 'node.js tutorial' }",
+        },
+        printcenter: {
+          description: "Windows-native print center: printer discovery, preflight dry-run, WinRT PDF rendering and queue management.",
+          tips: [
+            "Always run preflight { file: 'doc.pdf', printer: '...' } first to validate dimensions and compatibility without wasting paper.",
+            "Use list_printers to find installed physical (HP, Canon, Epson, Brother) and virtual printers.",
+            "Use print { file: 'doc.pdf', printer: '...', quality: 'alta', copies: 1 } for production printing.",
+            "Use jobs and purge_queue to inspect or unjam the print queue.",
+          ],
+          example: "printcenter { action: 'print', file: 'invoice.pdf', printer: 'HP Lara Smart Tank', quality: 'alta' }",
+        },
+        shortcuts: {
+          description: "Automated multi-step pipelines and macros with dynamic variable piping and conditionals.",
+          tips: [
+            "Use captureAs / capture in steps to pass output properties to subsequent steps via ${var}.",
+            "Use condition / when: '${step1.status} == ok' for smart branch execution.",
+            "Use dryRun: true to simulate execution before making real changes.",
+            "Use list_templates to explore pre-built developer workflows.",
+          ],
+          example: "shortcuts { action: 'execute', name: 'system_health_audit' }",
         },
       };
       if (tool_name !== "all" && usage[tool_name]) return { ok: true, tool: tool_name, ...usage[tool_name] };
@@ -329,19 +520,22 @@ export function createGuideDomain({ runtime, domain }) {
       ok: true,
       current: CURRENT_VERSION,
       latest_changes: {
-        version: "20.1.0",
-        codename: "Aero Fluxer v20.1 Phoenix",
+        version: "20.2.0",
+        codename: "Aero Fluxer v20.2 Phoenix",
         date: "2026-09-15",
         highlights: [
-          "MAJOR v20.1: Clean major architecture version with reduced storage footprint and full update detection",
-          "NEW: Papelera de reciclaje completa en files (recycle_path, list_recycle_bin, empty_recycle_bin, delete_path con recycle: true)",
+          "HOTFIX v20.2: Guías interactivas dedicadas en guide para Image-to-PDF, Print Center y Papelera de reciclaje",
+          "NEW: guide.image_to_pdf_guide: Documentación profunda sobre conversión de imagen única o álbumes, orientación 'auto', tamaños 'fit'/'letter'/'a4' y calidad",
+          "NEW: guide.print_guide: Guía paso a paso de impresión física y virtual, preflight preventivo, capacidades de driver y resolución COM WinRT",
+          "NEW: guide.recycle_bin_guide: Guía de eliminación segura hacia la Papelera de Windows, listado e inspección de peso y vaciado permanente",
+          "NEW: guide.workflow_media_to_print: Flujo integral de extremo a extremo (web search/download -> image_to_pdf -> preflight -> physical print)",
+          "STABLE: Papelera de reciclaje completa en files (recycle_path, list_recycle_bin, empty_recycle_bin, delete_path con recycle: true)",
           "FIX: Corrección crítica WinRT COM GetAwaiter en impresión física de red (AFX-FB-LCT3M5)",
           "POLISH: Conexiones MCP y cambio de IA silenciosos (sin popups de Windows) y elevación unificada",
           "NEW: Centro de Notificaciones y Autorizaciones integrado en Fluxer (conmutador entre Dashboard UI interactivo y Chat clásico)",
           "NEW: Botón 'Autorizar' de 1 clic y botón 'X' para denegar acceso a la IA en Dashboard",
           "NEW: web domain (DuckDuckGo, Wikipedia, Reddit, Safe Media Downloader con verificación anti-malware)",
           "NEW: web.search_images multi-fuente con opciones seleccionables, resolución y enlaces directos",
-          "NEW: files.image_to_pdf dinámico con multi-imagen (álbumes PDF), orientación 'auto', tamaños Letter/A4/Legal/Fit y compresión",
           "NEW: printcenter completo con negociación de calidad (alta, estandar, basica), control de colas y preflight sin gasto de tinta",
           "OPTIMIZED: shortcuts con piping dinámico de variables, condiciones when, simulación dryRun y plantillas predefinidas",
           "CLEANUP: Eliminación de más de 65 archivos duplicados y reducción masiva de almacenamiento en disco",
@@ -353,14 +547,17 @@ export function createGuideDomain({ runtime, domain }) {
     faq: async () => ({
       ok: true,
       questions: [
+        { q: "How do I convert images into a PDF document or album?", a: "Use files { action: 'image_to_pdf', images: ['foto1.png', 'foto2.jpg'], outPath: 'album.pdf', paper_size: 'a4', orientation: 'auto', quality: 'alta' }. See guide { action: 'image_to_pdf_guide' } for detailed options." },
+        { q: "How do I print a PDF to a physical printer without wasting ink or errors?", a: "Run printcenter { action: 'preflight', file: 'doc.pdf', printer: '...' } first to validate, then printcenter { action: 'print', file: 'doc.pdf', printer: '...' }. In v20.0+, WinRT COM reflection solves all driver exceptions. See guide { action: 'print_guide' }." },
+        { q: "Can I delete files to the Recycle Bin instead of permanent removal?", a: "Yes! Use files { action: 'recycle_path', path: 'file.txt' } or pass recycle: true to delete_path. You can also inspect with list_recycle_bin and empty with empty_recycle_bin. See guide { action: 'recycle_bin_guide' }." },
+        { q: "What is the end-to-end workflow to download an image from web and print it?", a: "Run: 1) web.search_images, 2) web.download, 3) files.image_to_pdf, 4) printcenter.preflight, 5) printcenter.print. Full guide available at guide { action: 'workflow_media_to_print' }." },
         { q: "Does Fluxer require Git to be installed?", a: "No. The updater (upd) works without git.exe in the system PATH. It reads the .git folder directly using Node.js native file APIs." },
         { q: "How do I update Fluxer?", a: "Run: developer { action: 'upd_check' } first, then ask the user if they want to update, then: developer { action: 'upd', confirm: true } only after they confirm." },
         { q: "What is compact mode and should I always enable it?", a: "Compact mode reduces response size to save AI tokens. Enable it during bulk workflows (5+ sequential calls). Disable it before showing results to the user." },
-        { q: "Why does health_check show 'N/A' for npm or Python?", a: "v11.0.0+ runs real version checks. If you still see N/A, those tools are not installed (Python is not required; npm is needed for npm package management)." },
         { q: "How do I install on a new PC for a new user?", a: "Run: install { action: 'wizard' } -- it auto-detects Node.js, AI clients, and configures everything. Requires Node.js v18+ to be installed first." },
         { q: "Can I roll back an update?", a: "Yes. Run: developer { action: 'upd_rollback', confirm: true } to revert to the previous version backup." },
         { q: "What AI clients does the install wizard support?", a: "Claude Desktop, Cursor, Windsurf, VS Code + Cline extension, and any client using the standard MCP config format." },
-        { q: "How many tools does Fluxer have?", a: `v${CURRENT_VERSION} has 12 tool domains with 349+ actions.` },
+        { q: "How many tools does Fluxer have?", a: `v${CURRENT_VERSION} has 12 tool domains with 355+ actions.` },
       ],
     }),
 
@@ -464,6 +661,34 @@ export function createGuideDomain({ runtime, domain }) {
           tool_name: "developer",
           summary: "Developer domain: Git inspections, AI skills creation & validation, project testing and telemetry feedback.",
           example: "developer { action: 'list_skills' }"
+        },
+        {
+          id: "image_to_pdf",
+          keywords: ["image", "pdf", "image_to_pdf", "img2pdf", "convert_image_to_pdf", "imagen", "fotos", "album", "png", "jpg", "jpeg", "orientation", "portrait", "landscape"],
+          action: "image_to_pdf_guide",
+          summary: "Guía de Imagen a PDF: compilar fotos individuales o álbumes multi-página, ajustar márgenes, orientación auto y calidad.",
+          example: "guide { action: 'image_to_pdf_guide' }"
+        },
+        {
+          id: "printing",
+          keywords: ["print", "printer", "printing", "printcenter", "imprimir", "impresora", "preflight", "spooler", "copias", "duplex", "hp", "canon", "epson", "brother", "winrt"],
+          action: "print_guide",
+          summary: "Guía de PDF a Impresión: descubrimiento de impresoras físicas/red, preflight sin gasto de tinta, envío de spooler y resolución WinRT.",
+          example: "guide { action: 'print_guide' }"
+        },
+        {
+          id: "recycle_bin",
+          keywords: ["recycle", "trash", "papelera", "reciclaje", "basurero", "recycle_bin", "recycle_path", "delete_to_trash", "empty_recycle_bin", "list_recycle_bin"],
+          action: "recycle_bin_guide",
+          summary: "Guía de Papelera de Reciclaje: envío seguro a la papelera nativa de Windows, inspección de elementos y vaciado permanente.",
+          example: "guide { action: 'recycle_bin_guide' }"
+        },
+        {
+          id: "workflow_media_to_print",
+          keywords: ["pipeline", "workflow", "end_to_end", "media_to_print", "image_to_print", "flujo", "pasos"],
+          action: "workflow_media_to_print",
+          summary: "Flujo Integral Extremo a Extremo: Buscar imagen en web -> Descargar -> Convertir a PDF -> Preflight -> Imprimir.",
+          example: "guide { action: 'workflow_media_to_print' }"
         }
       ];
 
@@ -500,7 +725,7 @@ export function createGuideDomain({ runtime, domain }) {
 
       // Si no hubo coincidencia, devolver índice con sugerencias útiles
       if (results.length === 0) {
-        results.push({ action: "index", relevance: "LOW", score: 1, summary: "Browse full guide index. Topics available: terminal, files, system, packages, database, security, diagnostics, flstudio, upd." });
+        results.push({ action: "index", relevance: "LOW", score: 1, summary: "Browse full guide index. Topics available: image_to_pdf_guide, print_guide, recycle_bin_guide, workflow_media_to_print, terminal, files, system, packages, database, security, diagnostics, flstudio, upd." });
       }
 
       return {
@@ -518,13 +743,22 @@ export function createGuideDomain({ runtime, domain }) {
     compact_mode: "standard", best_practices: "standard", examples: "standard",
     troubleshoot: "standard", permissions: "standard", changelog: "standard",
     faq: "standard", search: "standard",
+    image_to_pdf_guide: "standard", img2pdf_guide: "standard", image_to_pdf: "standard",
+    print_guide: "standard", printcenter_guide: "standard", printing: "standard",
+    recycle_bin_guide: "standard", trash_guide: "standard",
+    workflow_media_to_print: "standard", workflow_image_to_print: "standard",
     // legacy
     permissions_info: "standard",
   };
 
-  // Legacy aliases
+  // Aliases
+  actions.image_to_pdf = actions.image_to_pdf_guide;
+  actions.img2pdf_guide = actions.image_to_pdf_guide;
+  actions.printcenter_guide = actions.print_guide;
+  actions.printing = actions.print_guide;
+  actions.trash_guide = actions.recycle_bin_guide;
+  actions.workflow_image_to_print = actions.workflow_media_to_print;
   actions.permissions_info = actions.permissions;
-  actions.tool_usage = actions.tool_usage; // already defined
 
-  return domain("guide", `Documentacion oficial v${CURRENT_VERSION} -- index, quick_start, tools, tool_usage, compact_mode, best_practices, examples, troubleshoot, permissions, changelog, faq, search.`, actions, permissions);
+  return domain("guide", `Documentacion oficial v${CURRENT_VERSION} -- image_to_pdf_guide, print_guide, recycle_bin_guide, workflow_media_to_print, index, quick_start, tools, tool_usage, compact_mode, best_practices, examples, troubleshoot, permissions, changelog, faq, search.`, actions, permissions);
 }

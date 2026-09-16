@@ -3,6 +3,28 @@
 Todos los cambios notables en este proyecto están documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [v20.2.0] - 2026-09-15 (Hotfix v20.2 — Interactive Guides for Image-to-PDF, Print Center & Recycle Bin Workflows)
+
+### 📚 Nuevas Guías Interactivas y Flujos Documentados en `guide` (`tools/guide.mjs`)
+- **Guía Maestra de Imagen a PDF (`guide.image_to_pdf_guide`)**:
+  - Documentación detallada con recetas prácticas para convertir imágenes individuales o álbumes completos (`images: [...]`).
+  - Guía exhaustiva de parámetros: tamaños (`fit`, `letter`, `a4`, `legal`), orientación inteligente (`auto`, `portrait`, `landscape`), modos de ajuste (`contain`, `cover`, `stretch`), márgenes y perfiles de compresión (`alta`, `estandar`, `basica`).
+  - Recetas directas para infografías, capturas de pantalla, planos técnicos y escaneos multi-página.
+- **Guía de Impresión en Windows y Control de Spooler (`guide.print_guide`)**:
+  - Paso a paso para descubrir impresoras físicas locales o de red USB/WiFi (`printcenter.list_printers`).
+  - Preflight preventivo (`printcenter.preflight`) para validar DPI, páginas, color y compatibilidad de driver antes de enviar a imprimir sin desperdiciar papel ni tinta.
+  - Impresión con control de calidad, copias, modo dúplex, color y resolución COM WinRT garantizada.
+  - Gestión y desatasco de la cola de impresión (`jobs`, `cancel_job`, `purge_queue`).
+- **Guía de Papelera de Reciclaje (`guide.recycle_bin_guide`)**:
+  - Instrucciones de eliminación segura (`files.recycle_path` / `delete_path` con `recycle: true`).
+  - Inspección del contenido de la papelera con peso y fecha (`files.list_recycle_bin`) y vaciado seguro (`files.empty_recycle_bin`).
+- **Flujo Integral Extremo a Extremo (`guide.workflow_media_to_print`)**:
+  - Pipeline documentado: Buscar imagen web (`web.search_images`) -> Descarga segura (`web.download`) -> Compilar PDF (`files.image_to_pdf`) -> Preflight de comprobación (`printcenter.preflight`) -> Impresión física (`printcenter.print`).
+- **Ampliación de `tool_usage`, `faq` y Motor de Búsqueda Semántica**:
+  - Se agregaron dominios `printcenter` y `shortcuts` a `tool_usage`.
+  - Preguntas frecuentes añadidas para álbumes PDF, impresión sin errores COM y reciclaje de archivos.
+  - Temas indexados en `guide.search` con cálculo de relevancia semántica.
+
 ---
 
 ## [v20.1.0] - 2026-09-15 (Major Phoenix Release v20.1 — Clean Architecture, Recycle Bin, Notification Center & Print WinRT Fix)

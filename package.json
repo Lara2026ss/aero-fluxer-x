@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "20.1.0",
-  "description": "Fluxer Core MCP v20.1 — Clean Major Architecture, Recycle Bin Operations, Integrated Notification Center, Dynamic Image-to-PDF, Smart Shortcuts & Web Intelligence",
+  "version": "20.2.0",
+  "description": "Fluxer Core MCP v20.2 — Interactive Guides for Image-to-PDF, Print Center & Recycle Bin Workflows",
   "type": "module",
   "main": "server.js",
   "bin": {
