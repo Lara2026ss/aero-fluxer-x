@@ -5,7 +5,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
-## [v20.0.0] - 2026-09-15 (Major Phoenix Release — Clean Architecture, Notification Center, Dynamic Image-to-PDF & Smart Shortcuts)
+## [v20.1.0] - 2026-09-15 (Major Phoenix Release v20.1 — Clean Architecture, Recycle Bin, Notification Center & Print WinRT Fix)
 
 ### 🗑️ Gestión de Papelera de Reciclaje en `files` (`tools/files.mjs`)
 - **Eliminación Segura hacia la Papelera de Reciclaje de Windows**:

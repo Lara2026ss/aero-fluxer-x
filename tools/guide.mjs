@@ -329,11 +329,14 @@ export function createGuideDomain({ runtime, domain }) {
       ok: true,
       current: CURRENT_VERSION,
       latest_changes: {
-        version: "20.0.0",
-        codename: "Aero Fluxer v20.0 Phoenix",
+        version: "20.1.0",
+        codename: "Aero Fluxer v20.1 Phoenix",
         date: "2026-09-15",
         highlights: [
-          "MAJOR v20.0: Clean major architecture version with reduced storage footprint and zero clutter",
+          "MAJOR v20.1: Clean major architecture version with reduced storage footprint and full update detection",
+          "NEW: Papelera de reciclaje completa en files (recycle_path, list_recycle_bin, empty_recycle_bin, delete_path con recycle: true)",
+          "FIX: Corrección crítica WinRT COM GetAwaiter en impresión física de red (AFX-FB-LCT3M5)",
+          "POLISH: Conexiones MCP y cambio de IA silenciosos (sin popups de Windows) y elevación unificada",
           "NEW: Centro de Notificaciones y Autorizaciones integrado en Fluxer (conmutador entre Dashboard UI interactivo y Chat clásico)",
           "NEW: Botón 'Autorizar' de 1 clic y botón 'X' para denegar acceso a la IA en Dashboard",
           "NEW: web domain (DuckDuckGo, Wikipedia, Reddit, Safe Media Downloader con verificación anti-malware)",
