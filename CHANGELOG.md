@@ -3,6 +3,45 @@
 Todos los cambios notables en este proyecto están documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [v20.5.0] - 2026-09-15 (Major Titan Release v20.5 — Print Previews, ASCII Layouts, DOCX/Word Pipeline, Render Styles & Folder Batch Printing)
+
+### 🖨️ Vistas Previas de Impresión y Esquemas Visuales en `printcenter` (`tools/printcenter.mjs` & `platform/print_engine.ps1`)
+- **Nueva Acción `preview` (`printcenter.preview` / `vista_previa` / `layout`)**:
+  - Generación de imagen PNG fotorrealista de la hoja física con márgenes imprimibles del hardware en `storage/cache/preview_*.png` con URL `file:///...`.
+  - **Diagrama de Disposición ASCII (`ascii_layout`)**: Renderizado esquemático directo en la respuesta de texto estructurada para que la IA "vea" el centrado, márgenes y colocación del contenido en el chat sin requerir abrir la imagen.
+  - Métricas completas: porcentaje de escala aplicado (`applied_scale_percent`), dimensiones milimétricas (`paper`, `printable_area`, `content_layout`), detección de recorte físico (`clipping_detected`), advertencia de sangrado (`bleed_warning`), y estimación de cobertura de tinta (`estimated_ink_coverage`).
+- **Integración con `preflight`**:
+  - Parámetro opcional `preview: true` para generar la vista previa al mismo tiempo que se valida la compatibilidad contra el controlador.
+
+### 🎨 Estilos de Renderizado y Escalado Personalizado (`scale_mode` / `style`)
+- **`fit_to_page`**: Ajusta el contenido a la hoja física completa conservando proporciones y centrado.
+- **`fit_to_printable_area` / `fit_to_margins`**: Ajusta al área segura del hardware para garantizar que ningún margen de impresora física recorte el contenido.
+- **`actual_size`**: Tamaño real 100% (1:1), centrado o alineado; alerta inmediatamente si se desborda el papel.
+- **`shrink_oversized`**: Reduce el tamaño sólo si el documento es más grande que la hoja; si ya cabe, lo mantiene al 100%.
+- **`custom`**: Escala porcentual configurable vía `custom_scale` (ej: `85` para 85%, `50` para 50%).
+- **`stretch_to_fill`**: Estira forzando a cubrir toda el área de impresión.
+- **`borderless`**: Impresión sin márgenes físicos para impresoras fotográficas o PDFs a sangre.
+- Alineación configurable vía `alignment`: `"center"` o `"top_left"`.
+
+### 📄 Compatibilidad Universal de Documentos & Pipeline de Word (DOCX)
+- **Soporte Nativo de Word (.docx, .doc, .rtf)**:
+  - Función `Convert-WordToPdf` integrada en el motor con Microsoft Word COM Automation silencioso y fidedigno para vista previa e impresión directa.
+- **Imágenes directas**: Soporte para `.png`, `.jpg`, `.jpeg`, `.bmp`, `.webp`, `.gif`, `.tiff` en `preview`, `preflight` y `print` sin necesidad de pasos previos.
+- **Texto y código**: Paginación limpia y monoespaciada para `.txt`, `.md`, `.log`, `.json`, `.csv`.
+
+### 📂 Impresión de Carpetas por Lote (`folder` / `print_batch`)
+- **Procesamiento de Directorios Completos**:
+  - Parámetro `folder` / `dir` en `printcenter.print`: escanea automáticamente la carpeta indicada, detecta todos los archivos imprimibles compatibles (.pdf, .docx, imágenes, texto) y los envía secuencialmente al spooler.
+  - Reporte consolidado: `{ ok: true, batch: true, total_found, printed_count, failed_count, printed_files: [...], failed_files: [...] }`.
+  - Permite a la IA ejecutar órdenes directas como *"imprime los archivos de tal carpeta"*.
+
+### ⚡ Optimización del Motor Interno & Robustez de Salida de Fluxer X
+- **Router & Salida**: Nuevos aliases automáticos de dominio `printcenter` (`vista_previa`, `layout`, `imprimir`, `print_folder`, `print_batch`).
+- **Sandbox Polish**: Auto-inclusión de librerías de usuario (`Pictures`, `Videos`, `Music`, OneDrive) y soporte para rutas en `USERPROFILE` durante workflows de elevación activos.
+- **Anonimización**: Sanitización estricta de barras normales y diagonales invertidas en `effectivePath` y reportes de diagnóstico.
+
+---
+
 ## [v20.2.0] - 2026-09-15 (Hotfix v20.2 — Interactive Guides for Image-to-PDF, Print Center & Recycle Bin Workflows)
 
 ### 📚 Nuevas Guías Interactivas y Flujos Documentados en `guide` (`tools/guide.mjs`)

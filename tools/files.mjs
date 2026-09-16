@@ -350,6 +350,10 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
       ...(fsSync.existsSync(oneDriveDesktop) && oneDriveDesktop.toLowerCase() !== desktopDir.toLowerCase() ? [{ path: oneDriveDesktop, label: "desktop_onedrive", domain: "files", note: "Escritorio redirigido a OneDrive" }] : []),
       { path: runtime.dirs.documents, label: "documents", domain: "files", note: "Documentos del usuario" },
       { path: runtime.dirs.downloads, label: "downloads", domain: "files", note: "Descargas del usuario" },
+      { path: path.join(homeDir, "Pictures"), label: "pictures", domain: "files", note: "Imágenes del usuario" },
+      { path: path.join(homeDir, "Videos"), label: "videos", domain: "files", note: "Videos del usuario" },
+      { path: path.join(homeDir, "Music"), label: "music", domain: "files", note: "Música del usuario" },
+      ...(fsSync.existsSync(path.join(homeDir, "OneDrive", "Pictures")) ? [{ path: path.join(homeDir, "OneDrive", "Pictures"), label: "pictures_onedrive", domain: "files", note: "Imágenes de OneDrive" }] : []),
       // 3. Temporales del sistema
       { path: tempDir, label: "temp", domain: "files", note: "Directorio temporal del sistema" },
       // 4. MCP Storage & Skills
@@ -421,8 +425,13 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
     });
 
     if (!matched) {
-      // Auto-whitelist workspace si contiene .git o package.json dentro de USERPROFILE
       const homeDir = (runtime.dirs?.home || os.homedir()).toLowerCase();
+      const isElevated = Boolean(runtime.permissions?.getWorkflow?.("default")?.active || runtime.permissions?.currentLevel?.() === "advanced");
+      if (normTarget.startsWith(homeDir + path.sep) && isElevated) {
+        return true;
+      }
+
+      // Auto-whitelist workspace si contiene .git o package.json dentro de USERPROFILE
       if (normTarget.startsWith(homeDir + path.sep)) {
         let checkDir = path.dirname(canonicalTarget);
         let depth = 0;
