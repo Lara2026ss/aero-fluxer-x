@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ══════════════════════════════════════════════════════════════════════════════
  * 🖨️ FLUXER CORE MCP — tools/printcenter.mjs
  * Centro Inteligente de Impresión y Gestión de Impresoras para Windows
@@ -167,24 +167,46 @@ export function negotiateCapabilities(requested, capabilities) {
     effective.color_mode = capabilities.active_config?.color ? "Color" : "Monochrome";
   }
 
-  // Resolución / Calidad (DPI)
+  // Resolución / Calidad (DPI & Calidades: alta, estandar, basica)
   if (requested.dpi || requested.quality) {
     let reqDpi = 0;
-    if (typeof requested.dpi === "number") reqDpi = requested.dpi;
-    else if (typeof requested.dpi === "string") reqDpi = parseInt(requested.dpi, 10) || 0;
-    else if (typeof requested.quality === "string") {
-      const q = requested.quality.toLowerCase();
-      if (q.includes("600")) reqDpi = 600;
-      else if (q.includes("300")) reqDpi = 300;
-      else if (q.includes("1200")) reqDpi = 1200;
+    let qualityMode = null;
+    const resolutions = capabilities.resolutions || [];
+    const validDpis = resolutions.map((r) => r.x).filter(Boolean);
+
+    if (typeof requested.quality === "string") {
+      const q = requested.quality.toLowerCase().trim();
+      if (q === "alta" || q === "high" || q === "optima" || q === "foto" || q === "photo") {
+        qualityMode = "alta";
+        reqDpi = validDpis.length > 0 ? Math.max(...validDpis) : 600;
+      } else if (q === "basica" || q === "draft" || q === "borrador" || q === "economica" || q === "low") {
+        qualityMode = "basica";
+        reqDpi = validDpis.length > 0 ? Math.min(...validDpis) : 300;
+      } else if (q === "estandar" || q === "standard" || q === "normal" || q === "media") {
+        qualityMode = "estandar";
+        if (validDpis.includes(600)) reqDpi = 600;
+        else if (validDpis.includes(300)) reqDpi = 300;
+        else reqDpi = validDpis[Math.floor(validDpis.length / 2)] || 300;
+      } else if (q.includes("600")) {
+        reqDpi = 600;
+      } else if (q.includes("300")) {
+        reqDpi = 300;
+      } else if (q.includes("1200")) {
+        reqDpi = 1200;
+      }
+    }
+
+    if (!reqDpi && requested.dpi) {
+      if (typeof requested.dpi === "number") reqDpi = requested.dpi;
+      else if (typeof requested.dpi === "string") reqDpi = parseInt(requested.dpi, 10) || 0;
     }
 
     if (reqDpi > 0) {
-      const resolutions = capabilities.resolutions || [];
       const matchedRes = resolutions.find((r) => r.x === reqDpi || (r.x === reqDpi && r.y === reqDpi));
       if (matchedRes) {
         effective.dpi_x = matchedRes.x;
         effective.dpi_y = matchedRes.y;
+        effective.quality = qualityMode || (matchedRes.x >= 600 ? "alta" : matchedRes.x <= 300 ? "basica" : "estandar");
       } else {
         const supportedDpis = resolutions.map((r) => r.name);
         rejections.push({
@@ -196,6 +218,8 @@ export function negotiateCapabilities(requested, capabilities) {
         });
       }
     }
+  } else {
+    effective.quality = "estandar";
   }
 
   // Dúplex

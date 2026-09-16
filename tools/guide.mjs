@@ -57,6 +57,7 @@ export function createGuideDomain({ runtime, domain }) {
         { name: "flstudio", description: "Real-time FL Studio Suite v11.0.5: Native menus (file, edit, view, patterns, options, tools, plugins), live session, tone change, styles, mixer & security elevation gate", key_actions: ["detect", "open", "file", "edit", "view", "patterns", "options", "tools", "plugins", "live_session", "change_tone", "music_theory", "mixer_settings", "sound_design", "style_presets"] },
         { name: "screenshot", description: "Non-intrusive screen, window and app capture with WGC, GDI BitBlt and PrintWindow", key_actions: ["desktop", "app", "window"] },
         { name: "printcenter", description: "Windows-native print center: printers discovery, driver capabilities, manuals (HP, Canon, Epson, Brother), preflight dry-run, page range parsing, spooler and real printing", key_actions: ["list_printers", "get_printer", "search_printers", "manual", "preflight", "configure", "print", "jobs", "cancel_job", "purge_queue"] },
+        { name: "web", description: "Búsqueda web (DuckDuckGo, Wikipedia, Reddit), extracción de páginas y descarga segura de medios (imágenes/videos) con validación anti-malware", key_actions: ["search", "search_images", "wikipedia", "reddit", "read_page", "download"] },
       ],
     }),
 
@@ -157,6 +158,16 @@ export function createGuideDomain({ runtime, domain }) {
             "Use mixer_settings { track_type: 'master' } for commercial loudness limiter specs, stereo separation, and EQ curves.",
           ],
           example: "flstudio { action: 'generate_midi', progression: ['Am', 'F', 'C', 'G'], bpm: 120, style: 'synthwave' }",
+        },
+        web: {
+          description: "Búsqueda web sin API keys, extracción de contenido y descarga segura de medios.",
+          tips: [
+            "Use search { query: '...' } para buscar en DuckDuckGo y Wikipedia.",
+            "Use wikipedia { query: '...' } para resúmenes directos de artículos.",
+            "Use reddit { query: '...' } para buscar discusiones en Reddit.",
+            "Use download { url: '...' } para descargar imágenes o videos con verificación estricta de seguridad.",
+          ],
+          example: "web { action: 'search', query: 'node.js tutorial' }",
         },
       };
       if (tool_name !== "all" && usage[tool_name]) return { ok: true, tool: tool_name, ...usage[tool_name] };

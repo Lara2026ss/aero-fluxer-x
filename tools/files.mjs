@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FLUXER — tools/files.mjs
  * Dominio: filesystem, lectura/escritura avanzada, documentos, archivos comprimidos, inspección.
  * Capacidad superior con operaciones atómicas, backups de seguridad, edición quirúrgica por líneas,
@@ -2138,7 +2138,10 @@ try {
         try {
           const srcPath = Validator.validatePath(rawPath, { fieldName: "path", required: true });
           const targetFmt = String(format || "png").toLowerCase().replace(/^\./, "");
-          const allowedFormats = ["png", "jpg", "jpeg", "bmp", "gif", "tiff", "ico"];
+          if (targetFmt === "pdf") {
+            return actions.image_to_pdf({ path: srcPath, targetPath: rawTargetPath });
+          }
+          const allowedFormats = ["png", "jpg", "jpeg", "bmp", "gif", "tiff", "ico", "pdf"];
           Validator.validateEnum(targetFmt, allowedFormats, "format");
 
           let outPath;
@@ -2325,9 +2328,101 @@ try {
           return { ok: false, error: err.message, code: err.code || "INVALID_INPUT" };
         }
       },
+      image_to_pdf: async ({ path: rawPath, targetPath: rawTargetPath, paper_size = "letter", orientation = "portrait", margin = 20, fit = "contain" } = {}) => {
+        try {
+          const srcPath = Validator.validatePath(rawPath, { fieldName: "path", required: true });
+          const stat = await fs.stat(srcPath).catch(() => null);
+          if (!stat || !stat.isFile()) {
+            return { ok: false, error: `El archivo de imagen no existe o no es accesible: ${srcPath}`, code: "NOT_FOUND" };
+          }
+
+          const ext = path.extname(srcPath).toLowerCase().replace(/^\./, "");
+          let outPath;
+          if (rawTargetPath) {
+            outPath = Validator.validatePath(rawTargetPath, { fieldName: "targetPath", required: true });
+          } else {
+            outPath = path.join(path.dirname(srcPath), path.basename(srcPath, path.extname(srcPath)) + ".pdf");
+          }
+
+          const { PDFDocument } = await import("pdf-lib");
+          const pdfDoc = await PDFDocument.create();
+          const imgBytes = await fs.readFile(srcPath);
+          let embeddedImg;
+          if (ext === "png") {
+            embeddedImg = await pdfDoc.embedPng(imgBytes);
+          } else if (ext === "jpg" || ext === "jpeg") {
+            embeddedImg = await pdfDoc.embedJpg(imgBytes);
+          } else {
+            const tempPng = path.join(os.tmpdir(), `fluxer_i2p_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
+            const ps = `Add-Type -AssemblyName System.Drawing; $img = [System.Drawing.Image]::FromFile('${srcPath.replace(/'/g, "''")}'); $img.Save('${tempPng.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png); $img.Dispose()`;
+            await runtime.run(`powershell -NoProfile -NonInteractive -Command "${ps}"`);
+            const pngData = await fs.readFile(tempPng);
+            await fs.unlink(tempPng).catch(() => {});
+            embeddedImg = await pdfDoc.embedPng(pngData);
+          }
+
+          const SIZES = {
+            letter: [612, 792],
+            a4: [595.28, 841.89],
+            legal: [612, 1008]
+          };
+
+          let pageWidth, pageHeight;
+          const normSize = String(paper_size).toLowerCase();
+          if (normSize === "fit") {
+            pageWidth = embeddedImg.width + (Number(margin) || 0) * 2;
+            pageHeight = embeddedImg.height + (Number(margin) || 0) * 2;
+          } else {
+            const baseSize = SIZES[normSize] || SIZES.letter;
+            const isLandscape = String(orientation).toLowerCase() === "landscape";
+            pageWidth = isLandscape ? baseSize[1] : baseSize[0];
+            pageHeight = isLandscape ? baseSize[0] : baseSize[1];
+          }
+
+          const page = pdfDoc.addPage([pageWidth, pageHeight]);
+          const safeMargin = Math.max(0, Number(margin) || 0);
+          const printableWidth = Math.max(1, pageWidth - (safeMargin * 2));
+          const printableHeight = Math.max(1, pageHeight - (safeMargin * 2));
+
+          let drawWidth = embeddedImg.width;
+          let drawHeight = embeddedImg.height;
+          if (normSize !== "fit" || fit === "contain") {
+            const scale = Math.min(printableWidth / embeddedImg.width, printableHeight / embeddedImg.height, 1);
+            drawWidth = embeddedImg.width * scale;
+            drawHeight = embeddedImg.height * scale;
+          }
+
+          const drawX = safeMargin + ((printableWidth - drawWidth) / 2);
+          const drawY = safeMargin + ((printableHeight - drawHeight) / 2);
+
+          page.drawImage(embeddedImg, {
+            x: drawX,
+            y: drawY,
+            width: drawWidth,
+            height: drawHeight
+          });
+
+          const pdfBytes = await pdfDoc.save();
+          await fs.writeFile(outPath, pdfBytes);
+          return {
+            ok: true,
+            path: outPath,
+            format: "pdf",
+            sizeBytes: pdfBytes.length,
+            pages: 1,
+            paper_size: normSize,
+            orientation: String(orientation).toLowerCase(),
+            originalFormat: ext
+          };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "PROCESS_FAILED" };
+        }
+      },
     };
 
     // Alias intuitivos para llamadas de LLMs
+    actions.convert_image_to_pdf = actions.image_to_pdf;
+    actions.img2pdf = actions.image_to_pdf;
     actions.read_file = actions.read_text_file;
     actions.create_file = actions.write_file;
     actions.delete_file = actions.delete_path;
@@ -2404,6 +2499,8 @@ try {
         get_image_metadata: "standard",
         convert_image: "standard",
         resize_image: "standard",
+        image_to_pdf: "standard",
+        convert_image_to_pdf: "standard",
         add_allowed_directory: "advanced",
         remove_allowed_directory: "advanced",
         list_allowed_directories: "standard",

@@ -386,6 +386,14 @@ export class Router {
       action = flat === "capture_window" ? "window" : "desktop";
     }
 
+    // Soporte nativo para el dominio web (búsqueda, descarga segura de medios)
+    if (["web", "buscar", "buscar_web", "descargar", "download", "internet"].includes(tool.toLowerCase())) {
+      tool = "web";
+      if (!action || action === "web" || action === "internet") {
+        action = "search";
+      }
+    }
+
     // Soporte nativo para el dominio printcenter (primer nivel y alias canónicos)
     if (["printcenter", "printer", "impresora", "imprimir"].includes(tool.toLowerCase())) {
       tool = "printcenter";
@@ -450,6 +458,10 @@ export class Router {
         diff: "compare_files",
         compare: "compare_files",
         check_path: "validate_path",
+        image_to_pdf: "image_to_pdf",
+        img2pdf: "image_to_pdf",
+        convert_image_to_pdf: "image_to_pdf",
+        to_pdf: "image_to_pdf",
       },
       packages: {
         list_installed_packages: "list_installed",
@@ -537,6 +549,17 @@ export class Router {
         upd_data: "upd_data",
         upd_apply: "upd_apply",
         upd_rollback: "upd_rollback",
+      },
+      web: {
+        buscar: "search",
+        search_web: "search",
+        buscar_imagenes: "search_images",
+        image_search: "search_images",
+        wiki: "wikipedia",
+        read: "read_page",
+        fetch: "read_page",
+        descargar: "download",
+        download_media: "download",
       },
     };
 

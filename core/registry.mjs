@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FLUXER MCP — core/registry.mjs
  * Compositor delgado: importa dominios de tools/ y los registra.
  * Toda la lógica de negocio vive en tools/*.mjs — este archivo solo orquesta.
@@ -427,6 +427,7 @@ export class Registry {
       { createFlStudioDomain: flstudioFactory } = {},
       { createScreenshotDomain: screenshotFactory } = {},
       { createPrintCenterDomain: printcenterFactory } = {},
+      { createWebDomain: webFactory } = {},
     ] = await Promise.all([
       import(`../tools/files.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/system.mjs?t=${ts}`).catch(() => ({})),
@@ -443,6 +444,7 @@ export class Registry {
       import(`../tools/flstudio.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/screenshot.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/printcenter.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/web.mjs?t=${ts}`).catch(() => ({})),
     ]);
 
     const domains = [
@@ -461,6 +463,7 @@ export class Registry {
       ...(flstudioFactory ? [flstudioFactory({ runtime, domain, fs })] : []),
       ...(screenshotFactory ? [screenshotFactory({ runtime, domain, fs, path, os, crypto })] : []),
       ...(printcenterFactory ? [printcenterFactory({ runtime, domain, fs, path, os, crypto })] : []),
+      ...(webFactory ? [webFactory({ runtime, domain, fs, path, os, crypto })] : []),
     ];
 
     this.modules = new Map(domains.map((d) => [d.name, d]));

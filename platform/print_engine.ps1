@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Alias("Action")]
     [ValidateSet("list_printers", "get_capabilities", "search_printers", "get_pdf_info", "jobs", "cancel_job", "purge_queue", "configure", "print")]
     [string]$Operation = "list_printers",
@@ -492,7 +492,8 @@ function Action-Print {
             }
 
             $pageNum = $pagesToPrint[$currentPagePointer]
-            $bmp = RenderPdfPage -PdfPath $resolvedSrc -PageNumber $pageNum -TargetDpi 300
+            $targetRenderDpi = if ($ResX -gt 0) { $ResX } else { 300 }
+            $bmp = RenderPdfPage -PdfPath $resolvedSrc -PageNumber $pageNum -TargetDpi $targetRenderDpi
 
             # Margen y área imprimible
             $bounds = $e.MarginBounds

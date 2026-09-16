@@ -5,6 +5,38 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v12.2.0] - 2026-09-15 (Autonomous Web Intelligence, Secure Media Ingestion, Image-to-PDF & Print Quality Engine)
+
+### 🌐 Nuevo Dominio de Inteligencia Web y Descarga Segura de Medios (`web`)
+- **Búsqueda Web Multi-Fuente sin Claves de API**:
+  - `web.search`: Consultas web autónomas a través de DuckDuckGo HTML scraping y DuckDuckGo Instant Answer API, con extracción limpia de títulos, enlaces y snippets.
+  - `web.search_images`: Búsqueda de imágenes con metadatos completos y miniaturas a través de Wikimedia Commons API.
+  - `web.wikipedia`: Búsqueda y resúmenes directos de artículos a través de la API REST oficial de Wikipedia (`/api/rest_v1/page/summary/`).
+  - `web.reddit`: Búsqueda estructurada de discusiones de Reddit filtradas mediante DuckDuckGo.
+  - `web.read_page`: Extracción defensiva de contenido HTML a texto plano con eliminación de scripts, estilos, tracking y cookies banners, con límite configurable de longitud.
+- **Descarga Segura de Medios con Defensa Zero-Trust (`web.download`)**:
+  - **Permisión exclusiva de imágenes y videos**: Solo permite formatos de medios seguros (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.svg`, `.bmp`, `.mp4`, `.webm`, `.mkv`, `.avi`, `.mov`) y documentos seguros (`.pdf`).
+  - **Bloqueo estricto de ejecutables y scripts**: Rechazo terminante de `.exe`, `.dll`, `.bat`, `.ps1`, `.vbs`, `.js`, `.py`, `.sh`, `.zip`, `.rar`, `.7z`, `.iso`, etc.
+  - **Inspección de Magic Bytes y Header Binario**: Detección obligatoria de cabeceras de ejecución (como `MZ` / PE para Windows o `ELF` para Linux) independientemente de la extensión del archivo, abortando de inmediato cualquier archivo enmascarado.
+  - **Protección SSRF y Límite de Tamaño**: Bloqueo de rangos privados de red (localhost, 127.0.0.1, 192.168.x.x, 10.x.x.x) y límite máximo de 100 MB por archivo.
+  - Guardado predeterminado y seguro en el directorio `Downloads` del usuario.
+
+### 🖼️ Conversor de Imágenes a PDF en `files` (`image_to_pdf` / `convert_image`)
+- **Conversión de Imagen a PDF de Alto Rendimiento**:
+  - Acción `files.image_to_pdf`: Soporte nativo mediante `pdf-lib` para incrustar PNGs y JPEGs directamente en documentos PDF independientes o agregados.
+  - Enrutamiento automático en `files.convert_image`: Cuando se solicita `format: "pdf"`, el router redirige transparentemente a `image_to_pdf`.
+  - Fallback a `System.Drawing` para formatos adicionales (BMP, GIF, TIFF).
+  - Opciones de configuración: tamaño de página (`letter`, `a4`, `legal`, `fit`), orientación (`portrait`, `landscape`, `auto`), márgenes y escalado.
+  - Alias registrados: `convert_image_to_pdf`, `img2pdf`, `to_pdf`.
+
+### 🖨️ Niveles Semánticos de Calidad de Impresión en `printcenter`
+- **Selector de Calidad Semántica (`quality`)**:
+  - Opciones reconocidas: `alta` / `high` / `foto`, `estandar` / `standard` / `normal`, `basica` / `draft` / `economica`.
+  - Mapeo dinámico y automático contra las resoluciones DPI reales reportadas por el controlador de la impresora (`capabilities.resolutions[]`), seleccionando el DPI óptimo sin errores de incompatibilidad.
+  - Integración en `platform/print_engine.ps1`: El motor de renderizado PDF ahora respeta dinámicamente el DPI negociado (`$ResX`) en lugar de fijar 300 DPI ciegamente.
+
+---
+
 ## [v12.0.1] - 2026-09-15 (Hotfix — Post-Update Client Restart Guidance & MCP Reload Wait)
 
 ### 🔄 Instrucciones de Reinicio Específicas por Cliente tras Actualizar (`upd`)

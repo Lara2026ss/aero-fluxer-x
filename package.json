@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "12.0.1",
-  "description": "Fluxer Core MCP v12.0.1 — Hotfix: Post-Update Restart Instructions & MCP Reload Wait, Windows-native PrintCenter Domain & Hardened WGC Visual Capture",
+  "version": "12.2.0",
+  "description": "Fluxer Core MCP v12.2.0 — Web Domain (DuckDuckGo, Wikipedia, Reddit, Safe Media Downloader), Image-to-PDF Conversion & PrintCenter Quality Resolution",
   "type": "module",
   "main": "server.js",
   "bin": {
