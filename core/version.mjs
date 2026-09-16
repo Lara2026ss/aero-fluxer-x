@@ -5,13 +5,13 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "30.0.0";
+export const CURRENT_VERSION = "30.0.1";
 export const GENERATION = "4.0";
 export const APP_NAME = "fluxer-xz";
 export const BRAND_NAME = "FLUXER XZ";
 export const BRAND_NAME_ALT = "FLUXER X/Z";
 export const CHANNEL = "public-release";
-export const RELEASE_CODENAME = "Fluxer XZ v30.0.0 (Generation V4.0) — High-Density Capability Architecture";
+export const RELEASE_CODENAME = "Fluxer XZ v30.0.1 (Hotfix) — Native Security Lifecycle & Multi-PDF Merge Engine";
 export const LEGACY_APP_NAME = "fluxer-x";
 export const LEGACY_BRAND_NAME = "Fluxer Core";
 

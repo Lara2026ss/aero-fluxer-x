@@ -3,7 +3,13 @@
 // Windows 10/11 Native Toast + Forms BalloonTip Fallback
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { exec, execSync } from "node:child_process";
+import { exec, execSync, spawn } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SECURITY_NOTIFICATION_SCRIPT = path.resolve(__dirname, "../platform/security_notification.ps1");
 
 const recentNotifications = new Map();
 
@@ -87,8 +93,8 @@ export function sendNativeNotification(title, message, options = {}) {
 }
 
 /**
- * Muestra una ventana de diálogo nativa de Windows con botones "Sí, Autorizar" y "Declinar".
- * Se ejecuta en segundo plano sin bloquear el hilo principal de Node.js.
+ * Muestra una ventana de diálogo emergente nativa de Windows con botones "Sí, Autorizar" y "Declinar".
+ * Se ejecuta en segundo plano con STA sin bloquear el hilo principal de Node.js.
  */
 export function promptSecurityDialog({
   title = "Fluxer X — Autorización de Seguridad",
@@ -98,100 +104,46 @@ export function promptSecurityDialog({
   confirmationCode = "",
   requestId = "",
   clientName = "Agente IA",
+  timeoutSec = 300,
 } = {}, onDecision = null) {
-  const safeTitle = String(title).replace(/'/g, "''");
-  const safeTool = String(tool).replace(/'/g, "''");
-  const safeAction = String(action).replace(/'/g, "''");
-  const safeRequired = String(required).replace(/'/g, "''").toUpperCase();
-  const safeCode = String(confirmationCode).replace(/'/g, "''").toUpperCase();
-  const safeClient = String(clientName).replace(/'/g, "''");
-
-  const script = `
-    Add-Type -AssemblyName System.Windows.Forms,System.Drawing -ErrorAction SilentlyContinue
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = '${safeTitle}'
-    $form.Size = New-Object System.Drawing.Size(480, 290)
-    $form.StartPosition = 'CenterScreen'
-    $form.TopMost = $true
-    $form.FormBorderStyle = 'FixedDialog'
-    $form.MaximizeBox = $false
-    $form.MinimizeBox = $false
-    $form.BackColor = [System.Drawing.Color]::FromArgb(248, 249, 250)
-
-    try {
-      $pic = New-Object System.Windows.Forms.PictureBox
-      $pic.Location = New-Object System.Drawing.Point(20, 20)
-      $pic.Size = New-Object System.Drawing.Size(36, 36)
-      $pic.SizeMode = [System.Windows.Forms.PictureBoxSizeMode]::StretchImage
-      $pic.Image = [System.Drawing.SystemIcons]::Shield.ToBitmap()
-      $form.Controls.Add($pic)
-    } catch {}
-
-    $lblHeader = New-Object System.Windows.Forms.Label
-    $lblHeader.Location = New-Object System.Drawing.Point(68, 18)
-    $lblHeader.Size = New-Object System.Drawing.Size(390, 30)
-    $lblHeader.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
-    $lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(33, 37, 41)
-    $lblHeader.Text = 'Autorización de Acción Requerida'
-    $form.Controls.Add($lblHeader)
-
-    $lblBody = New-Object System.Windows.Forms.Label
-    $lblBody.Location = New-Object System.Drawing.Point(68, 52)
-    $lblBody.Size = New-Object System.Drawing.Size(390, 115)
-    $lblBody.Font = New-Object System.Drawing.Font('Segoe UI', 9)
-    $lblBody.ForeColor = [System.Drawing.Color]::FromArgb(73, 80, 87)
-    $lblBody.Text = "La IA (${safeClient}) solicita ejecutar:\`r\`n• Acción: ${safeTool}.${safeAction}\`r\`n• Permiso Requerido: ${safeRequired}\`r\`n• Código de Confirmación: [ ${safeCode} ]\`r\`n\`r\`n¿Deseas autorizar la ejecución?"
-    $form.Controls.Add($lblBody)
-
-    $btnYes = New-Object System.Windows.Forms.Button
-    $btnYes.Location = New-Object System.Drawing.Point(180, 190)
-    $btnYes.Size = New-Object System.Drawing.Size(130, 36)
-    $btnYes.Text = '✅ Sí, Autorizar'
-    $btnYes.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
-    $btnYes.BackColor = [System.Drawing.Color]::FromArgb(25, 135, 84)
-    $btnYes.ForeColor = [System.Drawing.Color]::White
-    $btnYes.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnYes.DialogResult = [System.Windows.Forms.DialogResult]::Yes
-
-    $btnNo = New-Object System.Windows.Forms.Button
-    $btnNo.Location = New-Object System.Drawing.Point(320, 190)
-    $btnNo.Size = New-Object System.Drawing.Size(130, 36)
-    $btnNo.Text = '❌ Declinar'
-    $btnNo.Font = New-Object System.Drawing.Font('Segoe UI', 9)
-    $btnNo.BackColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
-    $btnNo.ForeColor = [System.Drawing.Color]::White
-    $btnNo.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnNo.DialogResult = [System.Windows.Forms.DialogResult]::No
-
-    $form.Controls.Add($btnYes)
-    $form.Controls.Add($btnNo)
-    $form.AcceptButton = $btnYes
-    $form.CancelButton = $btnNo
-
-    try { [System.Media.SystemSounds]::Exclamation.Play() } catch {}
-
-    $res = $form.ShowDialog()
-    if ($res -eq [System.Windows.Forms.DialogResult]::Yes) {
-      Write-Output "DECISION:APPROVED"
-    } else {
-      Write-Output "DECISION:DENIED"
-    }
-  `;
-
-  const b64 = Buffer.from(script, "utf16le").toString("base64");
-  const cmd = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${b64}`;
+  const args = [
+    "-NoProfile",
+    "-STA",
+    "-ExecutionPolicy", "Bypass",
+    "-File", SECURITY_NOTIFICATION_SCRIPT,
+    "-Title", String(title),
+    "-Tool", String(tool),
+    "-Action", String(action),
+    "-Required", String(required).toUpperCase(),
+    "-ConfirmationCode", String(confirmationCode).toUpperCase(),
+    "-ClientName", String(clientName),
+    "-TimeoutSec", String(timeoutSec),
+  ];
 
   try {
-    const child = exec(cmd, { windowsHide: false }, (err, stdout) => {
-      const out = (stdout || "").trim();
+    const child = spawn("powershell.exe", args, {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    child.stdout.on("data", (d) => {
+      stdout += d.toString("utf8");
+    });
+
+    child.on("close", (code) => {
+      const out = stdout.trim();
       if (typeof onDecision === "function") {
         if (out.includes("DECISION:APPROVED")) {
           onDecision("approved");
+        } else if (out.includes("DECISION:TIMEOUT")) {
+          onDecision("timeout");
         } else {
           onDecision("denied");
         }
       }
     });
+
     return child;
   } catch {
     return null;

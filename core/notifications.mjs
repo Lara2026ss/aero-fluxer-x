@@ -197,6 +197,32 @@ export class NotificationCenter extends EventEmitter {
    * Crea o actualiza una notificación específica de solicitud de permisos para la IA.
    * Evita duplicaciones si la misma IA u otra IA reintenta la misma acción con código activo.
    */
+  _dispatchSecurityDialog({ tool, action, badge, confirmationCode, requestId, clientName, title }) {
+    if (!this.isSecurityEnabled()) return;
+    try {
+      this._activeDialogCode = confirmationCode;
+      promptSecurityDialog({
+        title: "Fluxer X — Autorización de Seguridad",
+        tool,
+        action,
+        required: badge,
+        confirmationCode,
+        requestId,
+        clientName,
+        timeoutSec: 180,
+      }, (decision) => {
+        this._activeDialogCode = null;
+        if (decision === "approved") {
+          this.approve(requestId || confirmationCode);
+        } else if (decision === "denied") {
+          this.deny(requestId || confirmationCode, { reason: "Declinado por el usuario al cerrar la notificación" });
+        }
+      });
+    } catch (err) {
+      this.logger?.warn("security_prompt_dialog_error", { error: err.message });
+    }
+  }
+
   notifyPermissionRequest({ tool, action, args, required, current, requestId, confirmationCode, ttlMs = 5 * 60 * 1000, clientName = null }) {
     this.prune();
     const classification = this.classifyLevel(required);
@@ -223,6 +249,20 @@ export class NotificationCenter extends EventEmitter {
       existing.message = `La IA (${clientLabel}) solicita ejecutar '${tool}.${action}' que requiere permisos de nivel '${classification.badge}'. Haz clic en 'Autorizar' para conceder acceso o en 'X' para denegar.`;
       this.emit("updated", existing);
       this.save().catch(() => {});
+
+      // Asegurar que la ventana emergente se muestre si no hay una ya abierta para este código
+      if (this.isSecurityEnabled() && (!this._activeDialogCode || this._activeDialogCode !== (existing.confirmationCode || confirmationCode))) {
+        this._dispatchSecurityDialog({
+          tool,
+          action,
+          badge: classification.badge,
+          confirmationCode: existing.confirmationCode || confirmationCode,
+          requestId: existing.requestId || requestId,
+          clientName: clientLabel,
+          title: existing.title,
+        });
+      }
+
       return existing;
     }
 
@@ -251,32 +291,15 @@ export class NotificationCenter extends EventEmitter {
     });
 
     // Despachar diálogo interactivo con botones "Sí, Autorizar" y "Declinar" + Toast si securityEnabled está activo
-    if (this.isSecurityEnabled()) {
-      try {
-        promptSecurityDialog({
-          title: "Fluxer X — Autorización de Seguridad",
-          tool,
-          action,
-          required: classification.badge,
-          confirmationCode,
-          requestId,
-          clientName: clientLabel,
-        }, (decision) => {
-          if (decision === "approved") {
-            this.approve(requestId || confirmationCode);
-          } else {
-            this.deny(requestId || confirmationCode, { reason: "Declinado por el usuario en ventana de seguridad" });
-          }
-        });
-
-        sendNativeNotification(
-          title,
-          `La IA (${clientLabel}) solicita ejecutar '${tool}.${action}'. Código: [${confirmationCode}]. Responde en la ventana emergente.`
-        );
-      } catch (err) {
-        this.logger?.warn("security_prompt_dialog_error", { error: err.message });
-      }
-    }
+    this._dispatchSecurityDialog({
+      tool,
+      action,
+      badge: classification.badge,
+      confirmationCode,
+      requestId,
+      clientName: clientLabel,
+      title,
+    });
 
     return entry;
   }

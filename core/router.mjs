@@ -188,6 +188,10 @@ export class Router {
     };
   }
 
+  async dispatch(...args) {
+    return this.execute(...args);
+  }
+
   async execute(request, actionParam, argsParam) {
     let tool = "";
     let action = "";
@@ -475,6 +479,19 @@ export class Router {
         take_screenshot: "capture_screen",
         screen_capture: "capture_screen",
         captura_pantalla: "capture_screen",
+        get_info: "get_system_snapshot",
+        info: "get_system_snapshot",
+        system_info: "get_system_snapshot",
+        snapshot: "get_system_snapshot",
+        ram: "analyze_memory_usage",
+        memory: "analyze_memory_usage",
+        free_ram: "clean_ram",
+        optimize_windows: "optimize_windows",
+        revert_windows_optimization: "revert_windows_optimization",
+        get_optimization_status: "get_optimization_status",
+        optimize_gpu_memory: "optimize_gpu_memory",
+        performance: "get_performance_summary",
+        performance_summary: "get_performance_summary",
       },
       files: {
         read_file: "read_text_file",
@@ -493,6 +510,16 @@ export class Router {
         img2pdf: "image_to_pdf",
         convert_image_to_pdf: "image_to_pdf",
         to_pdf: "image_to_pdf",
+        images_to_pdf: "image_to_pdf",
+        images_to_pdf_multi: "image_to_pdf",
+        image_to_pdf_multi: "image_to_pdf",
+        combine_images_to_pdf: "image_to_pdf",
+        merge_pdfs: "merge_pdfs",
+        combine_pdfs: "merge_pdfs",
+        pdf_merge: "merge_pdfs",
+        merge_pdf: "merge_pdfs",
+        concat_pdfs: "merge_pdfs",
+        join_pdfs: "merge_pdfs",
       },
       packages: {
         list_installed_packages: "list_installed",
@@ -535,21 +562,6 @@ export class Router {
         exec: "run_command",
         command: "run_command",
         execute: "run_command",
-      },
-      system: {
-        get_info: "get_system_snapshot",
-        info: "get_system_snapshot",
-        system_info: "get_system_snapshot",
-        snapshot: "get_system_snapshot",
-        ram: "analyze_memory_usage",
-        memory: "analyze_memory_usage",
-        free_ram: "clean_ram",
-        optimize_windows: "optimize_windows",
-        revert_windows_optimization: "revert_windows_optimization",
-        get_optimization_status: "get_optimization_status",
-        optimize_gpu_memory: "optimize_gpu_memory",
-        performance: "get_performance_summary",
-        performance_summary: "get_performance_summary",
       },
       diagnostics: {
         health: "health_check",

@@ -184,6 +184,14 @@ export function createGuideDomain({ runtime, domain }) {
             { step: 2, capability: "terminal", operation: "exec", example: '{ command: "Get-Service" }' },
           ],
         },
+        {
+          id: "pdf_merge_documents",
+          title: "Multi-PDF Merge & Document Consolidation",
+          description: "Combine multiple single-page or multi-page PDF documents into a unified master PDF natively without external Python scripts.",
+          steps: [
+            { step: 1, capability: "files", operation: "merge_pdfs", example: '{ files: ["doc1.pdf", "doc2.pdf", "doc3.pdf"], outPath: "combined_master.pdf" }' },
+          ],
+        },
       ];
 
       if (topic !== "all") {
@@ -213,6 +221,18 @@ export function createGuideDomain({ runtime, domain }) {
       recipes: [
         { title: "Fit a imagen", code: "files { operation: 'image_to_pdf', path: 'grafico.png', paper_size: 'fit' }" },
         { title: "Álbum multi-página", code: "files { operation: 'image_to_pdf', images: ['pag1.jpg', 'pag2.jpg'], outPath: 'doc.pdf', paper_size: 'a4' }" },
+      ],
+    }),
+
+    merge_pdfs_guide: async () => ({
+      ok: true,
+      title: "Guía Maestra: Fusión de Múltiples PDFs (files.merge_pdfs)",
+      capability: "files",
+      operation: "merge_pdfs",
+      summary: "Combina y une dos o más documentos PDF en un único PDF consolidado de forma nativa e instantánea, sin depender de scripts externos de Python.",
+      recipes: [
+        { title: "Fusionar varios PDFs", code: "files { operation: 'merge_pdfs', files: ['doc1.pdf', 'doc2.pdf'], outPath: 'unificado.pdf' }" },
+        { title: "Alias directos", code: "files { operation: 'combine_pdfs', pdfs: ['p1.pdf', 'p2.pdf'] }" },
       ],
     }),
 
@@ -273,6 +293,7 @@ export function createGuideDomain({ runtime, domain }) {
     tools: "standard",
     tool_usage: "standard",
     image_to_pdf_guide: "standard",
+    merge_pdfs_guide: "standard",
     print_guide: "standard",
     web_search_guide: "standard",
     notifications_guide: "standard",

@@ -1,7 +1,7 @@
 {
   "name": "fluxer-xz",
-  "version": "30.0.0",
-  "description": "Fluxer XZ v30.0.0 (Generation V4.0) — High-Density Windows-Native MCP Capability Platform",
+  "version": "30.0.1",
+  "description": "Fluxer XZ v30.0.1 (Hotfix) — Native Notification Security Lifecycle & Click-to-Approve",
   "type": "module",
   "main": "server.js",
   "bin": {

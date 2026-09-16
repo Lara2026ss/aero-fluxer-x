@@ -3,6 +3,22 @@
 Todos los cambios notables en este proyecto están documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [v30.0.1] - 2026-09-16 (Hotfix: Native Notification Security Lifecycle & Multi-PDF Merge Engine)
+
+### 📄 Motor Nativo de Fusión de PDFs (`files.merge_pdfs` / `combine_pdfs`)
+- **Fusión Multi-PDF Instantánea**: Combina dos o más documentos PDF en un solo archivo unificado directamente en Node.js mediante `pdf-lib` de alta velocidad sin obligar a los modelos de IA a recurrir a scripts de Python.
+- **Entrada Ultra-Flexible**: Acepta arrays o listas en `files`, `pdfs`, `paths`, `sources`, `documents` o rutas individuales.
+- **Alias y Compatibilidad Total**: Registrados `files.merge_pdfs`, `files.combine_pdfs`, `files.pdf_merge`, `files.merge_pdf`, `files.concat_pdfs` y `files.join_pdfs`.
+- **Conversión de Imágenes a PDF Robustecida (`files.images_to_pdf_multi`)**: Soporte nativo para alias `files.images_to_pdf_multi`, `files.images_to_pdf`, `files.combine_images_to_pdf` y resolución tolerante a fallos de argumentos `images`, `paths`, `files` o strings delimitados por coma.
+
+### 🔔 Notificación de Seguridad Nativa e Interactiva (Sin Ventanas Emergentes)
+- **Cero Ventanas Emergentes**: Eliminada cualquier ventana emergente modal intrusiva para las autorizaciones de seguridad.
+- **Ciclo de Vida Directo sobre la Notificación**:
+  - **Al hacer clic en la notificación**: Otorga la autorización inmediatamente (`APPROVED`).
+  - **Al cerrar o quitar la notificación (✕)**: Deniega la autorización de forma segura (`DENIED`).
+  - **Soporte Dual en Windows**: Implementación integrada con Toast Notification nativo de Windows 10/11 y Tray NotifyIcon BalloonTip (`platform/security_notification.ps1`).
+- **Eliminación de Notificaciones Duplicadas**: Unificado el despacho de eventos en `core/notifications.mjs` y `core/notify.mjs` garantizando un solo banner interactivo por solicitud.
+
 ## [v30.0.0] - 2026-09-16 (FLUXER XZ / FLUXER X/Z — Generation V4.0 Architecture: 15 Semantic Capabilities, DAG Engine, FL Studio 2026 Bridge, Autonomous Updater)
 
 ### ⚡ Rebranding & Generación V4.0 (`FLUXER XZ` / `FLUXER X/Z`)

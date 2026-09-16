@@ -2,7 +2,7 @@
 
 > **Plataforma MCP Nativa de Alta Densidad para IA: Orquestación DAG Multi-Paso, Integración Nativa con FL Studio 2026, Búsqueda Web Avanzada, Automatización de Sistema y Actualizador Autónomo.**
 
-[![Version](https://img.shields.io/badge/version-30.0.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-30.0.1-blue.svg)](package.json)
 [![Generation](https://img.shields.io/badge/generation-V4.0-purple.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Adaptive-informational.svg)](docs/ARCHITECTURE.md)

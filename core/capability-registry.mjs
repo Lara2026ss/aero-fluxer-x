@@ -114,6 +114,8 @@ export const CAPABILITY_DEFINITIONS = [
       { name: "hash", summary: "Calculate SHA256/MD5 hash of a file for integrity check.", params: ["path", "algorithm"] },
       { name: "metadata", summary: "Inspect detailed file metadata (stats, permissions, timestamps, MIME).", params: ["path"] },
       { name: "copy_move", summary: "Copy or move files/directories atomically.", params: ["subaction", "source", "target"] },
+      { name: "image_to_pdf", summary: "Convert one or multiple images into a multi-page PDF document.", params: ["images", "path", "targetPath", "paper_size"] },
+      { name: "merge_pdfs", summary: "Merge and concatenate multiple PDF files into a single unified PDF.", params: ["files", "pdfs", "targetPath"] },
     ],
     defaultOperation: "list",
     permissionLevel: "standard",

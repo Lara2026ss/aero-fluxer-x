@@ -2485,16 +2485,24 @@ try {
         margin = 20,
         fit = "contain",
         quality = "estandar",
+        ...extra
       } = {}) => {
         try {
-          // Normalizar lista de imágenes de entrada (soporta path único o array de imágenes)
+          // Normalizar lista de imágenes de entrada (soporta path único, array de imágenes, files, sources, comma-separated)
           let rawList = [];
-          if (Array.isArray(images) && images.length > 0) rawList = images;
-          else if (Array.isArray(paths) && paths.length > 0) rawList = paths;
-          else if (rawPath) rawList = [rawPath];
+          const candidateList = images || paths || extra.files || extra.sources || extra.input || rawPath;
+          if (Array.isArray(candidateList)) {
+            rawList = candidateList.flat();
+          } else if (typeof candidateList === "string" && candidateList.trim()) {
+            if (candidateList.includes(",")) {
+              rawList = candidateList.split(",").map((s) => s.trim()).filter(Boolean);
+            } else {
+              rawList = [candidateList.trim()];
+            }
+          }
 
           if (rawList.length === 0) {
-            return { ok: false, error: "Se requiere al menos un archivo de imagen en 'path' o 'images'.", code: "INVALID_INPUT" };
+            return { ok: false, error: "Se requiere al menos un archivo de imagen en 'path', 'images' o 'files'.", code: "INVALID_INPUT" };
           }
 
           const resolvedList = [];
@@ -2508,7 +2516,7 @@ try {
           }
 
           let outPath;
-          const target = rawTargetPath || output;
+          const target = rawTargetPath || output || extra.outPath || extra.target || extra.dest || extra.destination || extra.outFile;
           if (target) {
             outPath = Validator.validatePath(target, { fieldName: "targetPath", required: true });
           } else {
@@ -2616,11 +2624,97 @@ try {
           return { ok: false, error: err.message, code: err.code || "PROCESS_FAILED" };
         }
       },
+      merge_pdfs: async ({
+        path: rawPath,
+        files = null,
+        pdfs = null,
+        paths = null,
+        targetPath: rawTargetPath,
+        output = null,
+        ...extra
+      } = {}) => {
+        try {
+          let rawList = [];
+          const candidateList = pdfs || files || paths || extra.sources || extra.input || extra.documents || rawPath;
+          if (Array.isArray(candidateList)) {
+            rawList = candidateList.flat();
+          } else if (typeof candidateList === "string" && candidateList.trim()) {
+            if (candidateList.includes(",")) {
+              rawList = candidateList.split(",").map((s) => s.trim()).filter(Boolean);
+            } else {
+              rawList = [candidateList.trim()];
+            }
+          }
+
+          if (rawList.length < 2) {
+            return { ok: false, error: "Se requieren al menos 2 archivos PDF para fusionar en 'files', 'pdfs' o 'paths'.", code: "INVALID_INPUT" };
+          }
+
+          const resolvedList = [];
+          for (const item of rawList) {
+            const p = Validator.validatePath(item, { fieldName: "pdf_path", required: true });
+            const s = await fs.stat(p).catch(() => null);
+            if (!s || !s.isFile()) {
+              return { ok: false, error: `El archivo PDF no existe o no es accesible: ${p}`, code: "NOT_FOUND" };
+            }
+            resolvedList.push(p);
+          }
+
+          let outPath;
+          const target = rawTargetPath || output || extra.outPath || extra.target || extra.dest || extra.destination || extra.outFile;
+          if (target) {
+            outPath = Validator.validatePath(target, { fieldName: "targetPath", required: true });
+          } else {
+            const first = resolvedList[0];
+            const baseName = `merged_${path.basename(first, path.extname(first))}_${resolvedList.length}docs.pdf`;
+            outPath = path.join(path.dirname(first), baseName);
+          }
+
+          const { PDFDocument } = await import("pdf-lib");
+          const mergedPdf = await PDFDocument.create();
+          let totalPages = 0;
+
+          for (const pdfPath of resolvedList) {
+            const pdfBytes = await fs.readFile(pdfPath);
+            const doc = await PDFDocument.load(pdfBytes);
+            const copiedPages = await mergedPdf.copyPages(doc, doc.getPageIndices());
+            for (const page of copiedPages) {
+              mergedPdf.addPage(page);
+              totalPages++;
+            }
+          }
+
+          const pdfBytes = await mergedPdf.save();
+          await fs.writeFile(outPath, pdfBytes);
+
+          return {
+            ok: true,
+            path: outPath,
+            format: "pdf",
+            sizeBytes: pdfBytes.length,
+            pages: totalPages,
+            documents_merged: resolvedList.length,
+            sources: resolvedList,
+          };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "PROCESS_FAILED" };
+        }
+      },
     };
 
     // Alias intuitivos para llamadas de LLMs
     actions.convert_image_to_pdf = actions.image_to_pdf;
     actions.img2pdf = actions.image_to_pdf;
+    actions.images_to_pdf = actions.image_to_pdf;
+    actions.images_to_pdf_multi = actions.image_to_pdf;
+    actions.image_to_pdf_multi = actions.image_to_pdf;
+    actions.combine_images_to_pdf = actions.image_to_pdf;
+
+    actions.pdf_merge = actions.merge_pdfs;
+    actions.combine_pdfs = actions.merge_pdfs;
+    actions.merge_pdf = actions.merge_pdfs;
+    actions.concat_pdfs = actions.merge_pdfs;
+    actions.join_pdfs = actions.merge_pdfs;
     actions.read_file = actions.read_text_file;
     actions.create_file = actions.write_file;
     actions.delete_file = actions.delete_path;
@@ -2726,6 +2820,16 @@ try {
         resize_image: "standard",
         image_to_pdf: "standard",
         convert_image_to_pdf: "standard",
+        images_to_pdf: "standard",
+        images_to_pdf_multi: "standard",
+        image_to_pdf_multi: "standard",
+        combine_images_to_pdf: "standard",
+        merge_pdfs: "standard",
+        combine_pdfs: "standard",
+        pdf_merge: "standard",
+        merge_pdf: "standard",
+        concat_pdfs: "standard",
+        join_pdfs: "standard",
         add_allowed_directory: "advanced",
         remove_allowed_directory: "advanced",
         list_allowed_directories: "standard",
