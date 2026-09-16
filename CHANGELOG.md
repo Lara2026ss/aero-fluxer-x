@@ -5,6 +5,43 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
+## [v12.0.0] - 2026-09-15 (Major Release — Windows-Native PrintCenter Domain & Hardened Visual Architecture)
+
+### 🖨️ Nuevo Dominio Nativo de Impresión de Windows (`printcenter`)
+- **Descubrimiento e Inspección Real de Controladores**:
+  - `list_printers` y `get_printer`: Interrogación en vivo de `Win32_Printer`, `Get-Printer` y `System.Drawing.Printing.PrinterSettings` de Windows.
+  - Detección precisa de formatos de papel admitidos por hardware (`Carta/Letter`, `A4`, `Legal`), resoluciones DPI (`300x300`, `600x600`), capacidades de color y soporte de dúplex físico.
+- **Parser Defensivo de Rangos de Página**:
+  - `parsePageRange`: Soporte avanzado para páginas individuales (`"1, 4, 6"`), rangos continuos y mixtos (`"1-3, 5, 8"`), o `"all"`.
+  - Validación matemática estricta contra metadatos reales del documento (rechazo automático de página 0, rangos invertidos como `5-2`, comas consecutivas y páginas fuera de límites).
+- **Negociación de Capacidades y Preflight Dry-Run**:
+  - `preflight`: Validación segura previa de documentos, conteo de páginas y opciones solicitadas garantizando `will_print: false` (cero gasto accidental de papel o tinta).
+  - `negotiateCapabilities`: Prevención proactiva de trabajos incompatibles antes de enviarse al spooler, con códigos de error estructurados (`UNSUPPORTED_PAPER_SIZE`, `UNSUPPORTED_PRINTER_RESOLUTION`, `COLOR_NOT_SUPPORTED`).
+- **Motor de Renderizado e Impresión Nativo (`platform/print_engine.ps1`)**:
+  - Renderizado de PDF sin dependencias externas mediante API WinRT de Windows 10/11 (`Windows.Data.Pdf.PdfDocument`).
+  - Renderizado de imágenes y texto con `PrintDocument`, control de copias, orientación y redirección desatendida hacia `Microsoft Print to PDF` para verificación continua.
+- **Gestión Integral de Cola y Spooler**:
+  - `jobs`: Monitoreo en tiempo real de trabajos activos en el spooler de Windows.
+  - `cancel_job` y `purge_queue`: Cancelación de trabajos huérfanos y purga controlada de colas de impresión.
+- **Base de Conocimiento y Manuales Especializados (`manual`)**:
+  - Guías estructuradas de configuración y resolución de problemas para HP (Smart Tank, DeskJet, LaserJet), Canon (PIXMA, imageCLASS), Epson (EcoTank), Brother y genéricos de Windows (WSD, puertos TCP/IP, Spooler).
+
+### 📸 Endurecimiento del Dominio de Captura Visual (`screenshot`)
+- **Motor de Captura C# en Memoria (`platform/capture_engine.ps1`)**:
+  - Implementación primaria basada en **Windows.Graphics.Capture (WGC)** para ventanas aceleradas por GPU/DirectX (navegadores, DAWs, explorador) y **GDI BitBlt** para escritorio completo.
+  - Mitigación de robo de foco: Restauración no invasiva de ventanas minimizadas mediante Win32 `ShowWindow(hWnd, SW_SHOWNOACTIVATE)` (valor `4`).
+  - Resolución inteligente de alias de procesos (mapeo transparente de `FL Studio` a `FL64`).
+- **Eliminación de Inyecciones de Shell**:
+  - `tools/screenshot.mjs` ahora ejecuta PowerShell pasando argumentos estructurados como un array aislado (`spawnSync`), eliminando cualquier concatenación de strings de shell.
+- **Ruteo de Primer Nivel**:
+  - `screenshot` elevado a dominio independiente en `core/router.mjs` con delegación transparente desde el legacy `system.capture_screen`.
+
+### 🛡️ Seguridad Zero-Trust y Auditoría
+- Control estricto de permisos: Acciones físicas y mutantes (`print`, `configure`, `cancel_job`, `purge_queue`) protegidas con nivel `advanced` que exigen confirmación explícita (`CONFIRMATION_REQUIRED`).
+- Registro determinista en `storage/logs/audit.jsonl` de cada evento del ciclo de vida de impresión y captura.
+
+---
+
 ## [v11.0.9] - 2026-09-14 (Hotfix — Claude Desktop Audit & OneDrive Path Resilience)
 
 ### 🐞 Corrección de Hallazgos de Auditoría (Claude Desktop Test)

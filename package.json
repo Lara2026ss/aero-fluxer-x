@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "11.0.9",
-  "description": "Fluxer Core MCP v11.0.9 — Claude Desktop Audit Hotfix: diagnostics.test route, OneDrive Desktop resolution, semantic guide.search & RAM metrics",
+  "version": "12.0.0",
+  "description": "Fluxer Core MCP v12.0.0 — Windows-native PrintCenter Domain, Hardened WGC Visual Capture & Hardware Bi-directional Engine",
   "type": "module",
   "main": "server.js",
   "bin": {

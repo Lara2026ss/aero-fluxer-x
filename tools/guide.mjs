@@ -55,6 +55,8 @@ export function createGuideDomain({ runtime, domain }) {
         { name: "diagnostics", description: "System health, compact mode toggle, network/storage tests, full report", key_actions: ["health_check", "set_compact", "get_compact", "network_test", "storage_test", "mcp_test", "report", "telemetry"] },
         { name: "guide", description: "This documentation system -- quick start, examples, troubleshooting", key_actions: ["index", "quick_start", "tool_usage", "examples", "troubleshoot", "faq", "search"] },
         { name: "flstudio", description: "Real-time FL Studio Suite v11.0.5: Native menus (file, edit, view, patterns, options, tools, plugins), live session, tone change, styles, mixer & security elevation gate", key_actions: ["detect", "open", "file", "edit", "view", "patterns", "options", "tools", "plugins", "live_session", "change_tone", "music_theory", "mixer_settings", "sound_design", "style_presets"] },
+        { name: "screenshot", description: "Non-intrusive screen, window and app capture with WGC, GDI BitBlt and PrintWindow", key_actions: ["desktop", "app", "window"] },
+        { name: "printcenter", description: "Windows-native print center: printers discovery, driver capabilities, manuals (HP, Canon, Epson, Brother), preflight dry-run, page range parsing, spooler and real printing", key_actions: ["list_printers", "get_printer", "search_printers", "manual", "preflight", "configure", "print", "jobs", "cancel_job", "purge_queue"] },
       ],
     }),
 

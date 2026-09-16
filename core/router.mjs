@@ -368,16 +368,69 @@ export class Router {
       action = "revoke_elevation";
       tool = "security";
     }
-    // Soporte nativo para capturas visuales de pantalla
-    if (["capture_screen", "capture_window", "capture_region", "screenshot", "screen_capture", "captura_pantalla"].includes(tool.toLowerCase())) {
-      action = (tool.toLowerCase() === "screenshot" || tool.toLowerCase() === "screen_capture" || tool.toLowerCase() === "captura_pantalla")
-        ? "capture_screen"
-        : tool.toLowerCase();
-      tool = "system";
+    // Soporte nativo para capturas visuales de pantalla (dominio screenshot de primer nivel)
+    if (tool.toLowerCase() === "screenshot") {
+      tool = "screenshot";
+      if (!action || ["screenshot", "capture_screen", "screen_capture", "captura_pantalla"].includes(action.toLowerCase())) {
+        action = "desktop";
+      } else if (action.toLowerCase() === "capture_window") {
+        action = "window";
+      } else if (action.toLowerCase() === "capture_app") {
+        action = "app";
+      } else if (action.toLowerCase() === "capture_region") {
+        action = "desktop";
+      }
+    } else if (["capture_screen", "capture_window", "capture_region", "screen_capture", "captura_pantalla"].includes(tool.toLowerCase())) {
+      const flat = tool.toLowerCase();
+      tool = "screenshot";
+      action = flat === "capture_window" ? "window" : "desktop";
+    }
+
+    // Soporte nativo para el dominio printcenter (primer nivel y alias canónicos)
+    if (["printcenter", "printer", "impresora", "imprimir"].includes(tool.toLowerCase())) {
+      tool = "printcenter";
+      if (!action || action === "printcenter" || action === "printer" || action === "impresora") {
+        action = "list_printers";
+      } else if (action === "list" || action === "printers" || action === "listar") {
+        action = "list_printers";
+      } else if (action === "info" || action === "details" || action === "status") {
+        action = "get_printer";
+      } else if (action === "find" || action === "discover" || action === "search") {
+        action = "search_printers";
+      }
     }
 
     // Mapeo exhaustivo de alias para compatibilidad total con llamadas de LLMs
     const DOMAIN_ACTION_ALIASES = {
+      screenshot: {
+        capture_screen: "desktop",
+        screen: "desktop",
+        take_screenshot: "desktop",
+        capture_window: "window",
+        win: "window",
+        capture_app: "app",
+        process: "app",
+      },
+      printcenter: {
+        list: "list_printers",
+        printers: "list_printers",
+        listar: "list_printers",
+        get: "get_printer",
+        info: "get_printer",
+        details: "get_printer",
+        status: "get_printer",
+        search: "search_printers",
+        find: "search_printers",
+        discover: "search_printers",
+        dry_run: "preflight",
+        test: "preflight",
+        queue: "jobs",
+        list_jobs: "jobs",
+        cancel: "cancel_job",
+        delete_job: "cancel_job",
+        purge: "purge_queue",
+        clear_queue: "purge_queue",
+      },
       system: {
         screenshot: "capture_screen",
         take_screenshot: "capture_screen",
@@ -618,6 +671,7 @@ export class Router {
 
       // Requerimiento de Captura Visual: Permiso explícito e independiente 'visual_capture_grant'
       const isVisualCapture = (tool === "system" && ["capture_screen", "capture_window", "capture_region", "screenshot"].includes(action)) ||
+        tool === "screenshot" ||
         ["capture_screen", "capture_window", "capture_region", "screenshot"].includes(originalRequestedTool);
       if (isVisualCapture) {
         const hasVisualGrant = this.runtime.permissions.hasVisualCaptureGrant?.();

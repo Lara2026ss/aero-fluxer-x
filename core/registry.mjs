@@ -425,6 +425,8 @@ export class Registry {
       { createGuideDomain: guideFactory } = {},
       { createGithubDomain: githubFactory } = {},
       { createFlStudioDomain: flstudioFactory } = {},
+      { createScreenshotDomain: screenshotFactory } = {},
+      { createPrintCenterDomain: printcenterFactory } = {},
     ] = await Promise.all([
       import(`../tools/files.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/system.mjs?t=${ts}`).catch(() => ({})),
@@ -439,6 +441,8 @@ export class Registry {
       import(`../tools/guide.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/github.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/flstudio.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/screenshot.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/printcenter.mjs?t=${ts}`).catch(() => ({})),
     ]);
 
     const domains = [
@@ -455,6 +459,8 @@ export class Registry {
       ...(guideFactory ? [guideFactory({ runtime, domain })] : []),
       ...(githubFactory ? [githubFactory({ runtime, domain })] : []),
       ...(flstudioFactory ? [flstudioFactory({ runtime, domain, fs })] : []),
+      ...(screenshotFactory ? [screenshotFactory({ runtime, domain, fs, path, os, crypto })] : []),
+      ...(printcenterFactory ? [printcenterFactory({ runtime, domain, fs, path, os, crypto })] : []),
     ];
 
     this.modules = new Map(domains.map((d) => [d.name, d]));
