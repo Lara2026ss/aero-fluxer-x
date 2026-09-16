@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ══════════════════════════════════════════════════════════════════════════════
  * 🖨️ FLUXER CORE MCP — tools/printcenter.mjs
  * Centro Inteligente de Impresión y Gestión de Impresoras para Windows
@@ -501,7 +501,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       }
 
       const ext = path.extname(sourceFile).toLowerCase();
-      const allowedExts = [".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".txt", ".log", ".md", ".json", ".csv"];
+      const allowedExts = [".pdf", ".docx", ".doc", ".rtf", ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".txt", ".log", ".md", ".json", ".csv"];
       if (!allowedExts.includes(ext)) {
         return { ok: false, error: "UNSUPPORTED_FILE_TYPE", message: `El tipo de archivo '${ext}' no es compatible para impresión directa. Soportados: ${allowedExts.join(", ")}` };
       }
@@ -556,7 +556,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         };
       }
 
-      return {
+      const preflightResult = {
         ok: true,
         will_print: false,
         valid: true,
@@ -570,14 +570,99 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         color_mode: negotiation.effective.color_mode || "Color",
         paper_size: negotiation.effective.paper_size || "Default",
         resolution_dpi: negotiation.effective.dpi_x ? `${negotiation.effective.dpi_x}x${negotiation.effective.dpi_y}` : "Default",
-        scale: args.scale || "fit_to_page",
+        scale: args.scale || args.scale_mode || "fit_to_page",
         orientation: args.orientation || "Portrait",
         estimated_sheets: Math.ceil((selectedPages ? selectedPages.length : totalDocPages) / (args.pages_per_sheet || 1)) * (negotiation.effective.copies || 1),
         message: "Validación preflight exitosa. Todos los parámetros son compatibles con la impresora.",
       };
+
+      // Si se solicitó vista previa en el preflight, adjuntar preview y esquema ASCII
+      if (args.preview === true || args.generate_preview === true) {
+        try {
+          const prevRes = await actions.preview({
+            ...args,
+            file: sourceFile,
+            printer: resolvedPrinter,
+            paper_size: negotiation.effective.paper_size,
+            scale_mode: args.scale || args.scale_mode || "fit_to_page",
+          });
+          if (prevRes.ok) {
+            preflightResult.preview = {
+              preview_image_path: prevRes.preview_image_path,
+              preview_image_url: prevRes.preview_image_url,
+              applied_scale_percent: prevRes.applied_scale_percent,
+              clipping_detected: prevRes.clipping_detected,
+              bleed_warning: prevRes.bleed_warning,
+              estimated_ink_coverage: prevRes.estimated_ink_coverage,
+              ascii_layout: prevRes.ascii_layout,
+            };
+          }
+        } catch (_) {}
+      }
+
+      return preflightResult;
     },
 
-    // ── 6. Configurar Preferencias (configure) ───────────────────────────────
+    // ── 6. Vista Previa de Impresión y Diagrama de Disposición (preview) ──────
+    preview: async (args = {}) => {
+      const startTime = Date.now();
+      const sourceFile = (args.file || args.file_path || args.source || "").trim();
+
+      if (!sourceFile) {
+        return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' o 'file_path' del archivo a previsualizar." };
+      }
+      if (!existsSync(sourceFile)) {
+        return { ok: false, error: "SOURCE_NOT_FOUND", message: `El archivo a previsualizar no existe: '${sourceFile}'.` };
+      }
+
+      const resolvedFile = path.resolve(sourceFile);
+      const ext = path.extname(resolvedFile).toLowerCase();
+      const allowedExts = [".pdf", ".docx", ".doc", ".rtf", ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".txt", ".log", ".md", ".json", ".csv"];
+
+      if (!allowedExts.includes(ext)) {
+        return {
+          ok: false,
+          error: "UNSUPPORTED_FILE_TYPE",
+          message: `El tipo de archivo '${ext}' no es compatible para vista previa. Soportados: ${allowedExts.join(", ")}`,
+        };
+      }
+
+      // Resolver impresora
+      let resolvedPrinter = (args.printer || args.printer_name || "").trim();
+      if (!resolvedPrinter) {
+        const printersList = runPrintEngine("list_printers");
+        const def = printersList.printers?.find((p) => p.default);
+        resolvedPrinter = def ? def.name : (printersList.printers?.[0]?.name || "Microsoft Print to PDF");
+      }
+
+      const pageNum = parseInt(args.page || args.page_number || 1, 10);
+      const scaleMode = args.scale_mode || args.scale || args.style || "fit_to_page";
+      const customScale = parseFloat(args.custom_scale || args.scale_factor || args.percent || 1.0);
+      const alignment = args.alignment || "center";
+      const orientation = args.orientation || "Portrait";
+      const paperSize = args.paper_size || args.paper || "";
+      const outPath = (args.output_path || args.preview_path || "").trim();
+
+      const res = runPrintEngine("preview", {
+        PrinterName: resolvedPrinter,
+        SourceFile: resolvedFile,
+        PreviewPage: isNaN(pageNum) || pageNum < 1 ? 1 : pageNum,
+        ScaleMode: scaleMode,
+        CustomScale: isNaN(customScale) ? 1.0 : customScale,
+        Alignment: alignment,
+        Orientation: orientation,
+        PaperSize: paperSize,
+        PreviewOutPath: outPath ? path.resolve(outPath) : "",
+      });
+
+      return {
+        ...res,
+        source_file: resolvedFile,
+        duration_ms: Date.now() - startTime,
+      };
+    },
+
+    // ── 7. Configurar Preferencias (configure) ───────────────────────────────
     configure: async ({ printer = null, printer_name = null, paper_size = null, color = null, duplex = null, collate = null } = {}) => {
       const pName = (printer || printer_name || "").trim();
       if (!pName) {
@@ -597,14 +682,103 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       return res;
     },
 
-    // ── 7. Ejecutar Impresión Real (print) ────────────────────────────────────
+    // ── 8. Ejecutar Impresión Real (print / print_batch) ─────────────────────
     print: async (args = {}) => {
       const startTime = Date.now();
       const operationId = runtime.operations?.generateOperationId?.() || `op_prn_${crypto.randomBytes(4).toString("hex")}`;
-      const sourceFile = (args.file || args.file_path || args.source || "").trim();
+      const allowedExts = [".pdf", ".docx", ".doc", ".rtf", ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".txt", ".log", ".md", ".json", ".csv"];
 
+      // ── A. Soporte para impresión por lotes de carpetas / directorios ──────
+      const rawTarget = (args.folder || args.directory || args.dir || args.file || args.file_path || args.source || "").trim();
+      let isDirectory = false;
+      if (rawTarget && existsSync(rawTarget)) {
+        try {
+          isDirectory = statSync(rawTarget).isDirectory();
+        } catch (_) {}
+      }
+
+      if (args.folder || args.directory || args.dir || isDirectory) {
+        const folderPath = path.resolve(rawTarget);
+        if (!existsSync(folderPath)) {
+          return { ok: false, error: "DIRECTORY_NOT_FOUND", message: `La carpeta especificada no existe: '${folderPath}'.` };
+        }
+
+        const { readdirSync } = await import("node:fs");
+        let entries = [];
+        try {
+          entries = readdirSync(folderPath, { withFileTypes: true });
+        } catch (err) {
+          return { ok: false, error: "DIRECTORY_READ_FAILED", message: `Error al leer la carpeta: ${err.message}` };
+        }
+
+        const matchingFiles = entries
+          .filter(e => e.isFile() && allowedExts.includes(path.extname(e.name).toLowerCase()))
+          .map(e => path.join(folderPath, e.name));
+
+        if (matchingFiles.length === 0) {
+          return {
+            ok: false,
+            error: "NO_PRINTABLE_FILES",
+            message: `No se encontraron archivos imprimibles compatibles en '${folderPath}'. Extensiones soportadas: ${allowedExts.join(", ")}`,
+          };
+        }
+
+        const printedResults = [];
+        const failedResults = [];
+
+        for (const filePath of matchingFiles) {
+          try {
+            const singlePrint = await actions.print({
+              ...args,
+              file: filePath,
+              folder: undefined,
+              directory: undefined,
+              dir: undefined,
+            });
+            if (singlePrint.ok) {
+              printedResults.push({
+                file: filePath,
+                file_name: path.basename(filePath),
+                job_id: singlePrint.job_id,
+                status: "submitted",
+              });
+            } else {
+              failedResults.push({
+                file: filePath,
+                file_name: path.basename(filePath),
+                error: singlePrint.error,
+                message: singlePrint.message,
+              });
+            }
+          } catch (err) {
+            failedResults.push({
+              file: filePath,
+              file_name: path.basename(filePath),
+              error: err.code || "PRINT_FAILED",
+              message: err.message,
+            });
+          }
+        }
+
+        const durationMs = Date.now() - startTime;
+        return {
+          ok: printedResults.length > 0,
+          batch: true,
+          folder: folderPath,
+          total_found: matchingFiles.length,
+          printed_count: printedResults.length,
+          failed_count: failedResults.length,
+          printed_files: printedResults,
+          failed_files: failedResults,
+          duration_ms: durationMs,
+          message: `Lote de carpeta procesado: ${printedResults.length}/${matchingFiles.length} documentos enviados exitosamente a imprimir.`,
+        };
+      }
+
+      // ── B. Impresión de archivo individual ──────────────────────────────────
+      const sourceFile = (args.file || args.file_path || args.source || "").trim();
       if (!sourceFile) {
-        return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' o 'file_path' del archivo a imprimir." };
+        return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' o 'file_path' del archivo (o 'folder' para imprimir una carpeta completa)." };
       }
       if (!existsSync(sourceFile)) {
         return { ok: false, error: "SOURCE_NOT_FOUND", message: `El archivo a imprimir no existe: '${sourceFile}'.` };
@@ -612,6 +786,14 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
 
       const resolvedFile = path.resolve(sourceFile);
       const ext = path.extname(resolvedFile).toLowerCase();
+
+      if (!allowedExts.includes(ext)) {
+        return {
+          ok: false,
+          error: "UNSUPPORTED_FILE_TYPE",
+          message: `El tipo de archivo '${ext}' no es compatible para impresión directa. Soportados: ${allowedExts.join(", ")}`,
+        };
+      }
 
       // Resolver impresora destino
       let resolvedPrinter = (args.printer || args.printer_name || "").trim();
@@ -665,7 +847,9 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       const paperSize = negotiation.effective.paper_size || "";
       const dpiX = negotiation.effective.dpi_x || 0;
       const dpiY = negotiation.effective.dpi_y || 0;
-      const scaleMode = args.scale || args.scale_mode || "fit_to_page";
+      const scaleMode = args.scale || args.scale_mode || args.style || "fit_to_page";
+      const customScale = parseFloat(args.custom_scale || args.scale_factor || args.percent || 1.0);
+      const alignment = args.alignment || "center";
       const orientation = args.orientation || "Portrait";
       const pagesPerSheet = parseInt(args.pages_per_sheet || 1, 10);
       const outPdfTarget = args.output_pdf || args.pdf_output || "";
@@ -682,6 +866,8 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         DpiY: dpiY,
         PagesPerSheet: pagesPerSheet,
         ScaleMode: scaleMode,
+        CustomScale: isNaN(customScale) ? 1.0 : customScale,
+        Alignment: alignment,
         Orientation: orientation,
         OutPdfPath: outPdfTarget ? path.resolve(outPdfTarget) : "",
       });
@@ -698,6 +884,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
           copies,
           color: colorMode,
           paper_size: paperSize,
+          scale: scaleMode,
         },
         permission: "advanced",
         result: res.ok ? "ok" : "error",
@@ -711,14 +898,14 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       };
     },
 
-    // ── 8. Inspección de Cola de Impresión (jobs) ────────────────────────────
+    // ── 9. Inspección de Cola de Impresión (jobs) ────────────────────────────
     jobs: async ({ printer = null, printer_name = null } = {}) => {
       const pName = (printer || printer_name || "").trim();
       const res = runPrintEngine("jobs", { PrinterName: pName });
       return res;
     },
 
-    // ── 9. Cancelar Trabajo Específico (cancel_job) ──────────────────────────
+    // ── 10. Cancelar Trabajo Específico (cancel_job) ──────────────────────────
     cancel_job: async ({ printer = null, printer_name = null, job_id = null, id = null } = {}) => {
       const pName = (printer || printer_name || "").trim();
       const jId = parseInt(job_id || id, 10);
@@ -730,7 +917,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       return res;
     },
 
-    // ── 10. Purga Explícita de Cola (purge_queue) ────────────────────────────
+    // ── 11. Purga Explícita de Cola (purge_queue) ────────────────────────────
     purge_queue: async ({ printer = null, printer_name = null } = {}) => {
       const pName = (printer || printer_name || "").trim();
       if (!pName) {
@@ -751,6 +938,10 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
   actions.search = actions.search_printers;
   actions.discover = actions.search_printers;
   actions.dry_run = actions.preflight;
+  actions.vista_previa = actions.preview;
+  actions.layout = actions.preview;
+  actions.print_folder = actions.print;
+  actions.print_batch = actions.print;
   actions.queue = actions.jobs;
   actions.cancel = actions.cancel_job;
 
@@ -760,6 +951,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
     search_printers: "standard",
     manual: "standard",
     preflight: "standard",
+    preview: "standard",
     jobs: "standard",
     configure: "advanced",
     print: "advanced",
@@ -769,7 +961,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
 
   return domain(
     "printcenter",
-    "Centro Integral de Impresión y Gestión de Impresoras (HP, Canon, Epson, Brother y Windows). Soporta selección de páginas, copias, color/B&N, calidad PPP, tamaño de papel, dry-run (preflight), inspección de colas y cancelación.",
+    "Centro Integral de Impresión y Gestión de Impresoras (HP, Canon, Epson, Brother y Windows). Soporta vista previa de alta fidelidad (preview) con esquemas ASCII, selección de páginas, estilos de renderizado (fit_to_page, fit_to_printable_area, actual_size, shrink_oversized, custom), documentos Word/DOCX, imágenes, impresión de carpetas por lotes, copias, color/B&N, calidad PPP y gestión de cola de impresión.",
     actions,
     permissions
   );

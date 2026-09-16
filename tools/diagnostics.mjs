@@ -125,8 +125,14 @@ export function createDiagnosticsDomain({ runtime, domain, fs }) {
         const username = os.userInfo?.()?.username || process.env.USERNAME || "";
         const homedir = os.homedir?.() || "";
         let s = JSON.stringify(obj);
-        if (homedir.length > 2) s = s.replace(new RegExp(homedir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "C:\\\\Users\\\\<redacted>");
-        if (username.length > 1) s = s.replace(new RegExp(username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "<redacted>");
+        if (homedir.length > 2) {
+          s = s.replace(new RegExp(homedir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "C:\\\\Users\\\\<redacted>");
+          const fwd = homedir.replace(/\\/g, "/");
+          s = s.replace(new RegExp(fwd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "C:/Users/<redacted>");
+        }
+        if (username.length > 1) {
+          s = s.replace(new RegExp(username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "<redacted>");
+        }
         return JSON.parse(s);
       }
 
