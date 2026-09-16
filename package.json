@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "20.2.0",
-  "description": "Fluxer Core MCP v20.2 — Interactive Guides for Image-to-PDF, Print Center & Recycle Bin Workflows",
+  "version": "20.5.0",
+  "description": "Fluxer Core MCP v20.5 — Print Previews, ASCII Layouts, DOCX/Word Pipeline, Render Styles & Folder Batch Printing",
   "type": "module",
   "main": "server.js",
   "bin": {
