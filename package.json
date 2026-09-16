@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "20.5.0",
-  "description": "Fluxer Core MCP v20.5 — Print Previews, ASCII Layouts, DOCX/Word Pipeline, Render Styles & Folder Batch Printing",
+  "version": "20.6.0",
+  "description": "Fluxer Core MCP v20.6 — Multi-Provider Visual Search, Streaming PDF Printing, Interactive Security Prompts & LifeCycle Notifications",
   "type": "module",
   "main": "server.js",
   "bin": {

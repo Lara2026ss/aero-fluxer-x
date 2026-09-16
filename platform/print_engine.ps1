@@ -503,6 +503,35 @@ function Action-GetPdfInfo {
             is_valid_pdf = $true
         }
     } catch {
+        # Fallback ultra-rápido analizando la estructura binaria del PDF
+        try {
+            $resolved = (Resolve-Path $FilePath).Path
+            $bytes = [System.IO.File]::ReadAllBytes($resolved)
+            $content = [System.Text.Encoding]::ASCII.GetString($bytes)
+            $countMatch = [regex]::Match($content, '/Count\s+(\d+)')
+            if ($countMatch.Success) {
+                $pageCount = [int]$countMatch.Groups[1].Value
+                return @{
+                    ok = $true
+                    file_path = $resolved
+                    page_count = $pageCount
+                    dimensions_pt = @{ width = 595.0; height = 842.0 }
+                    is_valid_pdf = $true
+                    fallback = $true
+                }
+            }
+            $matches = [regex]::Matches($content, '/Type\s*/Page\b')
+            if ($matches.Count -gt 0) {
+                return @{
+                    ok = $true
+                    file_path = $resolved
+                    page_count = $matches.Count
+                    dimensions_pt = @{ width = 595.0; height = 842.0 }
+                    is_valid_pdf = $true
+                    fallback = $true
+                }
+            }
+        } catch {}
         return @{ ok = $false; error = "PDF_RENDER_FAILED"; message = $_.Exception.Message }
     }
 }
@@ -652,16 +681,18 @@ function Action-Configure {
 
 # ── 9. PRINT EXECUTION ───────────────────────────────────────────────────────
 function RenderPdfPage {
-    param([string]$PdfPath, [int]$PageNumber, [int]$TargetDpi = 300)
+    param([string]$PdfPath, [int]$PageNumber, [int]$TargetDpi = 300, $LoadedDoc = $null)
     [Windows.Data.Pdf.PdfDocument, Windows.Data.Pdf, ContentType = WindowsRuntime] | Out-Null
     [Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime] | Out-Null
-    $resolved = (Resolve-Path $PdfPath).Path
 
-    $fileOp = [Windows.Storage.StorageFile]::GetFileFromPathAsync($resolved)
-    $file = Await-WinRT $fileOp ([Windows.Storage.StorageFile])
-
-    $docOp = [Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($file)
-    $doc = Await-WinRT $docOp ([Windows.Data.Pdf.PdfDocument])
+    $doc = $LoadedDoc
+    if (-not $doc) {
+        $resolved = (Resolve-Path $PdfPath).Path
+        $fileOp = [Windows.Storage.StorageFile]::GetFileFromPathAsync($resolved)
+        $file = Await-WinRT $fileOp ([Windows.Storage.StorageFile])
+        $docOp = [Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($file)
+        $doc = Await-WinRT $docOp ([Windows.Data.Pdf.PdfDocument])
+    }
 
     $idx0 = $PageNumber - 1
     if ($idx0 -lt 0 -or $idx0 -ge $doc.PageCount) {
@@ -686,6 +717,7 @@ function RenderPdfPage {
         try { $stream.AsStreamForRead() } catch { [System.IO.WindowsRuntimeStreamExtensions]::AsStream($stream) }
     }
     $bmp = [System.Drawing.Bitmap]::FromStream($netStream)
+    try { $stream.Dispose() } catch {}
     return $bmp
 }
 
@@ -958,11 +990,27 @@ function Action-Print {
         }
 
         $doc.PrinterSettings.Copies = [int16][Math]::Max(1, $CopyCount)
-        $doc.DefaultPageSettings.Color = ($ClrMode -eq "Color")
 
-        if ($Orient -eq "Landscape") {
+        # Modo color/escala de grises
+        # ColorMode: "Color", "Monochrome", "Grayscale" o "grayscale"
+        $isGrayscale = ($ClrMode -eq "Grayscale" -or $ClrMode -eq "grayscale" -or $ClrMode -eq "Monochrome")
+        $doc.DefaultPageSettings.Color = -not $isGrayscale
+
+        # Orientación: "auto" detecta según dimensiones del contenido renderizado
+        $resolvedOrient = $Orient
+        if ($Orient -eq "auto") {
+            $resolvedOrient = "Portrait"
+            if ($ext -in @(".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff")) {
+                try {
+                    $probe = [System.Drawing.Image]::FromFile($resolvedSrc)
+                    if ($probe.Width -gt $probe.Height) { $resolvedOrient = "Landscape" }
+                    $probe.Dispose()
+                } catch {}
+            }
+        }
+        if ($resolvedOrient -eq "Landscape") {
             $doc.DefaultPageSettings.Landscape = $true
-        } elseif ($Orient -eq "Portrait") {
+        } elseif ($resolvedOrient -eq "Portrait") {
             $doc.DefaultPageSettings.Landscape = $false
         }
 
@@ -986,6 +1034,19 @@ function Action-Print {
             }
         }
 
+        # Configurar dúplex si la impresora lo soporta
+        if ($Duplex -and $Duplex -ne "" -and $doc.PrinterSettings.CanDuplex) {
+            try {
+                $duplexMode = switch ($Duplex.ToLower()) {
+                    "duplex_long_edge"  { [System.Drawing.Printing.Duplex]::Horizontal }
+                    "duplex_short_edge" { [System.Drawing.Printing.Duplex]::Vertical }
+                    "simplex"           { [System.Drawing.Printing.Duplex]::Simplex }
+                    default             { [System.Drawing.Printing.Duplex]::Default }
+                }
+                $doc.PrinterSettings.Duplex = $duplexMode
+            } catch {}
+        }
+
         $pagesToPrint = [System.Collections.Generic.List[int]]::new()
         foreach ($idx in $pageIndices) {
             $pagesToPrint.Add([int]$idx)
@@ -996,6 +1057,14 @@ function Action-Print {
 
         # Carga de documento según extensión
         if ($ext -eq ".pdf") {
+            $loadedPdfDoc = $null
+            try {
+                $fileOp = [Windows.Storage.StorageFile]::GetFileFromPathAsync($resolvedSrc)
+                $storageFile = Await-WinRT $fileOp ([Windows.Storage.StorageFile])
+                $docOp = [Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($storageFile)
+                $loadedPdfDoc = Await-WinRT $docOp ([Windows.Data.Pdf.PdfDocument])
+            } catch {}
+
             $doc.add_PrintPage({
                 param($sender, $e)
                 if ($currentPagePointer -ge $totalSelected) {
@@ -1004,8 +1073,9 @@ function Action-Print {
                 }
 
                 $pageNum = $pagesToPrint[$currentPagePointer]
-                $targetRenderDpi = if ($ResX -gt 0) { $ResX } else { 300 }
-                $bmp = RenderPdfPage -PdfPath $resolvedSrc -PageNumber $pageNum -TargetDpi $targetRenderDpi
+                # Si hay más de 10 páginas y no se especificó DPI explícito, usar 200 DPI para velocidad y evitar timeouts
+                $targetRenderDpi = if ($ResX -gt 0) { $ResX } elseif ($totalSelected -gt 10) { 200 } else { 300 }
+                $bmp = RenderPdfPage -PdfPath $resolvedSrc -PageNumber $pageNum -TargetDpi $targetRenderDpi -LoadedDoc $loadedPdfDoc
 
                 $bounds = $e.MarginBounds
                 $pageBounds = $e.PageBounds
@@ -1014,6 +1084,7 @@ function Action-Print {
                 $e.Graphics.DrawImage($bmp, [float]$layout.DestX, [float]$layout.DestY, [float]$layout.DestWidth, [float]$layout.DestHeight)
 
                 $bmp.Dispose()
+                [GC]::Collect(0)
                 $currentPagePointer++
                 $e.HasMorePages = ($currentPagePointer -lt $totalSelected)
             })
@@ -1122,7 +1193,9 @@ function Action-Print {
             source = $resolvedSrc
             pages_requested = $pagesToPrint
             copies = $CopyCount
-            color = ($ClrMode -eq "Color")
+            color = -not $isGrayscale
+            grayscale = $isGrayscale
+            orientation = $resolvedOrient
             paper_size = $PprSize
             spooler_seen = $spoolerSeen
             job_id = $detectedJobId

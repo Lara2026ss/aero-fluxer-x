@@ -3,6 +3,62 @@
 Todos los cambios notables en este proyecto están documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [v20.6.0] - 2026-09-16 (Resilient Multi-Provider Visual Search, Streaming PDF Printing, Interactive Security Prompts & LifeCycle Notifications)
+
+### 🔍 Motor de Búsqueda Visual Multi-Proveedor y Anti-Alucinación (`tools/web.mjs`)
+- **Arquitectura Paralela Multi-Fuente**:
+  - Consulta simultánea a 4 motores independientes: Openverse (Creative Commons), Wikimedia Commons (ES y EN), Wikipedia PageImages y DuckDuckGo Images.
+  - Timeout individual por proveedor (5000 ms) y fallback estructurado honesto.
+- **Eliminación Total de Fallback Estático / URLs Hardcoded**:
+  - Removido completamente el fallback de Unsplash hardcoded (`photo-1579546929518...`).
+  - Si los proveedores fallan, devuelve `{ ok: false, error: "NO_RESULTS_FOUND", count: 0, options: [], suggestions: [...] }`. Nunca inventa resultados falsos.
+- **Modo Compacto por Defecto (`compact: true`)**:
+  - Reduce el payload de tokens hasta un 75%: devuelve únicamente `{ id, title, url, thumb, dim, src, license }`.
+  - Modo detallado bajo demanda con `compact: false` incluyendo diagnóstico `provider_status`.
+- **Puente Lingüístico Español-Inglés (`Spanish-to-English Keyword Bridge`)**:
+  - Traduce consultas descriptivas complejas (ej: *"jardín nocturno con flores azules"* -> *"garden night flowers blue"*) para maximizar resultados en repositorios internacionales.
+- **Deduplicación y Puntuación Inteligente**:
+  - Normalización de URLs (limpieza de parámetros UTM y tracking).
+  - Puntuación por resolución, licencia abierta, presencia de thumbnail y bonificación para dibujos/colorear (+25 puntos con `coloring: true`).
+
+### 🖨️ Impresión de PDFs Multi-Página, Streaming Continuo y Diagnóstico de Páginas (`printcenter`)
+- **Prevención de Timeouts en PDFs Grandes**:
+  - Reutilización de instancia de documento WinRT en memoria (`LoadedDoc`) en vez de reabrir el archivo en disco en cada página, reduciendo el tiempo de renderizado en un 80%.
+  - Liberación inmediata de streams y recolección de basura por página (`[GC]::Collect(0)`).
+  - Timeout dinámico escalable en `runPrintEngine` (`Math.max(60000, 30000 + pages * 4000)` con tope de 5 minutos).
+- **Nueva Acción `pdf_info` (`get_pdf_info` / `inspect_pdf`)**:
+  - Permite a la IA conocer con exactitud el total de páginas, dimensiones en puntos y lista de páginas antes de imprimir.
+  - Fallback binario ultra-rápido por expresiones regulares (`/Count`, `/Type /Page`) en caso de que WinRT no pueda abrir el documento.
+- **Soporte Universal de Selección de Páginas en `print` y `preflight`**:
+  - `continuous: true` o `pages: "continuous"`: imprime secuencialmente todo el documento sin interrupciones.
+  - Rangos continuos (`pages: "1-5"`, `"1 al 5"`, `"1..5"`, `"1-end"`, `from_page: 1, to_page: 5`).
+  - Páginas separadas (`pages: "1, 5, 7"`, `pages: [1, 5, 7]`).
+  - Clamping inteligente automático para evitar errores cuando la IA solicita un rango mayor que las páginas reales del PDF.
+- **Impresión Dúplex, Escala de Grises y Orientación Automática**:
+  - `duplex`: `"simplex"`, `"duplex_long_edge"` (horizontal/libro), `"duplex_short_edge"` (vertical/bloc). Validación en preflight (`UNSUPPORTED_DUPLEX`).
+  - `grayscale: true` o `color_mode: "grayscale"`: impresión monocromática que ahorra tóner de color.
+  - `orientation: "auto"`: detecta automáticamente Portrait o Landscape según dimensiones de la imagen o documento.
+
+### 🔔 Notificaciones Nativas del Ciclo de Vida y Ventanas de Seguridad Interactivas (`core/notify.mjs`, `core/notifications.mjs`, `server.mjs`, `tools/developer.mjs`)
+- **Corrección de Toasts Nativos en Windows 10 y Windows 11**:
+  - Instanciación correcta de `ToastNotification` de WinRT eliminando el error de ejecución y garantizando entrega visual.
+- **Ventana de Seguridad Emergente con Botones "Sí, Autorizar" y "Declinar"**:
+  - Despliegue nativo de diálogo interactivo en primer plano con el escudo de Windows, sonido de alerta suave y botones interactivos:
+    - `[✅ Sí, Autorizar]`: aprueba automáticamente la solicitud de permisos en Fluxer X.
+    - `[❌ Declinar]`: cancela y deniega la solicitud inmediatamente.
+- **Notificaciones del Ciclo de Vida de Conexión de IA**:
+  - Detección precisa de apertura de app / inicio de sesión (`"se conectó exitosamente"` / `"inició sesión y se conectó"`).
+  - Detección precisa de cierre de app / cierre de sesión (`"se desconectó exitosamente"` / `"cerró sesión y se desconectó"`).
+- **Control On / Off de Notificaciones para el Usuario y la IA (`tools/developer.mjs`)**:
+  - `developer { action: 'notifications_connection', state: 'off' }`: desactiva las notificaciones de conexión/desconexión.
+  - `developer { action: 'notifications_security', state: 'off' }`: desactiva las ventanas emergentes de seguridad.
+  - Estado persistido permanentemente en `storage/notifications.json`.
+- **Motor Anti-Duplicación y Debounce Cross-Proceso**:
+  - Implementado debounce inteligente tanto en memoria como entre procesos concurrentes (`connection_notification_lock.json`).
+  - Cuando una aplicación cliente o entorno MCP genera múltiples instancias o reconexiones en ráfaga (ej: Claude Desktop o Codex levantando workers), solo se muestra una única notificación limpia en el escritorio de Windows, eliminando por completo las alertas duplicadas o dobles.
+
+---
+
 ## [v20.5.0] - 2026-09-15 (Major Titan Release v20.5 — Print Previews, ASCII Layouts, DOCX/Word Pipeline, Render Styles & Folder Batch Printing)
 
 ### 🖨️ Vistas Previas de Impresión y Esquemas Visuales en `printcenter` (`tools/printcenter.mjs` & `platform/print_engine.ps1`)

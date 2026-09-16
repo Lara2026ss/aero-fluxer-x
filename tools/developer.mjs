@@ -1,4 +1,4 @@
-﻿import os from "node:os";
+import os from "node:os";
 import https from "node:https";
 import http from "node:http";
 import crypto from "node:crypto";
@@ -233,6 +233,64 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
       if (action === "enable" || action === "on") return setAdvisoryEnabled(true);
       if (action === "toggle") return toggleAdvisory();
       return getAdvisoryStatus();
+    },
+
+    notifications_connection: async (args = {}) => {
+      const notifCenter = runtime.notifications;
+      let targetState = null;
+      if (typeof args === "string") {
+        const s = args.trim().toLowerCase();
+        if (["off", "false", "disable", "desactivar", "0", "mute", "silenciar"].includes(s)) targetState = false;
+        if (["on", "true", "enable", "activar", "1"].includes(s)) targetState = true;
+      } else if (args && typeof args === "object") {
+        if (typeof args.enabled === "boolean") targetState = args.enabled;
+        const candidate = String(args.state || args.status || args.action || "").trim().toLowerCase();
+        if (["off", "false", "disable", "desactivar", "0", "mute", "silenciar"].includes(candidate)) targetState = false;
+        if (["on", "true", "enable", "activar", "1"].includes(candidate)) targetState = true;
+        if (args.toggle) targetState = !notifCenter?.isConnectionEnabled();
+      }
+
+      if (targetState !== null && notifCenter?.setConnectionEnabled) {
+        notifCenter.setConnectionEnabled(targetState);
+      }
+
+      const isNow = notifCenter ? notifCenter.isConnectionEnabled() : true;
+      return {
+        ok: true,
+        type: "notifications_connection",
+        enabled: isNow,
+        status: isNow ? "ON" : "OFF",
+        message: `Notificaciones nativas de conexión/desconexión de IA ahora están ${isNow ? "ACTIVADAS (ON)" : "DESACTIVADAS (OFF)"}.`,
+      };
+    },
+
+    notifications_security: async (args = {}) => {
+      const notifCenter = runtime.notifications;
+      let targetState = null;
+      if (typeof args === "string") {
+        const s = args.trim().toLowerCase();
+        if (["off", "false", "disable", "desactivar", "0", "mute", "silenciar"].includes(s)) targetState = false;
+        if (["on", "true", "enable", "activar", "1"].includes(s)) targetState = true;
+      } else if (args && typeof args === "object") {
+        if (typeof args.enabled === "boolean") targetState = args.enabled;
+        const candidate = String(args.state || args.status || args.action || "").trim().toLowerCase();
+        if (["off", "false", "disable", "desactivar", "0", "mute", "silenciar"].includes(candidate)) targetState = false;
+        if (["on", "true", "enable", "activar", "1"].includes(candidate)) targetState = true;
+        if (args.toggle) targetState = !notifCenter?.isSecurityEnabled();
+      }
+
+      if (targetState !== null && notifCenter?.setSecurityEnabled) {
+        notifCenter.setSecurityEnabled(targetState);
+      }
+
+      const isNow = notifCenter ? notifCenter.isSecurityEnabled() : true;
+      return {
+        ok: true,
+        type: "notifications_security",
+        enabled: isNow,
+        status: isNow ? "ON" : "OFF",
+        message: `Notificaciones emergentes de seguridad y autorizaciones interactivas (con botones Sí/Declinar) ahora están ${isNow ? "ACTIVADAS (ON)" : "DESACTIVADAS (OFF)"}.`,
+      };
     },
 
     detect_project: async ({ path: p = "." } = {}) => {
@@ -2671,13 +2729,88 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
         };
       }
     },
+
+    notifications_connection: async ({ state, enabled, toggle = null } = {}) => {
+      let isEnabled;
+      if (typeof state === "string") {
+        const s = state.trim().toLowerCase();
+        if (s === "off" || s === "disable" || s === "disabled" || s === "false" || s === "no") {
+          isEnabled = false;
+        } else if (s === "on" || s === "enable" || s === "enabled" || s === "true" || s === "yes") {
+          isEnabled = true;
+        }
+      } else if (typeof enabled === "boolean") {
+        isEnabled = enabled;
+      } else if (typeof toggle === "boolean") {
+        isEnabled = toggle;
+      }
+      if (isEnabled === undefined) {
+        isEnabled = !runtime.notifications?.isConnectionEnabled();
+      }
+
+      if (runtime.notifications) {
+        runtime.notifications.setConnectionEnabled(isEnabled);
+      }
+
+      return {
+        ok: true,
+        connection_notifications_enabled: isEnabled,
+        status: isEnabled ? "ENABLED" : "DISABLED",
+        message: isEnabled
+          ? "Notificaciones de conexión y desconexión activadas exitosamente."
+          : "Notificaciones de conexión y desconexión desactivadas exitosamente.",
+      };
+    },
+
+    notifications_security: async ({ state, enabled, toggle = null } = {}) => {
+      let isEnabled;
+      if (typeof state === "string") {
+        const s = state.trim().toLowerCase();
+        if (s === "off" || s === "disable" || s === "disabled" || s === "false" || s === "no") {
+          isEnabled = false;
+        } else if (s === "on" || s === "enable" || s === "enabled" || s === "true" || s === "yes") {
+          isEnabled = true;
+        }
+      } else if (typeof enabled === "boolean") {
+        isEnabled = enabled;
+      } else if (typeof toggle === "boolean") {
+        isEnabled = toggle;
+      }
+      if (isEnabled === undefined) {
+        isEnabled = !runtime.notifications?.isSecurityEnabled();
+      }
+
+      if (runtime.notifications) {
+        runtime.notifications.setSecurityEnabled(isEnabled);
+      }
+
+      return {
+        ok: true,
+        security_notifications_enabled: isEnabled,
+        status: isEnabled ? "ENABLED" : "DISABLED",
+        message: isEnabled
+          ? "Notificaciones emergentes de seguridad activadas exitosamente."
+          : "Notificaciones emergentes de seguridad desactivadas exitosamente.",
+      };
+    },
   };
+
+  actions.notification_connection = actions.notifications_connection;
+  actions.connection_notifications = actions.notifications_connection;
+  actions.notification_security = actions.notifications_security;
+  actions.security_notifications = actions.notifications_security;
+  actions.toggle_notifications = actions.notifications_connection;
 
   return domain(
     "developer",
-    "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.",
+    "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase), actualización y control de notificaciones.",
     actions,
     {
+      notifications_connection: "standard",
+      notifications_security: "standard",
+      notification_connection: "standard",
+      notification_security: "standard",
+      toggle_notifications: "standard",
       create_skill: "standard",
       edit_skill: "standard",
       delete_skill: "standard",

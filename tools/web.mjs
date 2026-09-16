@@ -96,6 +96,49 @@ function stripHtml(html) {
     .trim();
 }
 
+// ── DICCIONARIO CONTROLADO DE TÉRMINOS VISUALES (PUENTE ES-EN) ────────────────
+const SPANISH_TO_ENGLISH_KEYWORDS = {
+  "jardin": "garden", "jardín": "garden", "nocturno": "night", "noche": "night",
+  "flores": "flowers", "flor": "flower", "azules": "blue", "azul": "blue",
+  "pajaros": "birds", "pájaros": "birds", "pajaro": "bird", "pájaro": "bird",
+  "luna": "moon", "estrellas": "stars", "estrella": "star",
+  "colorear": "coloring page", "dibujo": "drawing", "dibujos": "drawings",
+  "infantil": "kids cartoon", "niños": "kids", "niñas": "kids",
+  "imprimir": "printable", "lineas": "line art", "líneas": "line art",
+  "prueba": "test", "pruebas": "test sample", "texto": "text typography",
+  "paisaje": "landscape", "bosque": "forest", "montaña": "mountain",
+  "mar": "sea ocean", "playa": "beach", "cielo": "sky", "sol": "sun",
+  "animales": "animals", "gato": "cat", "perro": "dog", "caballo": "horse",
+  "arbol": "tree", "árbol": "tree", "naturaleza": "nature",
+  "ciudad": "city skyline", "auto": "car", "coche": "car", "avion": "airplane"
+};
+
+function translateQueryBridge(query) {
+  const words = query.toLowerCase().replace(/[,.:;()]/g, " ").split(/\s+/).filter(Boolean);
+  const translated = [];
+  for (const w of words) {
+    if (SPANISH_TO_ENGLISH_KEYWORDS[w]) {
+      translated.push(SPANISH_TO_ENGLISH_KEYWORDS[w]);
+    }
+  }
+  return translated.length > 0 ? translated.join(" ") : null;
+}
+
+function normalizeMediaUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    u.searchParams.delete("utm_source");
+    u.searchParams.delete("utm_medium");
+    u.searchParams.delete("utm_campaign");
+    u.searchParams.delete("utm_content");
+    u.searchParams.delete("fclid");
+    u.searchParams.delete("ref");
+    return `${u.protocol}//${u.host.toLowerCase()}${u.pathname}`.replace(/\/+$/, "");
+  } catch (_) {
+    return rawUrl.trim().toLowerCase();
+  }
+}
+
 /**
  * Factory principal del dominio Web
  */
@@ -104,7 +147,7 @@ export function createWebDomain({ runtime, domain }) {
     /**
      * 🔎 web.search: Búsqueda general en la web con DuckDuckGo, Wikipedia y Reddit
      */
-    search: async ({ query, domain: filterDomain = null, limit = 5, engine = "all" } = {}) => {
+    search: async ({ query, domain: filterDomain = null, limit = 5, engine = "all", compact = true } = {}) => {
       if (!query || typeof query !== "string" || !query.trim()) {
         return { ok: false, error: "Se requiere 'query' con el texto de búsqueda." };
       }
@@ -211,124 +254,423 @@ export function createWebDomain({ runtime, domain }) {
         } catch (_) {}
       }
 
+      if (results.length === 0) {
+        return {
+          ok: false,
+          error: "NO_WEB_RESULTS",
+          query: q,
+          count: 0,
+          results: [],
+          message: `No se encontraron resultados web abiertos para '${q}'.`,
+          suggestions: [
+            "Prueba términos más concisos o consulta directamente Wikipedia con web.wikipedia { query }.",
+            "Si buscas imágenes, utiliza web.search_images { query }.",
+          ],
+        };
+      }
+
       return {
         ok: true,
         query: q,
-        count: results.length,
-        results,
+        count: Math.min(results.length, maxResults),
+        mode: compact !== false ? "compact" : "detailed",
+        results: results.slice(0, maxResults).map((r, idx) => ({
+          id: idx + 1,
+          title: r.title,
+          snippet: compact !== false ? (r.snippet.length > 180 ? r.snippet.slice(0, 180) + "..." : r.snippet) : r.snippet,
+          url: r.url,
+          source: r.source,
+        })),
         tip_for_ai: "Puedes usar web.read_page { url } para leer el contenido completo de cualquiera de estos resultados, o web.download { url } si es una imagen o video.",
       };
     },
 
     /**
-     * 🖼️ web.search_images: Busca imágenes específicas listas para descargar y usar
+     * 🖼️ web.search_images: Búsqueda avanzada de imágenes multi-proveedor (Openverse, Wikimedia, Wikipedia, DDG)
+     * Diseñado para máxima fidelidad, sin fallbacks estáticos y con modo compacto por defecto para optimizar tokens.
      */
-    search_images: async ({ query, limit = 6 } = {}) => {
+    search_images: async ({ query, limit = 12, compact = true, engine = "auto", provider = null } = {}) => {
       if (!query || typeof query !== "string" || !query.trim()) {
-        return { ok: false, error: "Se requiere 'query' para buscar imágenes." };
+        return { ok: false, error: "MISSING_QUERY", message: "Se requiere 'query' para buscar imágenes." };
       }
 
       const q = query.trim();
-      const maxResults = Math.max(1, Math.min(Number(limit) || 6, 20));
-      const images = [];
-      const seenUrls = new Set();
+      const maxResults = Math.max(9, Math.min(Number(limit) || 12, 30));
+      const targetEngine = (provider || engine || "auto").toLowerCase();
+      const queryWords = q.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+      const englishQuery = translateQueryBridge(q);
 
-      function addImage(item) {
-        if (!item?.url || seenUrls.has(item.url)) return;
-        seenUrls.add(item.url);
-        images.push(item);
-      }
+      const providerTasks = [];
+      const providerStatus = {};
 
-      // 1. DuckDuckGo Web Image Search (imágenes reales con enlaces directos y distintas fuentes)
-      try {
-        const pageRes = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`, {
-          headers: { "User-Agent": USER_AGENT },
-          signal: AbortSignal.timeout(6000),
-        });
-        const html = await pageRes.text();
-        const vqdMatch = html.match(/vqd=([0-9-]+)/i) || html.match(/vqd="([^"]+)"/i);
-        if (vqdMatch && vqdMatch[1]) {
-          const vqd = vqdMatch[1];
-          const imgRes = await fetch(`https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${vqd}`, {
-            headers: { "User-Agent": USER_AGENT, Referer: "https://duckduckgo.com/" },
-            signal: AbortSignal.timeout(6000),
-          });
-          if (imgRes.ok) {
-            const data = await imgRes.json();
-            for (const item of (data.results || []).slice(0, maxResults)) {
-              if (item.image) {
-                addImage({
-                  id: images.length + 1,
-                  title: item.title || q,
-                  url: item.image,
-                  thumbnail: item.thumbnail || null,
-                  source_page: item.url || null,
-                  dimensions: item.width && item.height ? `${item.width}x${item.height}` : null,
-                  width: item.width || null,
-                  height: item.height || null,
-                  source: "web_search",
-                });
-              }
+      // 1. Openverse API (Creative Commons, flickr, museos y fotografía libre de alta calidad)
+      if (["auto", "openverse"].includes(targetEngine)) {
+        providerTasks.push(
+          (async () => {
+            try {
+              const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=${maxResults}`;
+              const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(5000) });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+              const items = (data.results || []).map((r) => ({
+                title: r.title || q,
+                url: r.url,
+                thumbnail: r.thumbnail || r.url,
+                dimensions: r.width && r.height ? `${r.width}x${r.height}` : null,
+                width: r.width,
+                height: r.height,
+                source: "openverse",
+                license: r.license,
+              }));
+              providerStatus.openverse = { ok: true, count: items.length };
+              return items;
+            } catch (err) {
+              providerStatus.openverse = { ok: false, error: err.message };
+              return [];
             }
+          })()
+        );
+
+        if (englishQuery && englishQuery !== q.toLowerCase()) {
+          providerTasks.push(
+            (async () => {
+              try {
+                const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(englishQuery)}&page_size=${maxResults}`;
+                const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(5000) });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const items = (data.results || []).map((r) => ({
+                  title: r.title || q,
+                  url: r.url,
+                  thumbnail: r.thumbnail || r.url,
+                  dimensions: r.width && r.height ? `${r.width}x${r.height}` : null,
+                  width: r.width,
+                  height: r.height,
+                  source: "openverse",
+                  license: r.license,
+                }));
+                providerStatus.openverse_en = { ok: true, count: items.length };
+                return items;
+              } catch (err) {
+                providerStatus.openverse_en = { ok: false, error: err.message };
+                return [];
+              }
+            })()
+          );
+
+          const enWords = englishQuery.split(" ");
+          if (enWords.length > 3) {
+            const topWords = enWords.slice(0, 4).join(" ");
+            providerTasks.push(
+              (async () => {
+                try {
+                  const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(topWords)}&page_size=${maxResults}`;
+                  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(5000) });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  const data = await res.json();
+                  const items = (data.results || []).map((r) => ({
+                    title: r.title || q,
+                    url: r.url,
+                    thumbnail: r.thumbnail || r.url,
+                    dimensions: r.width && r.height ? `${r.width}x${r.height}` : null,
+                    width: r.width,
+                    height: r.height,
+                    source: "openverse",
+                    license: r.license,
+                  }));
+                  providerStatus.openverse_sub = { ok: true, count: items.length };
+                  return items;
+                } catch (err) {
+                  providerStatus.openverse_sub = { ok: false, error: err.message };
+                  return [];
+                }
+              })()
+            );
           }
         }
-      } catch (_) {}
+      }
 
-      // 2. Wikimedia Commons API (imágenes libres en alta resolución)
-      if (images.length < maxResults) {
-        try {
-          const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=${maxResults}&prop=imageinfo&iiprop=url|size|mime&format=json`;
-          const res = await fetch(commonsUrl, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(6000) });
-          if (res.ok) {
-            const data = await res.json();
-            const pages = data.query?.pages || {};
-            for (const p of Object.values(pages)) {
-              if (images.length >= maxResults) break;
-              const info = p.imageinfo?.[0];
-              if (info?.url) {
-                addImage({
-                  id: images.length + 1,
-                  title: (p.title || "").replace(/^File:/i, ""),
-                  url: info.url,
-                  thumbnail: info.thumburl || info.url,
-                  source_page: `https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
-                  dimensions: `${info.width}x${info.height}`,
-                  width: info.width,
-                  height: info.height,
-                  mime_type: info.mime,
-                  source: "wikimedia_commons",
-                });
-              }
+      // 2. Wikimedia Commons API (Medios libres, archivos históricos, diagramas)
+      if (["auto", "wikimedia"].includes(targetEngine)) {
+        providerTasks.push(
+          (async () => {
+            try {
+              const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=${maxResults}&prop=imageinfo&iiprop=url|size|mime&format=json`;
+              const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(5000) });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+              const pages = Object.values(data.query?.pages || {});
+              const items = pages
+                .map((p) => {
+                  const info = p.imageinfo?.[0];
+                  if (!info?.url || info.url.endsWith(".svg") || info.url.endsWith(".pdf") || info.url.endsWith(".ogg")) return null;
+                  return {
+                    title: (p.title || "").replace(/^File:/i, "").replace(/\.[a-zA-Z0-9]+$/, ""),
+                    url: info.url,
+                    thumbnail: info.thumburl || info.url,
+                    dimensions: `${info.width}x${info.height}`,
+                    width: info.width,
+                    height: info.height,
+                    source: "wikimedia_commons",
+                    license: "public_domain/cc",
+                  };
+                })
+                .filter(Boolean);
+              providerStatus.wikimedia = { ok: true, count: items.length };
+              return items;
+            } catch (err) {
+              providerStatus.wikimedia = { ok: false, error: err.message };
+              return [];
             }
+          })()
+        );
+
+        if (englishQuery && englishQuery !== q.toLowerCase()) {
+          providerTasks.push(
+            (async () => {
+              try {
+                const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(englishQuery)}&gsrlimit=${maxResults}&prop=imageinfo&iiprop=url|size|mime&format=json`;
+                const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(5000) });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const pages = Object.values(data.query?.pages || {});
+                const items = pages
+                  .map((p) => {
+                    const info = p.imageinfo?.[0];
+                    if (!info?.url || info.url.endsWith(".svg") || info.url.endsWith(".pdf") || info.url.endsWith(".ogg")) return null;
+                    return {
+                      title: (p.title || "").replace(/^File:/i, "").replace(/\.[a-zA-Z0-9]+$/, ""),
+                      url: info.url,
+                      thumbnail: info.thumburl || info.url,
+                      dimensions: `${info.width}x${info.height}`,
+                      width: info.width,
+                      height: info.height,
+                      source: "wikimedia_commons",
+                      license: "public_domain/cc",
+                    };
+                  })
+                  .filter(Boolean);
+                providerStatus.wikimedia_en = { ok: true, count: items.length };
+                return items;
+              } catch (err) {
+                providerStatus.wikimedia_en = { ok: false, error: err.message };
+                return [];
+              }
+            })()
+          );
+        }
+      }
+
+      // 3. Wikipedia PageImages API (Complementario para entidades enciclopédicas conocidas)
+      if (["auto", "wikipedia"].includes(targetEngine)) {
+        providerTasks.push(
+          (async () => {
+            try {
+              const url = `https://es.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=6&prop=pageimages|extracts&piprop=original|thumbnail&pithumbsize=600&exintro=1&explaintext=1&exchars=100&format=json`;
+              const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(5000) });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+              const pages = Object.values(data.query?.pages || {});
+              const items = pages
+                .map((p) => {
+                  const imgUrl = p.original?.source || p.thumbnail?.source;
+                  if (!imgUrl || imgUrl.endsWith(".svg")) return null;
+                  return {
+                    title: p.title,
+                    url: imgUrl,
+                    thumbnail: p.thumbnail?.source || imgUrl,
+                    dimensions: p.original ? `${p.original.width}x${p.original.height}` : null,
+                    width: p.original?.width,
+                    height: p.original?.height,
+                    source: "wikipedia_es",
+                    license: "wikipedia_fair_use_or_cc",
+                  };
+                })
+                .filter(Boolean);
+              providerStatus.wikipedia = { ok: true, count: items.length };
+              return items;
+            } catch (err) {
+              providerStatus.wikipedia = { ok: false, error: err.message };
+              return [];
+            }
+          })()
+        );
+      }
+
+      // 4. DuckDuckGo Image Scraper (Rápido cuando está disponible sin bloqueo)
+      if (["auto", "ddg"].includes(targetEngine)) {
+        providerTasks.push(
+          (async () => {
+            try {
+              const pageRes = await fetch(`https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`, {
+                headers: {
+                  "User-Agent": USER_AGENT,
+                  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+                },
+                signal: AbortSignal.timeout(5000),
+              });
+              if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status}`);
+              const html = await pageRes.text();
+              const vqdMatch = html.match(/vqd=([0-9-]+)/i) || html.match(/vqd="([^"]+)"/i) || html.match(/vqd:\s*"([^"]+)"/i);
+              if (!vqdMatch || !vqdMatch[1]) throw new Error("VQD_CHALLENGE");
+              const vqd = vqdMatch[1];
+              const imgRes = await fetch(`https://duckduckgo.com/i.js?l=us-en&o=json&q=${encodeURIComponent(q)}&vqd=${vqd}`, {
+                headers: { "User-Agent": USER_AGENT, Referer: "https://duckduckgo.com/" },
+                signal: AbortSignal.timeout(5000),
+              });
+              if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+              const data = await imgRes.json();
+              const items = [];
+              for (const item of (data.results || []).slice(0, maxResults)) {
+                if (item.image && !item.image.endsWith(".svg")) {
+                  items.push({
+                    title: item.title || q,
+                    url: item.image,
+                    thumbnail: item.thumbnail || null,
+                    source_page: item.url || null,
+                    dimensions: item.width && item.height ? `${item.width}x${item.height}` : null,
+                    width: item.width || null,
+                    height: item.height || null,
+                    source: "duckduckgo_images",
+                    license: "web_media",
+                  });
+                }
+              }
+              providerStatus.duckduckgo = { ok: true, count: items.length };
+              return items;
+            } catch (err) {
+              providerStatus.duckduckgo = { ok: false, error: err.message };
+              return [];
+            }
+          })()
+        );
+      }
+
+      // Ejecución paralela tolerante a fallos
+      const resultsByProvider = await Promise.all(providerTasks);
+      const allRawItems = resultsByProvider.flat();
+
+      // Deduplicación estricta por URL normalizada y título/dimensiones
+      const seenUrls = new Set();
+      const seenKeys = new Set();
+      const uniqueItems = [];
+
+      for (const item of allRawItems) {
+        if (!item?.url || typeof item.url !== "string") continue;
+        // Rechazar placeholders estáticos o SVGs no renderizables
+        if (item.url.includes("photo-1579546929518-9e396f3cc809") || item.url.endsWith(".svg")) continue;
+
+        const normUrl = normalizeMediaUrl(item.url);
+        if (seenUrls.has(normUrl)) continue;
+        seenUrls.add(normUrl);
+
+        const key = `${(item.title || "").toLowerCase().slice(0, 30)}_${item.dimensions || ""}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+
+        uniqueItems.push(item);
+      }
+
+      // Ranking y puntuación de relevancia
+      function scoreItem(item) {
+        let score = 0;
+        if (item.width && item.height) {
+          if (item.width >= 800 && item.height >= 600) score += 30;
+          else if (item.width >= 400 && item.height >= 300) score += 15;
+        }
+        if (item.thumbnail) score += 15;
+        if (item.license) score += 10;
+        const titleLower = (item.title || "").toLowerCase();
+        for (const w of queryWords) {
+          if (titleLower.includes(w)) score += 12;
+        }
+        if (englishQuery) {
+          for (const w of englishQuery.split(" ")) {
+            if (titleLower.includes(w)) score += 10;
           }
-        } catch (_) {}
+        }
+        // Priorizar line art o páginas de colorear si la búsqueda contiene colorear o dibujo
+        if (q.toLowerCase().includes("colorear") || q.toLowerCase().includes("dibujo")) {
+          if (titleLower.includes("colorear") || titleLower.includes("coloring") || titleLower.includes("line art") || titleLower.includes("dibujo")) {
+            score += 25;
+          }
+        }
+        return score;
       }
 
-      // Fallback seguro si las redes fallan
-      if (images.length === 0) {
-        addImage({
-          id: 1,
-          title: `Imagen representativa de ${q}`,
-          url: `https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1200&q=80`,
-          dimensions: "1200x800",
-          source: "stock_fallback",
-        });
+      // Validación de relevancia defensiva:
+      // Openverse y Wikimedia buscan por términos exactos/relevantes en sus APIs;
+      // Para DuckDuckGo, se verifica que no sea un volcado de noticias trending sin relación.
+      const candidateItems = uniqueItems.filter((item) => {
+        if (item.source !== "duckduckgo_images") return true;
+        const titleLower = (item.title || "").toLowerCase();
+        const urlLower = (item.url || "").toLowerCase();
+        const matchesOriginal = queryWords.some((w) => w.length >= 3 && (titleLower.includes(w) || urlLower.includes(w)));
+        const matchesEnglish = englishQuery ? englishQuery.split(" ").some((w) => w.length >= 3 && (titleLower.includes(w) || urlLower.includes(w))) : false;
+        return matchesOriginal || matchesEnglish;
+      });
+
+      candidateItems.sort((a, b) => scoreItem(b) - scoreItem(a));
+      const finalItems = candidateItems.slice(0, maxResults);
+
+      // Estado explícito de error si ningún proveedor devolvió resultados (NUNCA resultados falsos)
+      if (finalItems.length === 0) {
+        return {
+          ok: false,
+          error: "NO_RESULTS_FOUND",
+          query: q,
+          count: 0,
+          options: [],
+          provider_status: providerStatus,
+          suggestions: [
+            "Intenta simplificar la consulta con palabras clave más concisas.",
+            "Usa términos descriptivos básicos (ej: 'jardín flores azules' en vez de una frase larga).",
+            "Prueba consultar un tema enciclopédico o visual más amplio."
+          ],
+          message: `No se encontraron imágenes para '${q}'. No se inventaron resultados falsos ni estáticos.`
+        };
       }
 
+      // Modo compacto por defecto para preservar tokens de contexto
+      if (compact !== false) {
+        return {
+          ok: true,
+          query: q,
+          count: finalItems.length,
+          mode: "compact",
+          options: finalItems.map((img, idx) => ({
+            id: idx + 1,
+            title: img.title,
+            url: img.url,
+            thumb: img.thumbnail || img.url,
+            dim: img.dimensions || "desconocido",
+            src: img.source,
+            license: img.license || "desconocida",
+          })),
+          tip_for_ai: "Para guardar una imagen: web.download { url: '<url_elegida>' }. Para convertir a PDF: files.image_to_pdf.",
+        };
+      }
+
+      // Modo extendido completo (bajo demanda)
       return {
         ok: true,
         query: q,
-        count: images.length,
-        options_available: images.length,
-        options: images.map((img) => ({
-          option_id: img.id,
+        count: finalItems.length,
+        mode: "detailed",
+        provider_status: providerStatus,
+        options: finalItems.map((img, idx) => ({
+          id: idx + 1,
           title: img.title,
           url: img.url,
-          dimensions: img.dimensions || "desconocido",
+          thumbnail: img.thumbnail,
+          dimensions: img.dimensions,
+          width: img.width,
+          height: img.height,
           source: img.source,
+          license: img.license,
         })),
-        images,
-        instruction_for_ai: "Tienes múltiples opciones de imágenes disponibles. Puedes elegir una de ellas y guardarla con web.download { url: '<url_elegida>' } o convertirla a PDF con files.image_to_pdf.",
+        images: finalItems,
       };
     },
 

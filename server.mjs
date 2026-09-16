@@ -16,6 +16,7 @@ import { Router } from "./core/router.mjs";
 import { startDashboardApi } from "./core/dashboard-api.mjs";
 import { PluginLoader } from "./core/plugin-loader.mjs";
 import { sendNativeNotification } from "./core/notify.mjs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import {
   parseResilientJson,
   unwrapArgs,
@@ -30,14 +31,76 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = CURRENT_VERSION;
 const SERVER_NAME = APP_NAME;
 
-function notifyClient(clientName, event = "connect", version = VERSION, options = {}) {
-  // Las notificaciones de conexión/desconexión son internas para el logger/dashboard y NO generan toasts molestos en la PC del usuario
-  if (!options.native) {
+let inProcessLastConnect = 0;
+let inProcessLastDisconnect = 0;
+
+function notifyClient(clientName, event = "connect", version = VERSION, options = {}, runtime = null) {
+  if (runtime?.notifications && !runtime.notifications.isConnectionEnabled()) {
     return;
   }
+
+  const now = Date.now();
+  const DEBOUNCE_MS = 12000;
+  const isConnectEvent = event === "connect" || event === "login";
+  const isDisconnectEvent = event === "disconnect" || event === "logout";
+
+  // 1. In-process cooldown
+  if (isConnectEvent && now - inProcessLastConnect < DEBOUNCE_MS) {
+    return;
+  }
+  if (isDisconnectEvent && now - inProcessLastDisconnect < DEBOUNCE_MS) {
+    return;
+  }
+
+  // 2. Cross-process lock file debounce (evita duplicación entre múltiples procesos concurrentes de la IA)
+  let lockFile = null;
+  try {
+    const storageDir = runtime?.dirs?.storage || (process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "FluxerX", "storage") : null);
+    if (storageDir) {
+      mkdirSync(storageDir, { recursive: true });
+      lockFile = path.join(storageDir, "connection_notification_lock.json");
+      if (existsSync(lockFile)) {
+        const raw = readFileSync(lockFile, "utf8");
+        const lock = JSON.parse(raw);
+        if (isConnectEvent && lock.lastConnectTs && (now - lock.lastConnectTs < DEBOUNCE_MS)) {
+          return;
+        }
+        if (isDisconnectEvent && lock.lastDisconnectTs && (now - lock.lastDisconnectTs < DEBOUNCE_MS)) {
+          return;
+        }
+      }
+    }
+  } catch {}
+
+  if (isConnectEvent) inProcessLastConnect = now;
+  if (isDisconnectEvent) inProcessLastDisconnect = now;
+
+  try {
+    if (lockFile) {
+      let existing = {};
+      try { existing = existsSync(lockFile) ? JSON.parse(readFileSync(lockFile, "utf8")) : {}; } catch {}
+      if (isConnectEvent) {
+        existing.lastConnectTs = now;
+        existing.lastConnectClient = clientName;
+      }
+      if (isDisconnectEvent) {
+        existing.lastDisconnectTs = now;
+        existing.lastDisconnectClient = clientName;
+      }
+      writeFileSync(lockFile, JSON.stringify(existing, null, 2), "utf8");
+    }
+  } catch {}
+
   const displayAI = (clientName || "Agente IA").replace(/"/g, "'").trim();
-  const actionText = event === "connect" ? "conectó exitosamente a" : "desconectó exitosamente de";
-  const msg = `La Inteligencia Artificial "${displayAI}" se ${actionText} Fluxer Core v${version}`;
+  let actionText = "se conectó exitosamente a";
+  if (event === "login") {
+    actionText = "inició sesión y se conectó exitosamente a";
+  } else if (event === "logout") {
+    actionText = "cerró sesión y se desconectó de";
+  } else if (event === "disconnect") {
+    actionText = "se desconectó exitosamente de";
+  }
+  const msg = `La Inteligencia Artificial "${displayAI}" ${actionText} Fluxer Core v${version}`;
   sendNativeNotification("FLUXER CORE MCP", msg, options);
 }
 
@@ -370,14 +433,22 @@ export async function startServer() {
     plugins: pluginsLoaded.length,
     client: getClientName(),
   });
-  notifyClient(getClientName(), "connect", VERSION, { sync: false, native: false });
+
+  let hasConnected = false;
+  const notifyConnect = (eventType = "connect") => {
+    if (hasConnected) return;
+    hasConnected = true;
+    notifyClient(getClientName(), eventType, VERSION, { sync: false }, runtime);
+  };
+  notifyConnect("connect");
 
   let hasDisconnected = false;
   const notifyDisconnect = (reason = "shutdown") => {
     if (hasDisconnected) return;
     hasDisconnected = true;
     const cName = getClientName();
-    try { notifyClient(cName, "disconnect", VERSION, { sync: false, native: false }); } catch {}
+    const eventType = (reason === "session_close" || reason === "logout") ? "logout" : "disconnect";
+    try { notifyClient(cName, eventType, VERSION, { sync: true }, runtime); } catch {}
   };
 
   const shutdown = async (signal) => {

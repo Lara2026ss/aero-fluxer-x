@@ -12,6 +12,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { EventEmitter } from "node:events";
+import { sendNativeNotification, promptSecurityDialog } from "./notify.mjs";
 
 export class NotificationCenter extends EventEmitter {
   constructor({ logger, confirmations, permissions, dirs } = {}) {
@@ -24,6 +25,8 @@ export class NotificationCenter extends EventEmitter {
     this.storageFile = dirs?.storage ? path.join(dirs.storage, "notifications.json") : null;
     this.maxItems = 100;
     this.enabled = true;
+    this.connectionEnabled = true;
+    this.securityEnabled = true;
   }
 
   isEnabled() {
@@ -37,6 +40,28 @@ export class NotificationCenter extends EventEmitter {
     return this.enabled;
   }
 
+  isConnectionEnabled() {
+    return this.enabled && this.connectionEnabled !== false;
+  }
+
+  setConnectionEnabled(val) {
+    this.connectionEnabled = Boolean(val);
+    this.emit("config_changed", { connectionEnabled: this.connectionEnabled });
+    this.save().catch(() => {});
+    return this.connectionEnabled;
+  }
+
+  isSecurityEnabled() {
+    return this.enabled && this.securityEnabled !== false;
+  }
+
+  setSecurityEnabled(val) {
+    this.securityEnabled = Boolean(val);
+    this.emit("config_changed", { securityEnabled: this.securityEnabled });
+    this.save().catch(() => {});
+    return this.securityEnabled;
+  }
+
   async load() {
     if (!this.storageFile) return;
     try {
@@ -45,6 +70,12 @@ export class NotificationCenter extends EventEmitter {
       if (parsed && typeof parsed === "object") {
         if (typeof parsed.enabled === "boolean") {
           this.enabled = parsed.enabled;
+        }
+        if (typeof parsed.connectionEnabled === "boolean") {
+          this.connectionEnabled = parsed.connectionEnabled;
+        }
+        if (typeof parsed.securityEnabled === "boolean") {
+          this.securityEnabled = parsed.securityEnabled;
         }
         const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.notifications) ? parsed.notifications : []);
         for (const item of list) {
@@ -66,6 +97,8 @@ export class NotificationCenter extends EventEmitter {
     try {
       const payload = {
         enabled: this.enabled,
+        connectionEnabled: this.connectionEnabled,
+        securityEnabled: this.securityEnabled,
         notifications: [...this.notifications.values()].slice(-this.maxItems),
         savedAt: new Date().toISOString(),
       };
@@ -202,7 +235,7 @@ export class NotificationCenter extends EventEmitter {
 
     const message = `La IA (${clientLabel}) solicita ejecutar '${tool}.${action}' que requiere permisos de nivel '${classification.badge}'. Haz clic en 'Autorizar' para conceder acceso o en 'X' para denegar.`;
 
-    return this.create({
+    const entry = this.create({
       title,
       message,
       type: "permission_request",
@@ -216,6 +249,36 @@ export class NotificationCenter extends EventEmitter {
       clientName: clientLabel,
       status: "pending",
     });
+
+    // Despachar diálogo interactivo con botones "Sí, Autorizar" y "Declinar" + Toast si securityEnabled está activo
+    if (this.isSecurityEnabled()) {
+      try {
+        promptSecurityDialog({
+          title: "Fluxer X — Autorización de Seguridad",
+          tool,
+          action,
+          required: classification.badge,
+          confirmationCode,
+          requestId,
+          clientName: clientLabel,
+        }, (decision) => {
+          if (decision === "approved") {
+            this.approve(requestId || confirmationCode);
+          } else {
+            this.deny(requestId || confirmationCode, { reason: "Declinado por el usuario en ventana de seguridad" });
+          }
+        });
+
+        sendNativeNotification(
+          title,
+          `La IA (${clientLabel}) solicita ejecutar '${tool}.${action}'. Código: [${confirmationCode}]. Responde en la ventana emergente.`
+        );
+      } catch (err) {
+        this.logger?.warn("security_prompt_dialog_error", { error: err.message });
+      }
+    }
+
+    return entry;
   }
 
   /**

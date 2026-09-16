@@ -25,25 +25,81 @@ import { existsSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 // ── 1. PARSER DEFENSIVO DE RANGOS DE PÁGINAS ──────────────────────────────────
-export function parsePageRange(rangeStr, totalPages = null) {
-  if (!rangeStr || typeof rangeStr !== "string") {
+export function parsePageRange(rangeInput, totalPages = null) {
+  // 1. Si es un array directo: [1, 5, 7] o ["1", "5", "7"]
+  if (Array.isArray(rangeInput)) {
+    const numbers = rangeInput
+      .map((item) => parseInt(String(item).trim(), 10))
+      .filter((n) => !isNaN(n) && n > 0);
+    if (numbers.length === 0) {
+      if (totalPages !== null && totalPages > 0) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+      }
+      return [1];
+    }
+    const pageSet = new Set(numbers);
+    let sorted = Array.from(pageSet).sort((a, b) => a - b);
+    if (totalPages !== null && totalPages > 0) {
+      sorted = sorted.filter((p) => p <= totalPages);
+      if (sorted.length === 0) {
+        const err = new Error(`Ninguna de las páginas solicitadas está dentro del documento (${totalPages} páginas disponibles).`);
+        err.code = "PAGE_OUT_OF_RANGE";
+        err.details = { requested: rangeInput, total_document_pages: totalPages };
+        throw err;
+      }
+    }
+    return sorted;
+  }
+
+  // 2. Si es un número único: 5
+  if (typeof rangeInput === "number") {
+    const p = Math.floor(rangeInput);
+    if (p <= 0) return [1];
+    if (totalPages !== null && totalPages > 0 && p > totalPages) {
+      const err = new Error(`Página solicitada (${p}) fuera de rango. El documento sólo contiene ${totalPages} páginas.`);
+      err.code = "PAGE_OUT_OF_RANGE";
+      err.details = { requested_page: p, total_document_pages: totalPages };
+      throw err;
+    }
+    return [p];
+  }
+
+  // 3. Si no se especificó o no es string
+  if (!rangeInput || typeof rangeInput !== "string") {
     if (totalPages !== null && totalPages > 0) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
     return [1];
   }
 
-  const raw = rangeStr.trim().toLowerCase();
-  if (["all", "todas", "todo", "*"].includes(raw)) {
+  let raw = rangeInput.trim().toLowerCase();
+
+  // Palabras clave de rango continuo / todas las páginas
+  const continuousKeywords = [
+    "all", "todas", "todo", "todas las paginas", "todas las páginas",
+    "completo", "full", "continuous", "continuas", "contínuas",
+    "continuo", "contínuo", "paginas continuas", "páginas continuas", "*"
+  ];
+  if (continuousKeywords.includes(raw)) {
     if (totalPages !== null && totalPages > 0) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
     return null; // Representa todas las páginas disponibles
   }
 
-  // Rechazar separadores vacíos consecutivos ("1,,4") o caracteres ilegales
+  // Normalizar variaciones de sintaxis: "1 al 5", "1 a 5", "1..5" -> "1-5"
+  raw = raw.replace(/\b(\d+)\s+al?\s+(\d+)\b/g, "$1-$2");
+  raw = raw.replace(/\b(\d+)\.\.(\d+)\b/g, "$1-$2");
+  // Normalizar palabras clave de fin: "1-end", "1-fin", "1-last", "1-total"
+  if (totalPages !== null && totalPages > 0) {
+    raw = raw.replace(/[-](end|fin|last|total|final)\b/g, `-${totalPages}`);
+  }
+  // Normalizar separadores punto y coma a comas
+  raw = raw.replace(/;/g, ",");
+
+  // Rechazar separadores vacíos consecutivos o caracteres ilegales
   if (raw.includes(",,") || /[^0-9,\s\-]/.test(raw)) {
-    const err = new Error(`Formato de rango de páginas inválido: '${rangeStr}'. Use formato como '1', '1,4' o '1-3,5'.`);
+    const err = new Error(`Formato de rango de páginas inválido: '${rangeInput}'. Use formatos como '1', '1, 5, 7', '1-5' o 'continuous'.`);
     err.code = "INVALID_PAGE_RANGE";
     throw err;
   }
@@ -66,7 +122,7 @@ export function parsePageRange(rangeStr, totalPages = null) {
         throw err;
       }
       const start = parseInt(parts[0], 10);
-      const end = parseInt(parts[1], 10);
+      let end = parseInt(parts[1], 10);
 
       if (isNaN(start) || isNaN(end) || start <= 0 || end <= 0) {
         const err = new Error(`Los números de página deben ser enteros positivos: '${token}'.`);
@@ -79,6 +135,19 @@ export function parsePageRange(rangeStr, totalPages = null) {
         throw err;
       }
 
+      // Clamping inteligente si totalPages es conocido
+      if (totalPages !== null && totalPages > 0) {
+        if (start > totalPages) {
+          const err = new Error(`Rango '${token}' inicia en página ${start}, pero el documento sólo contiene ${totalPages} páginas.`);
+          err.code = "PAGE_OUT_OF_RANGE";
+          err.details = { requested_range: token, total_document_pages: totalPages };
+          throw err;
+        }
+        if (end > totalPages) {
+          end = totalPages;
+        }
+      }
+
       for (let p = start; p <= end; p++) {
         pageSet.add(p);
       }
@@ -89,23 +158,17 @@ export function parsePageRange(rangeStr, totalPages = null) {
         err.code = "INVALID_PAGE_RANGE";
         throw err;
       }
+      if (totalPages !== null && totalPages > 0 && page > totalPages) {
+        const err = new Error(`Página solicitada (${page}) fuera de rango. El documento sólo contiene ${totalPages} páginas.`);
+        err.code = "PAGE_OUT_OF_RANGE";
+        err.details = { requested_page: page, total_document_pages: totalPages };
+        throw err;
+      }
       pageSet.add(page);
     }
   }
 
   const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
-
-  if (totalPages !== null && totalPages > 0) {
-    for (const p of sortedPages) {
-      if (p > totalPages) {
-        const err = new Error(`Página solicitada (${p}) fuera de rango. El documento sólo contiene ${totalPages} páginas.`);
-        err.code = "PAGE_OUT_OF_RANGE";
-        err.details = { requested_page: p, total_document_pages: totalPages };
-        throw err;
-      }
-    }
-  }
-
   return sortedPages;
 }
 
@@ -410,9 +473,25 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
     if (args.JobId) cmdArgs.push("-JobId", String(args.JobId));
     if (args.OutPdfPath) cmdArgs.push("-OutPdfPath", String(args.OutPdfPath));
 
+    // Timeout dinámico para evitar cortes en documentos con múltiples páginas
+    let dynamicTimeout = 60000; // Base 60s
+    if (args.PageIndicesJson) {
+      try {
+        const pages = JSON.parse(args.PageIndicesJson);
+        if (Array.isArray(pages) && pages.length > 0) {
+          // 4 segundos por página + base de 30s
+          dynamicTimeout = Math.max(60000, 30000 + (pages.length * 4000));
+        }
+      } catch {}
+    }
+    if (args.timeout_ms) {
+      dynamicTimeout = Math.max(dynamicTimeout, parseInt(args.timeout_ms, 10));
+    }
+    dynamicTimeout = Math.min(dynamicTimeout, 300000); // Límite de seguridad 5 min
+
     const res = spawnSync("powershell.exe", cmdArgs, {
       encoding: "utf8",
-      timeout: 35000,
+      timeout: dynamicTimeout,
       windowsHide: true,
     });
 
@@ -488,10 +567,35 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       };
     },
 
+    // ── Inspección Rápida de PDF (pdf_info) ──────────────────────────────────
+    pdf_info: async ({ file = null, file_path = null } = {}) => {
+      const target = (file || file_path || "").trim();
+      if (!target) {
+        return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' con la ruta del archivo PDF a inspeccionar." };
+      }
+      const resolved = path.resolve(target);
+      if (!existsSync(resolved)) {
+        return { ok: false, error: "FILE_NOT_FOUND", message: `El archivo PDF no existe: '${resolved}'.` };
+      }
+      const info = runPrintEngine("get_pdf_info", { SourceFile: resolved });
+      if (!info.ok) return info;
+      const count = info.page_count || 1;
+      return {
+        ...info,
+        pages_summary: `Total de páginas: ${count}`,
+        pages_list: Array.from({ length: Math.min(count, 100) }, (_, i) => i + 1),
+        recommendations: {
+          continuous: `printcenter { action: 'print', file: '${path.basename(resolved)}', pages: 'continuous' }`,
+          range: `printcenter { action: 'print', file: '${path.basename(resolved)}', pages: '1-${count}' }`,
+          selection: count > 2 ? `printcenter { action: 'print', file: '${path.basename(resolved)}', pages: [1, ${Math.ceil(count / 2)}, ${count}] }` : undefined,
+        },
+      };
+    },
+
     // ── 5. Preflight / Dry-Run de Impresión (preflight) ───────────────────────
     preflight: async (args = {}) => {
       const printerName = (args.printer || args.printer_name || "").trim();
-      const sourceFile = (args.file || args.file_path || args.source || "").trim();
+      const sourceFile = (args.file || args.file_path || args.source || args.path || args.target || "").trim();
 
       if (!sourceFile) {
         return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' o 'file_path' del archivo a validar." };
@@ -529,10 +633,19 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         }
       }
 
-      // 4. Parsear y validar el rango de páginas solicitado
+      // 4. Parsear y validar el rango de páginas solicitado (continuas, separadas o rango)
+      let pageInput = args.pages ?? args.page_range ?? args.page ?? null;
+      if (args.continuous === true || args.continuous_pages === true || args.continuous === "true") {
+        pageInput = "continuous";
+      } else if (args.from_page !== undefined || args.to_page !== undefined) {
+        const fromP = Math.max(1, parseInt(args.from_page || 1, 10));
+        const toP = Math.max(fromP, parseInt(args.to_page || totalDocPages, 10));
+        pageInput = `${fromP}-${toP}`;
+      }
+
       let selectedPages = [1];
       try {
-        selectedPages = parsePageRange(args.pages || args.page_range, totalDocPages);
+        selectedPages = parsePageRange(pageInput, totalDocPages);
       } catch (err) {
         return { ok: false, error: err.code || "INVALID_PAGE_RANGE", message: err.message, details: err.details };
       }
@@ -606,7 +719,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
     // ── 6. Vista Previa de Impresión y Diagrama de Disposición (preview) ──────
     preview: async (args = {}) => {
       const startTime = Date.now();
-      const sourceFile = (args.file || args.file_path || args.source || "").trim();
+      const sourceFile = (args.file || args.file_path || args.source || args.path || args.target || "").trim();
 
       if (!sourceFile) {
         return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' o 'file_path' del archivo a previsualizar." };
@@ -817,11 +930,22 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         }
       }
 
+      // Soporte inteligente para páginas continuas o separadas:
+      // args.continuous, args.continuous_pages, args.pages, args.page_range, args.from_page / args.to_page
+      let pageInput = args.pages ?? args.page_range ?? args.page ?? null;
+      if (args.continuous === true || args.continuous_pages === true || args.continuous === "true") {
+        pageInput = "continuous";
+      } else if (args.from_page !== undefined || args.to_page !== undefined) {
+        const fromP = Math.max(1, parseInt(args.from_page || 1, 10));
+        const toP = Math.max(fromP, parseInt(args.to_page || totalDocPages, 10));
+        pageInput = `${fromP}-${toP}`;
+      }
+
       let selectedPages = [1];
       try {
-        selectedPages = parsePageRange(args.pages || args.page_range, totalDocPages);
+        selectedPages = parsePageRange(pageInput, totalDocPages);
       } catch (err) {
-        return { ok: false, error: err.code || "INVALID_PAGE_RANGE", message: err.message };
+        return { ok: false, error: err.code || "INVALID_PAGE_RANGE", message: err.message, details: err.details };
       }
 
       const negotiation = negotiateCapabilities({
@@ -843,16 +967,23 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       }
 
       const copies = negotiation.effective.copies || 1;
-      const colorMode = negotiation.effective.color_mode || "Color";
+      // Grayscale: accept grayscale:true OR color_mode:"grayscale"/"Monochrome"
+      let colorMode = negotiation.effective.color_mode || "Color";
+      if (args.grayscale === true || args.grayscale === "true" || colorMode.toLowerCase() === "grayscale") {
+        colorMode = "Grayscale";
+      }
       const paperSize = negotiation.effective.paper_size || "";
       const dpiX = negotiation.effective.dpi_x || 0;
       const dpiY = negotiation.effective.dpi_y || 0;
       const scaleMode = args.scale || args.scale_mode || args.style || "fit_to_page";
       const customScale = parseFloat(args.custom_scale || args.scale_factor || args.percent || 1.0);
       const alignment = args.alignment || "center";
-      const orientation = args.orientation || "Portrait";
+      // orientation: "auto" → detected by print_engine.ps1 from image dimensions
+      const orientation = args.orientation || "auto";
       const pagesPerSheet = parseInt(args.pages_per_sheet || 1, 10);
       const outPdfTarget = args.output_pdf || args.pdf_output || "";
+      // duplex: "simplex" | "duplex_long_edge" | "duplex_short_edge" — passed as-is
+      const duplex = args.duplex || "";
 
       // Ejecutar impresión
       const res = runPrintEngine("print", {
@@ -869,6 +1000,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         CustomScale: isNaN(customScale) ? 1.0 : customScale,
         Alignment: alignment,
         Orientation: orientation,
+        Duplex: duplex,
         OutPdfPath: outPdfTarget ? path.resolve(outPdfTarget) : "",
       });
 
@@ -894,6 +1026,10 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       return {
         ...res,
         operation_id: operationId,
+        total_document_pages: totalDocPages,
+        selected_pages: selectedPages,
+        pages_count: selectedPages ? selectedPages.length : totalDocPages,
+        continuous_mode: pageInput === "continuous",
         duration_ms: durationMs,
       };
     },
@@ -944,6 +1080,10 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
   actions.print_batch = actions.print;
   actions.queue = actions.jobs;
   actions.cancel = actions.cancel_job;
+  actions.pdf_info = actions.pdf_info;
+  actions.get_pdf_info = actions.pdf_info;
+  actions.inspect_pdf = actions.pdf_info;
+  actions.pdf = actions.pdf_info;
 
   const permissions = {
     list_printers: "standard",
@@ -952,6 +1092,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
     manual: "standard",
     preflight: "standard",
     preview: "standard",
+    pdf_info: "standard",
     jobs: "standard",
     configure: "advanced",
     print: "advanced",
