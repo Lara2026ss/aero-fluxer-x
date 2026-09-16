@@ -100,8 +100,8 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
   } else if (event === "disconnect") {
     actionText = "se desconectó exitosamente de";
   }
-  const msg = `La Inteligencia Artificial "${displayAI}" ${actionText} Fluxer Core v${version}`;
-  sendNativeNotification("FLUXER CORE MCP", msg, options);
+  const msg = `La Inteligencia Artificial "${displayAI}" ${actionText} FLUXER XZ v${version} (Gen 4.0)`;
+  sendNativeNotification("FLUXER XZ MCP", msg, options);
 }
 
 function mcpText(value, options = {}) {
@@ -256,71 +256,10 @@ export async function startServer() {
   runtime.control.unloadPlugin = (name) => pluginLoader.unload(name);
   runtime.control.plugins = () => pluginLoader.snapshot();
 
-  const tools = registry.moduleNames().map((name) => {
-    const baseDescription =
-      registry.snapshot().modules.find((m) => m.name === name)?.description ??
-      `${SERVER_NAME} ${name} domain router`;
-    const signatures = registry.actionSignatures(name);
-    const actionsCheatSheet = registry
-      .actionsFor(name)
-      .map(
-        (action) =>
-          `${action}${signatures[action] ? " " + signatures[action] : ""}`,
-      )
-      .join(" | ");
-    const description = `${baseDescription}\nAcciones y argumentos (usar en args): ${actionsCheatSheet}`;
-    return toolSchema(name, description, registry.actionsFor(name));
-  });
+  const tools = registry.capabilityRegistry
+    ? registry.capabilityRegistry.toMcpTools({ compact: true })
+    : registry.moduleNames().map((name) => toolSchema(name, "", registry.actionsFor(name)));
 
-  // Herramienta unificada de actualización (11ª herramienta visible en el MCP)
-  tools.push({
-    name: "upd",
-    description: "Centro oficial de actualización segura de Fluxer X. Ejecuta subherramientas mediante 'action':\n- 'check': Comprueba en GitHub si hay nueva versión disponible.\n- 'info': Consulta changelog y notas de versión (usa 'version' para una versión específica, ej: '10.1.5').\n- 'apply' (o 'update'): Descarga y aplica la actualización oficial verificada desde GitHub en la carpeta local de Fluxer X con copia de seguridad y rollback automático.\n  REGLA DE PRIVACIDAD Y CONSENTIMIENTO: Por seguridad del usuario, siempre debes pedir su confirmación en el chat antes de aplicar la actualización (ej: '¿Deseas que descargue e instale la versión vX.X.X desde GitHub?'). Cuando el usuario te confirme (o si ya te lo solicitó en este mensaje), llama a esta acción con 'confirm: true' para instalarla limpiamente.\n- 'data' (o 'status'): Auditoría forense en disco para verificar físicamente si el servidor se actualizó (sin simulación).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        action: {
-          type: "string",
-          enum: ["check", "info", "apply", "update", "data", "status"],
-          description: "Subherramienta de actualización: 'check', 'info', 'apply', o 'data'.",
-        },
-        version: {
-          type: "string",
-          description: "Versión específica a consultar (ej: '10.1.5') para 'info'.",
-        },
-        confirm: {
-          type: "boolean",
-          description: "Establecer en true cuando el usuario haya confirmado en el chat que desea aplicar la actualización.",
-        },
-        force: {
-          type: "boolean",
-          description: "Forzar actualización o comprobación si ya está al día.",
-        },
-        checkRepo: {
-          type: "boolean",
-          description: "Comprobar directamente el repositorio GitHub/Git además de releases (para 'check').",
-        },
-        repoRoot: {
-          type: "string",
-          description: "Ruta opcional al repositorio Git local para auditar su estado.",
-        },
-        revealPath: {
-          type: "boolean",
-          description: "Permitir mostrar la ruta real del usuario de Windows sin ofuscar (default false para privacidad).",
-        },
-        allow_user_path: {
-          type: "boolean",
-          description: "Alias de revealPath para permitir mostrar rutas de usuario.",
-        },
-        args: {
-          type: "object",
-          description: "Argumentos adicionales para la subherramienta.",
-        },
-      },
-      required: ["action"],
-      additionalProperties: true,
-    },
-  });
   const server = new Server(
     { name: SERVER_NAME, version: VERSION },
     { capabilities: { tools: {} } },
@@ -351,53 +290,36 @@ export async function startServer() {
         .replace(/^(fluxer|mcp)[:_\s-]*/i, "")
         .trim();
 
-      let action = rawArgs.action;
-      let args = rawArgs.args;
-
-      if (!args || typeof args !== "object") {
-        const { action: _, ...rest } = rawArgs;
-        args = rest;
-      } else {
-        const { action: _, args: nested, ...rest } = rawArgs;
-        args = { ...rest, ...nested };
-      }
-
-      args = unwrapArgs(args);
-
-      // Si action no vino a nivel superior, buscar en args
-      if (!action && args && typeof args === "object") {
-        if (args.action) {
-          action = args.action;
-          delete args.action;
-        } else if (args.subaction) {
-          action = args.subaction;
-          delete args.subaction;
-        } else if (args.subcommand) {
-          action = args.subcommand;
-          delete args.subcommand;
-        } else if (args.subtool) {
-          action = args.subtool;
-          delete args.subtool;
-        }
-      }
-
-      const response = await router.execute({
+      const normalized = registry.capabilityRegistry.normalizeCall({
         tool: toolName,
-        action,
-        args,
+        ...rawArgs,
       });
 
+      const response = await router.execute({
+        capability: normalized.capability,
+        operation: normalized.operation,
+        target: normalized.target,
+        options: normalized.options,
+        tool: normalized.capability,
+        action: normalized.operation,
+        args: normalized.options,
+      });
+
+      const isCompact = normalized.options?.compact !== false &&
+        rawArgs?.compact !== false &&
+        rawArgs?.compact_mode !== false;
+
       return mcpText(response, {
-        compact: args?.compact === true || args?.compact === "true" || args?.compact_mode === true || args?.compact_mode === "true",
-        format: args?.format,
-        prefer: args?.prefer || "tail",
+        compact: isCompact,
+        format: normalized.options?.format || rawArgs?.format,
+        prefer: normalized.options?.prefer || rawArgs?.prefer || "tail",
       });
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : String(error ?? "unknown_error");
-      const actionName = req.params.arguments?.action;
+      const actionName = req.params.arguments?.operation || req.params.arguments?.action;
       try {
         await runtime.logger.error("fluxer_call_failed", {
           tool: req.params.name,
@@ -408,11 +330,14 @@ export async function startServer() {
       } catch {}
       return mcpText({
         ok: false,
+        capability: req.params.name,
+        operation: actionName || "unknown",
         operationId: error?.operationId || undefined,
         tool: req.params.name,
         action: actionName,
         error: message,
         code: error?.code || "INTERNAL_ERROR",
+        summary: `Execution of '${req.params.name}.${actionName || "op"}' failed: ${message}`,
         suggestion: error?.suggestion || "Revise la sintaxis de la llamada y los parámetros enviados.",
         recoverable: error?.recoverable !== undefined ? error.recoverable : true,
       });

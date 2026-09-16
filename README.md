@@ -1,36 +1,48 @@
-# ⚡ Aero Fluxer X MCP Server
+# ⚡ FLUXER XZ (FLUXER X/Z) — Generation V4.0 Architecture
 
-> **Motor MCP de Nueva Generación para IA con Control de Sistema, Automatización de Archivos, Terminal Avanzada, Persistencia Aislada y Actualización Automática con Rollback.**
+> **Plataforma MCP Nativa de Alta Densidad para IA: Orquestación DAG Multi-Paso, Integración Nativa con FL Studio 2026, Búsqueda Web Avanzada, Automatización de Sistema y Actualizador Autónomo.**
 
-[![Version](https://img.shields.io/badge/version-9.2.5-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-30.0.0-blue.svg)](package.json)
+[![Generation](https://img.shields.io/badge/generation-V4.0-purple.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Linux%20(Adaptive)-informational.svg)](docs/ARCHITECTURE.md)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Adaptive-informational.svg)](docs/ARCHITECTURE.md)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org)
 
 ---
 
-## 📖 ¿Qué es Aero Fluxer X?
+## 📖 ¿Qué es FLUXER XZ (v30.0.0)?
 
-**Aero Fluxer X** es un servidor [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) diseñado para potenciar a los modelos de Inteligencia Artificial (Claude Desktop, Antigravity, Cursor, etc.) con herramientas de nivel de sistema operativo: manipulación profunda de archivos y documentos (Word, Excel, PDF), ejecución de terminal y PowerShell con saneamiento UTF-8, gestión de bases de datos SQLite nativas, macros multi-paso locales, inspección de hardware/red, y un motor de actualización automática seguro con verificación criptográfica SHA-256 y rollback instantáneo.
+**FLUXER XZ** (también denominado **FLUXER X/Z**) representa la **Generación Arquitectónica V4.0** del motor MCP de automatización. Trasciende los servidores MCP tradicionales saturados de cientos de herramientas dispersas que consumen excesiva ventana de contexto y tokens en los modelos de IA.
+
+FLUXER XZ consolida más de 500 acciones internas en **exactamente 15 capacidades semánticas de alta densidad**, reduciendo la sobrecarga de tokens a la vez que introduce:
+1. **Motor de Flujos DAG Paralelos (`workflow`)**: Ejecución de grafos acíclicos dirigidos con resolución de dependencias, detección estricta de ciclos (Kahn) e interpolación contextual (`{{tasks.id.data}}`).
+2. **Bridge Nativo con FL Studio 2026 (`flstudio`)**: Compilador musical de alta densidad de 1 solo disparo (Trap, Lo-Fi, Synthwave, House, Drill, Reggaeton) y comunicación IPC dual (TCP socket `127.0.0.1:49152` + buzón atómico de archivos).
+3. **Guía Reconstruida (`guide`)**: Búsqueda en tiempo real, introspección de capacidades y generación de flujos de trabajo sin inventar herramientas.
+4. **Búsqueda Web Multidimensional (`web`)**: Búsqueda paralela deduplicada con DuckDuckGo, Bing, Wikipedia, Wikimedia y Unsplash en modo compacto por defecto.
+5. **Centro de Impresión y PDFs (`print`)**: Soporte nativo para impresión continua o por páginas selectivas (`1, 5, 7`) sin bloqueos por conteo de hojas.
+6. **Actualizador Remoto Autónomo (`upd`)**: Proceso desacoplado que sortea el bloqueo de archivos en caliente de Windows con auditoría y rollback atómico.
 
 ---
 
-## 🎯 Principales Capacidades y Dominios
+## 🎯 Las 15 Capacidades Semánticas Principales
 
-Aero Fluxer X expone **10 dominios modulares con 265 acciones verificadas empíricamente (100% PASS)**:
-
-| Dominio | Descripción | Acciones Clave |
+| Capacidad | Descripción | Operaciones Principales |
 |---|---|---|
-| 📁 **`files`** | Manipulación atómica de archivos, cirugía de líneas, búsqueda y reemplazo en lotes, hashing, compresión/extracción ZIP/tar y generación/lectura de `.docx`, `.xlsx` y `.pdf`. | `read_file`, `write_file`, `create_office_document`, `read_office_document`, `extract_archive` |
-| 💻 **`terminal`** | Ejecución de comandos en PowerShell/Bash con codificación UTF-8 garantizada, sesiones persistentes interactivas y control de procesos. | `run_command`, `create_session`, `run_session_command`, `kill_process` |
-| ⚙️ **`system`** | Métricas de hardware en tiempo real (CPU, RAM, discos), portabilidad, clipboard, gestión de servidores y auto-actualización. | `get_system_info`, `get_cpu_info`, `check_for_updates`, `apply_update`, `rollback_update` |
-| 🗄️ **`database`** | Motor SQLite nativo ultra-rápido para ejecución de DDL, consultas DML parametrizadas e introspección de esquemas. | `query_sqlite`, `execute_sqlite`, `list_tables`, `describe_table` |
-| ⚡ **`shortcuts`** | Automatización y macros multi-paso personalizables almacenadas de forma estrictamente local en el equipo del usuario. | `create_shortcut`, `execute_shortcut`, `list_shortcuts`, `update_shortcut` |
-| 📦 **`packages`** | Inspección y gestión de dependencias de software (npm, pip, winget, etc.). | `inspect_package_json`, `list_installed_packages`, `detect_package_manager` |
-| 🛡️ **`security`** | Límites de permisos dinámicos (SAFE, NORMAL, ELEVATED), enmascaramiento de secretos y auditoría. | `get_security_mode`, `set_security_mode`, `audit_action` |
-| 🌐 **`network`** | Diagnóstico de red, resolución DNS, ping, escaneo de puertos locales y peticiones HTTP estructuradas. | `ping_host`, `dns_lookup`, `check_port`, `fetch_url` |
-| 🩺 **`diagnostics`** | Auto-evaluación del estado del sistema, preflight de capacidades y análisis de invariantes. | `run_diagnostics`, `get_capabilities`, `verify_invariants` |
-| 🛠️ **`developer`** | Introspección del proyecto, escaneo de skills y linters. | `inspect_project`, `detect_project`, `scan_skills` |
+| ⚡ **`workflow`** | Orquestador de grafos acíclicos dirigidos (DAG), ejecución concurrente con rollback. | `run`, `validate`, `template`, `status` |
+| 🛠️ **`developer`** | Inspección y diagnóstico profundo del proyecto, tests, builds y sintaxis. | `inspect_project`, `run_tests`, `run_build`, `code_intel` |
+| ⚙️ **`system`** | Métricas de hardware, procesos de Windows, energía, clipboard y snapshots. | `snapshot`, `processes`, `info`, `clipboard`, `kill_process` |
+| 📁 **`files`** | Manipulación atómica de archivos, cirugía de líneas, documentos (.docx, .xlsx, .pdf). | `read`, `write`, `search`, `line_surgery`, `office_doc` |
+| 💻 **`terminal`** | Consola UTF-8 PowerShell/CMD con sesiones persistentes y background. | `exec`, `create_session`, `session_exec`, `kill` |
+| 🌐 **`network`** | Diagnóstico de red, conectividad, resolución DNS y escaneo de puertos. | `test_connection`, `dns`, `ports`, `fetch` |
+| 🛡️ **`security`** | Niveles de permisos (SAFE, NORMAL, ELEVATED), auditoría y enmascaramiento. | `status`, `grant_elevation`, `audit_log`, `verify` |
+| 🗄️ **`database`** | Motor SQLite local parametrizado para persistencia de datos y consultas. | `query`, `execute`, `tables`, `schema` |
+| 📦 **`packages`** | Gestión e inspección de dependencias (npm, pip, winget). | `inspect`, `list`, `install`, `check_outdated` |
+| 🔍 **`web`** | Búsqueda multi-proveedor, extracción HTML y buscador de imágenes con deduplicación. | `multi_search`, `images`, `extract`, `search` |
+| 📸 **`media`** | Capturas de pantalla atómicas, información de pantallas y previsualizaciones. | `capture_screen`, `screens_info`, `preview` |
+| 🖨️ **`print`** | Gestión de impresión de Windows, soporte PDF continuo (`continuous`, `all`, `1-4`). | `printers`, `print_file`, `print_pdf`, `status` |
+| 🎹 **`flstudio`** | Bridge IPC y compilador musical para FL Studio 2026 sin consumo excesivo de tokens. | `detect`, `music_create`, `transport`, `channels`, `mixer` |
+| 🔄 **`upd`** | Actualizador autónomo remoto contra GitHub con rollback atómico y doctor. | `check`, `info`, `apply`, `rollback`, `doctor` |
+| 📚 **`guide`** | Explorador interactivo de capacidades, ayuda semántica y plantillas de workflows. | `overview`, `search`, `category`, `capability_info`, `workflows` |
 
 ---
 

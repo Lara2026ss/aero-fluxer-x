@@ -198,14 +198,18 @@ export class Router {
       action = String(actionParam || "");
       args = argsParam ?? {};
     } else if (request && typeof request === "object") {
-      tool = String(request.tool || "");
-      action = String(request.action || "");
-      if (request.args && typeof request.args === "object") {
-        const { tool: _t, action: _a, args: nested, ...rest } = request;
-        args = { ...rest, ...nested };
+      tool = String(request.capability || request.tool || "");
+      action = String(request.operation || request.action || "");
+      const rawOptions = request.options || request.args;
+      if (rawOptions && typeof rawOptions === "object") {
+        const { capability: _c, operation: _o, tool: _t, action: _a, options: _opt, args: nested, ...rest } = request;
+        args = { ...rest, ...nested, ...(typeof rawOptions === "object" ? rawOptions : {}) };
       } else {
-        const { tool: _t, action: _a, ...rest } = request;
+        const { capability: _c, operation: _o, tool: _t, action: _a, ...rest } = request;
         args = rest;
+      }
+      if (request.target && !args.target && !args.path && !args.query && !args.command) {
+        args.target = request.target;
       }
     }
 
@@ -224,6 +228,21 @@ export class Router {
       .replace(/^aeron[_\s-]?fluxer[_\s-]?x[:_\s-]*/i, "")
       .replace(/^(fluxer|mcp)[:_\s-]*/i, "")
       .trim();
+
+    // Normalización de capacidad y operación vía CapabilityRegistry si está presente
+    if (this.registry?.capabilityRegistry) {
+      const norm = this.registry.capabilityRegistry.normalizeCall({
+        capability: tool,
+        operation: action,
+        options: args,
+      });
+      if (norm.capability) tool = norm.capability;
+      if (norm.operation) action = norm.operation;
+      if (norm.options) args = { ...norm.options, ...args };
+      if (norm.target && !args.target && !args.path && !args.query && !args.command) {
+        args.target = norm.target;
+      }
+    }
 
     if (tool.includes(".")) {
       const parts = tool.split(".");
@@ -265,40 +284,46 @@ export class Router {
 
     // Soporte unificado para la herramienta "upd" y sus subherramientas
     if (tool.toLowerCase() === "upd") {
-      tool = "developer";
-      const requestedAction = String(action || args.action || "").toLowerCase().trim();
-      if (requestedAction === "check" || requestedAction === "upd_check") {
-        action = "upd_check";
-      } else if (requestedAction === "info" || requestedAction === "upd_info") {
-        action = "upd_info";
-      } else if (requestedAction === "data" || requestedAction === "status" || requestedAction === "upd_data") {
-        action = "upd_data";
-      } else if (requestedAction === "doctor" || requestedAction === "upd_doctor" || requestedAction === "health") {
-        action = "upd_doctor";
-      } else if (requestedAction === "repair" || requestedAction === "upd_repair" || requestedAction === "fix") {
-        action = "upd_repair";
-      } else if (requestedAction === "install" || requestedAction === "upd_install" || requestedAction === "wizard" || requestedAction === "setup") {
-        action = "upd_install";
-        if (!args.mode && (requestedAction === "wizard" || requestedAction === "setup")) {
-          args.mode = "wizard";
-        }
-      } else if (requestedAction === "set_channel" || requestedAction === "channel" || requestedAction === "upd_set_channel") {
-        action = "upd_set_channel";
-      } else if (requestedAction === "rollback" || requestedAction === "upd_rollback" || requestedAction === "revert") {
-        action = "upd_rollback";
-      } else if (requestedAction === "backups" || requestedAction === "upd_backups" || requestedAction === "list_backups") {
-        action = "upd_backups";
-      } else if (requestedAction === "dry_run" || requestedAction === "dryrun" || requestedAction === "simulate") {
-        action = "upd";
-        args.dry_run = true;
-      } else if (requestedAction === "apply" || requestedAction === "update" || requestedAction === "upd" || !requestedAction) {
-        action = "upd";
+      if (this.registry?.modules?.has("upd")) {
+        tool = "upd";
+        const requestedAction = String(action || args.action || args.operation || "").toLowerCase().trim();
+        action = requestedAction || "check";
       } else {
-        action = "upd";
+        tool = "developer";
+        const requestedAction = String(action || args.action || "").toLowerCase().trim();
+        if (requestedAction === "check" || requestedAction === "upd_check") {
+          action = "upd_check";
+        } else if (requestedAction === "info" || requestedAction === "upd_info") {
+          action = "upd_info";
+        } else if (requestedAction === "data" || requestedAction === "status" || requestedAction === "upd_data") {
+          action = "upd_data";
+        } else if (requestedAction === "doctor" || requestedAction === "upd_doctor" || requestedAction === "health") {
+          action = "upd_doctor";
+        } else if (requestedAction === "repair" || requestedAction === "upd_repair" || requestedAction === "fix") {
+          action = "upd_repair";
+        } else if (requestedAction === "install" || requestedAction === "upd_install" || requestedAction === "wizard" || requestedAction === "setup") {
+          action = "upd_install";
+          if (!args.mode && (requestedAction === "wizard" || requestedAction === "setup")) {
+            args.mode = "wizard";
+          }
+        } else if (requestedAction === "set_channel" || requestedAction === "channel" || requestedAction === "upd_set_channel") {
+          action = "upd_set_channel";
+        } else if (requestedAction === "rollback" || requestedAction === "upd_rollback" || requestedAction === "revert") {
+          action = "upd_rollback";
+        } else if (requestedAction === "backups" || requestedAction === "upd_backups" || requestedAction === "list_backups") {
+          action = "upd_backups";
+        } else if (requestedAction === "dry_run" || requestedAction === "dryrun" || requestedAction === "simulate") {
+          action = "upd";
+          args.dry_run = true;
+        } else if (requestedAction === "apply" || requestedAction === "update" || requestedAction === "upd" || !requestedAction) {
+          action = "upd";
+        } else {
+          action = "upd";
+        }
       }
     } else if (["upd_check", "upd_info", "upd_data", "upd_doctor", "upd_repair", "upd_install", "upd_set_channel", "upd_rollback", "upd_backups", "feedback_outbox_status"].includes(tool.toLowerCase())) {
       action = tool.toLowerCase();
-      tool = "developer";
+      tool = this.registry?.modules?.has("upd") ? "upd" : "developer";
     } else if (["install", "setup_wizard"].includes(tool.toLowerCase())) {
       action = "upd_install";
       tool = "developer";
@@ -899,10 +924,17 @@ export class Router {
 
       const innerData = compacted.data !== undefined ? compacted.data : compacted;
 
+      const capability = tool;
+      const operation = action;
+      const summaryText = raw?.summary || compacted?.summary || (isOk ? `Operation '${capability}.${operation}' executed successfully.` : `Operation '${capability}.${operation}' failed.`);
+
       let response;
       if (typeof innerData === "object" && innerData !== null && !Array.isArray(innerData)) {
         response = {
           ok: isOk,
+          capability,
+          operation,
+          summary: innerData.summary || summaryText,
           operationId,
           tool,
           action,
@@ -913,6 +945,9 @@ export class Router {
       } else {
         response = {
           ok: isOk,
+          capability,
+          operation,
+          summary: summaryText,
           operationId,
           tool,
           action,

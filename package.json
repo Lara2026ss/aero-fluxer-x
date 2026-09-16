@@ -1,7 +1,7 @@
 {
-  "name": "fluxer-x",
-  "version": "20.6.0",
-  "description": "Fluxer Core MCP v20.6 — Multi-Provider Visual Search, Streaming PDF Printing, Interactive Security Prompts & LifeCycle Notifications",
+  "name": "fluxer-xz",
+  "version": "30.0.0",
+  "description": "Fluxer XZ v30.0.0 (Generation V4.0) — High-Density Windows-Native MCP Capability Platform",
   "type": "module",
   "main": "server.js",
   "bin": {

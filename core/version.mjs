@@ -5,13 +5,15 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "20.6.0";
-export const APP_NAME = "fluxer-core";
-export const BRAND_NAME = "Fluxer Core";
+export const CURRENT_VERSION = "30.0.0";
+export const GENERATION = "4.0";
+export const APP_NAME = "fluxer-xz";
+export const BRAND_NAME = "FLUXER XZ";
+export const BRAND_NAME_ALT = "FLUXER X/Z";
 export const CHANNEL = "public-release";
-export const RELEASE_CODENAME = "Aero Fluxer v20.6 Resilient — Multi-Provider Visual Search, Streaming PDF Printing, Interactive Security Prompts & LifeCycle Notifications";
-export const LEGACY_APP_NAME = "aeron-fluxer-x";
-export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
+export const RELEASE_CODENAME = "Fluxer XZ v30.0.0 (Generation V4.0) — High-Density Capability Architecture";
+export const LEGACY_APP_NAME = "fluxer-x";
+export const LEGACY_BRAND_NAME = "Fluxer Core";
 
 /**
  * Parsea una cadena de versión SemVer.
@@ -220,6 +222,8 @@ export function getVersionInfo() {
   return {
     name: APP_NAME,
     brand: BRAND_NAME,
+    brandAlt: BRAND_NAME_ALT,
+    generation: GENERATION,
     version: CURRENT_VERSION,
     tag: `v${CURRENT_VERSION}`,
     channel: CHANNEL,

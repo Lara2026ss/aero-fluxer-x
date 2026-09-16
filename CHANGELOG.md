@@ -3,6 +3,37 @@
 Todos los cambios notables en este proyecto están documentados en este archivo.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y se adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [v30.0.0] - 2026-09-16 (FLUXER XZ / FLUXER X/Z — Generation V4.0 Architecture: 15 Semantic Capabilities, DAG Engine, FL Studio 2026 Bridge, Autonomous Updater)
+
+### ⚡ Rebranding & Generación V4.0 (`FLUXER XZ` / `FLUXER X/Z`)
+- **Identidad de Producto**: FLUXER XZ (alternativamente FLUXER X/Z), Versión 30.0.0, Generación V4.0 con Target de Calidad 10/10.
+- **Superficie MCP de Alta Densidad (15 Capacidades)**:
+  - Consolidación de más de 500 acciones internas en exactamente 15 capacidades semánticas de primer nivel: `workflow`, `developer`, `system`, `files`, `terminal`, `network`, `security`, `database`, `packages`, `web`, `media`, `print`, `flstudio`, `upd`, `guide`.
+  - Normalización transparente de llamadas: soporte para `{ operation, target, options }`, argumentos planos y llamadas legacy `{ action, args }`.
+  - Envolvente unificada V4.0 con payload compacto: `{ ok, capability, operation, summary, data, next, durationMs }`.
+
+### 🔄 Motor de Flujos DAG Concurrente (`core/workflow-engine.mjs` & `tools/workflow.mjs`)
+- **Resolución de Grafos Acíclicos Dirigidos**: Algoritmo de Kahn para detección estricta de ciclos y resolución de orden topológico de ejecución.
+- **Interpolación Contextual**: Soporte de plantillas `{{tasks.<id>.data.<prop>}}` y `{{input.<prop>}}`.
+- **Rollback y Resiliencia**: Mecanismos de recuperación ante fallos y plantillas integradas de flujos comunes.
+
+### 🎹 Bridge Nativo de FL Studio 2026 & Compilador Musical (`core/flstudio/`)
+- **Compilador Musical de Alta Densidad**: Creación de pistas completas en 1 solo comando (Trap, Lo-Fi, Synthwave, House, Drill, Reggaeton) con acordes polifónicos y patrones de batería de 32 pasos sin desperdicio de tokens.
+- **IPC Dual de Transporte**: TCP Socket sin bloqueo en `127.0.0.1:49152` (< 1ms) con fallback a buzón atómico de archivos (`storage/fl_session/live_commands.json`).
+- **Control Total de Hardware**: Operaciones de transporte, canales, mixer, vistas y plugins en tiempo real.
+
+### 📚 Guía Reconstruida & Descubrimiento Semántico (`tools/guide.mjs`)
+- Enlazada dinámicamente con `CapabilityRegistry` para introspección y búsqueda semántica en tiempo real (`overview`, `search`, `category`, `capability_info`, `workflows`).
+
+### 🔍 Búsqueda Web Multidimensional (`tools/web.mjs`)
+- Búsqueda paralela deduplicada con DuckDuckGo, Bing, Wikipedia, Wikimedia Commons y Openverse con salida compacta por defecto.
+
+### 🖨️ Impresión Consolidada (`tools/printcenter.mjs`)
+- Unificación en la capacidad `print` con soporte para PDFs continuos (`continuous`, `all`) y selección discreta de páginas (`1, 5, 7`) sin bloqueos ni errores de timeout.
+
+### 🔄 Actualizador Autónomo Desacoplado (`tools/upd.mjs` & `core/updater/standalone_updater.mjs`)
+- Proceso externo independiente que resuelve el bloqueo en caliente de archivos en Windows, auditoría y rollback seguro.
+
 ## [v20.6.0] - 2026-09-16 (Resilient Multi-Provider Visual Search, Streaming PDF Printing, Interactive Security Prompts & LifeCycle Notifications)
 
 ### 🔍 Motor de Búsqueda Visual Multi-Proveedor y Anti-Alucinación (`tools/web.mjs`)

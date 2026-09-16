@@ -36,7 +36,7 @@ async function run() {
     assert.ok(domains.includes(expected), `Dominio ${expected} debe estar registrado`);
   }
   // Verificar que dominios eliminados NO estén presentes
-  const removedDomains = ["git", "ollama", "web", "browser", "ai", "alero_rooks"];
+  const removedDomains = ["git", "ollama", "browser", "ai", "alero_rooks"];
   for (const removed of removedDomains) {
     assert.ok(!domains.includes(removed), `Dominio ${removed} debe haber sido completamente eliminado`);
   }

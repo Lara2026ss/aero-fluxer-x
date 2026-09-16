@@ -24,6 +24,8 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { FlStudioBridge } from "../core/flstudio/bridge.mjs";
+import { compileMusicIntent } from "../core/flstudio/music_compiler.mjs";
 
 // ── Constantes y Rutas Oficiales en este Sistema ──────────────────────────────
 const FL_EXE_PATH = "C:\\Program Files\\Image-Line\\FL Studio 2026\\FL64.exe";
@@ -229,6 +231,11 @@ const FREE_PLUGINS = [
 ];
 
 export function createFlStudioDomain({ runtime, domain, fs }) {
+  const bridge = new FlStudioBridge({ runtime });
+  if (runtime) {
+    runtime.flBridge = bridge;
+  }
+
   const actions = {
 
     // ── 1. Detección en Tiempo Real ──────────────────────────────────────────
@@ -237,9 +244,11 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
       const isExePresent = existsSync(FL_EXE_PATH);
       let lastBackup = null;
       try {
-        const regOut = execSync('powershell -NoProfile -Command "(Get-ItemProperty \"HKCU:\\Software\\Image-Line\\FL Studio 26\\General\" -ErrorAction SilentlyContinue).LastSavedBackup"', { encoding: "utf8" }).trim();
+        const regOut = execSync("powershell -NoProfile -Command \"(Get-ItemProperty 'HKCU:\\Software\\Image-Line\\FL Studio 26\\General' -ErrorAction SilentlyContinue).LastSavedBackup\"", { encoding: "utf8" }).trim();
         if (regOut) lastBackup = regOut;
       } catch (_) {}
+
+      const bridgeStatus = await bridge.getBridgeStatus();
 
       return {
         ok: true,
@@ -248,13 +257,97 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
         version: "FL Studio 2026 (64-bit)",
         is_running: Boolean(flProc),
         process_id: flProc?.pid || null,
+        bridge: bridgeStatus,
         user_data_path: FL_USER_DATA_DIR,
         last_saved_backup: lastBackup,
         status_message: flProc
-          ? `✅ FL Studio 2026 está ABIERTO Y EN EJECUCIÓN (PID: ${flProc.pid}). Puedes controlar menús, patrones y opciones en tiempo real.`
-          : `⚠️ FL Studio está instalado pero NO se encuentra en ejecución. ¿Deseas que lo abra por ti? Ejecuta: flstudio { action: 'open' }`,
-        suggested_action: flProc ? "flstudio { action: 'view', subaction: 'channel_rack' }" : "flstudio { action: 'open' }",
+          ? `✅ FL Studio 2026 está ABIERTO Y EN EJECUCIÓN (PID: ${flProc.pid}). Bridge: ${bridgeStatus.mailbox_active ? "CONECTADO" : "LISTO"}.`
+          : `⚠️ FL Studio está instalado pero NO se encuentra en ejecución. ¿Deseas que lo abra por ti? Ejecuta: flstudio { operation: 'open' }`,
+        suggested_action: flProc ? "flstudio { operation: 'music_create', style: 'trap', bpm: 140 }" : "flstudio { operation: 'open' }",
       };
+    },
+
+    // ── Bridge Status Directo ───────────────────────────────────────────────
+    bridge_status: async () => {
+      return bridge.getBridgeStatus();
+    },
+
+    // ── Music Create (Compilador de Música Autónomo en 1 Sola Llamada) ───────
+    music_create: async (params = {}) => {
+      const compiled = compileMusicIntent(params);
+      const flProc = getFlRunningProcess();
+
+      if (!flProc) {
+        return {
+          ok: true,
+          compiled,
+          bridge_dispatched: false,
+          summary: `${compiled.summary} (Nota: FL Studio no está en ejecución. Abre FL Studio con { operation: 'open' } para inyectar en vivo).`,
+        };
+      }
+
+      const bridgeRes = await bridge.sendCommand(compiled.bridgePayload, { timeoutMs: 4000 });
+
+      return {
+        ok: true,
+        compiled: {
+          style: compiled.style,
+          bpm: compiled.bpm,
+          root: compiled.root,
+          scale: compiled.scale,
+          chords: compiled.chords.map((c) => c.name),
+          tracks: compiled.drumChannels.map((d) => `${d.name} (${d.steps.length} steps)`),
+        },
+        bridge_execution: bridgeRes,
+        summary: `${compiled.summary} Inyectado en tiempo real en FL Studio 2026 (PID ${flProc.pid}).`,
+      };
+    },
+
+    // ── Transport Control (Play, Stop, Tempo) ────────────────────────────────
+    transport: async (params = {}) => {
+      const sub = String(params.subaction || params.action || params.command || "status").toLowerCase();
+      const flProc = getFlRunningProcess();
+
+      if (!flProc) {
+        return { ok: false, error: "FL Studio no está en ejecución." };
+      }
+
+      if (sub === "play" || sub === "start") {
+        const bridgeRes = await bridge.sendCommand({ action: "play" });
+        if (!bridgeRes.ok) sendFlKey(" ");
+        return { ok: true, playing: true, transport: "play", summary: "Reproducción iniciada en FL Studio." };
+      }
+
+      if (sub === "stop" || sub === "pause") {
+        const bridgeRes = await bridge.sendCommand({ action: "stop" });
+        if (!bridgeRes.ok) sendFlKey(" ");
+        return { ok: true, playing: false, transport: "stop", summary: "Reproducción detenida en FL Studio." };
+      }
+
+      if (sub === "set_bpm" || sub === "bpm" || params.bpm) {
+        const bpm = Number(params.bpm || params.tempo || 120);
+        const bridgeRes = await bridge.sendCommand({ action: "set_bpm", bpm });
+        return { ok: true, bpm, bridgeRes, summary: `Tempo establecido en ${bpm} BPM.` };
+      }
+
+      return bridge.sendCommand({ action: "status" });
+    },
+
+    // ── Mixer Control ────────────────────────────────────────────────────────
+    mixer: async (params = {}) => {
+      const sub = String(params.subaction || "status").toLowerCase();
+      const track = Number(params.track || params.trackIndex || 0);
+      const value = params.value !== undefined ? Number(params.value) : undefined;
+      return bridge.sendCommand({ action: "mixer", subaction: sub, track, value });
+    },
+
+    // ── Channels Control ─────────────────────────────────────────────────────
+    channels: async (params = {}) => {
+      const sub = String(params.subaction || "status").toLowerCase();
+      if (sub === "clear") {
+        return bridge.sendCommand({ action: "clear_beat" });
+      }
+      return bridge.sendCommand({ action: "status" });
     },
 
     // ── 2. Abrir / Iniciar FL Studio ────────────────────────────────────────
@@ -1112,7 +1205,9 @@ export function createFlStudioDomain({ runtime, domain, fs }) {
     edit: "standard", view: "standard", patterns: "standard", options: "advanced",
     tools: "standard", plugins: "standard", live_session: "standard",
     music_theory: "standard", change_tone: "standard", style_presets: "standard",
-    sound_design: "standard", mixer_settings: "standard", optimize: "standard"
+    sound_design: "standard", mixer_settings: "standard", optimize: "standard",
+    music_create: "standard", bridge_status: "standard", transport: "standard",
+    channels: "standard", mixer: "standard",
   };
 
   return domain(

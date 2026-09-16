@@ -889,7 +889,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
       }
 
       // ── B. Impresión de archivo individual ──────────────────────────────────
-      const sourceFile = (args.file || args.file_path || args.source || "").trim();
+      const sourceFile = (args.file || args.file_path || args.filePath || args.source || args.path || args.target || "").trim();
       if (!sourceFile) {
         return { ok: false, error: "MISSING_ARGUMENT", message: "Especifica 'file' o 'file_path' del archivo (o 'folder' para imprimir una carpeta completa)." };
       }
@@ -1065,7 +1065,7 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
     },
   };
 
-  // Alias para compatibilidad total con LLMs
+  // Alias para compatibilidad total con LLMs y capacidades V4.0
   actions.list = actions.list_printers;
   actions.printers = actions.list_printers;
   actions.status = actions.get_printer;
@@ -1076,6 +1076,16 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
   actions.dry_run = actions.preflight;
   actions.vista_previa = actions.preview;
   actions.layout = actions.preview;
+  actions.print_file = actions.print;
+  actions.print_pdf = async (args = {}) => {
+    const rawFile = (args.filePath || args.file || args.file_path || args.path || args.target || "").trim();
+    const rawPages = args.pages || args.page || args.range || "continuous";
+    return actions.print({
+      ...args,
+      file: rawFile,
+      pages: rawPages,
+    });
+  };
   actions.print_folder = actions.print;
   actions.print_batch = actions.print;
   actions.queue = actions.jobs;
@@ -1096,14 +1106,18 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
     jobs: "standard",
     configure: "advanced",
     print: "advanced",
+    print_file: "advanced",
+    print_pdf: "advanced",
     cancel_job: "advanced",
     purge_queue: "maintainer",
   };
 
   return domain(
-    "printcenter",
-    "Centro Integral de Impresión y Gestión de Impresoras (HP, Canon, Epson, Brother y Windows). Soporta vista previa de alta fidelidad (preview) con esquemas ASCII, selección de páginas, estilos de renderizado (fit_to_page, fit_to_printable_area, actual_size, shrink_oversized, custom), documentos Word/DOCX, imágenes, impresión de carpetas por lotes, copias, color/B&N, calidad PPP y gestión de cola de impresión.",
+    "print",
+    "Centro Integral de Impresión y Gestión de Impresoras (HP, Canon, Epson, Brother y Windows). Soporta vista previa de alta fidelidad (preview) con esquemas ASCII, selección de páginas continuas o discretas (1, 5, 7 o 1-5), PDF, Word/DOCX, imágenes, copias, color/B&N y gestión de cola de impresión.",
     actions,
     permissions
   );
 }
+
+export const createPrintDomain = createPrintCenterDomain;

@@ -1034,15 +1034,62 @@ export function createWebDomain({ runtime, domain }) {
         };
       }
     },
+
+    /**
+     * 🌐 web.multi_search: Búsqueda paralela multidimensional o multi-query
+     */
+    multi_search: async ({ query, queries = null, limit = 6, compact = true } = {}) => {
+      if (Array.isArray(queries) && queries.length > 0) {
+        const tasks = queries.map(async (q) => {
+          const res = await actions.search({ query: q, limit, compact });
+          return { query: q, results: res.results || [] };
+        });
+        const combined = await Promise.all(tasks);
+        return {
+          ok: true,
+          mode: "multi_query",
+          count: combined.length,
+          queries: combined,
+          summary: `Ejecutadas ${combined.length} búsquedas en paralelo.`,
+        };
+      }
+
+      if (!query || typeof query !== "string" || !query.trim()) {
+        return { ok: false, error: "MISSING_QUERY", message: "Se requiere 'query' o 'queries' para multi_search." };
+      }
+
+      const q = query.trim();
+      const [webRes, imgRes, wikiRes] = await Promise.all([
+        actions.search({ query: q, limit, compact }).catch((e) => ({ ok: false, error: e.message })),
+        actions.search_images({ query: q, limit: Math.max(9, limit), compact }).catch((e) => ({ ok: false, error: e.message })),
+        actions.wikipedia({ query: q, limit: 1 }).catch(() => ({ ok: false })),
+      ]);
+
+      return {
+        ok: true,
+        query: q,
+        mode: "multidimensional",
+        summary: `Resultados combinados para '${q}': ${webRes?.results?.length || 0} páginas web, ${imgRes?.options?.length || 0} imágenes verificadas.`,
+        web: webRes?.results || [],
+        images: imgRes?.options || [],
+        wiki: wikiRes?.summary || wikiRes?.description || null,
+      };
+    },
+
+    images: async (args) => actions.search_images(args),
+    extract: async (args) => actions.read_page(args),
   };
 
   return domain(
     "web",
-    "Búsqueda web, Wikipedia, Reddit, extracción de texto y descarga segura de medios (imágenes/videos) con validación anti-malware.",
+    "Búsqueda web multi-proveedor, imágenes frescas (>9 items con deduplicación), Wikipedia, extracción y descarga segura.",
     actions,
     {
       search: "standard",
       search_images: "standard",
+      images: "standard",
+      multi_search: "standard",
+      extract: "standard",
       wikipedia: "standard",
       reddit: "standard",
       read_page: "standard",

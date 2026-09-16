@@ -12,6 +12,7 @@ import os from "node:os";
 import dns from "node:dns/promises";
 import net from "node:net";
 import { sendNativeNotification } from "./notify.mjs";
+import { CapabilityRegistry } from "./capability-registry.mjs";
 
 import { createFilesDomain } from "../tools/files.mjs";
 import { createSystemDomain } from "../tools/system.mjs";
@@ -382,9 +383,11 @@ export class Registry {
   constructor(runtimeOrOptions) {
     this.runtime = runtimeOrOptions?.runtime ?? runtimeOrOptions;
     this.modules = new Map();
+    this.capabilityRegistry = new CapabilityRegistry({ runtime: this.runtime });
     if (this.runtime) {
       this.runtime._registry = this;
       this.runtime.registry = this;
+      this.runtime.capabilityRegistry = this.capabilityRegistry;
     }
   }
 
@@ -428,6 +431,8 @@ export class Registry {
       { createScreenshotDomain: screenshotFactory } = {},
       { createPrintCenterDomain: printcenterFactory } = {},
       { createWebDomain: webFactory } = {},
+      { createWorkflowDomain: workflowFactory } = {},
+      { createUpdDomain: updFactory } = {},
     ] = await Promise.all([
       import(`../tools/files.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/system.mjs?t=${ts}`).catch(() => ({})),
@@ -445,6 +450,8 @@ export class Registry {
       import(`../tools/screenshot.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/printcenter.mjs?t=${ts}`).catch(() => ({})),
       import(`../tools/web.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/workflow.mjs?t=${ts}`).catch(() => ({})),
+      import(`../tools/upd.mjs?t=${ts}`).catch(() => ({})),
     ]);
 
     const domains = [
@@ -464,9 +471,20 @@ export class Registry {
       ...(screenshotFactory ? [screenshotFactory({ runtime, domain, fs, path, os, crypto })] : []),
       ...(printcenterFactory ? [printcenterFactory({ runtime, domain, fs, path, os, crypto })] : []),
       ...(webFactory ? [webFactory({ runtime, domain, fs, path, os, crypto })] : []),
+      ...(workflowFactory ? [workflowFactory({ runtime, router: runtime?.router, capabilityRegistry: this.capabilityRegistry, domain })] : []),
+      ...(updFactory ? [updFactory({ runtime, domain })] : []),
     ];
 
     this.modules = new Map(domains.map((d) => [d.name, d]));
+
+    // Registrar alias canónicos bidireccionales
+    for (const d of domains) {
+      if (d.name === "print") this.modules.set("printcenter", d);
+      if (d.name === "printcenter") this.modules.set("print", d);
+      if (d.name === "screenshot") this.modules.set("media", d);
+      if (d.name === "media") this.modules.set("screenshot", d);
+      if (d.name === "flstudio") this.modules.set("fl_studio", d);
+    }
   }
 
 
@@ -490,8 +508,26 @@ export class Registry {
   }
 
   resolve(tool, action) {
-    const unit = this.modules.get(tool);
-    const handler = unit?.actions?.[action];
+    if (!tool || !action) return null;
+    let unit = this.modules.get(tool);
+    if (!unit && this.capabilityRegistry) {
+      const cap = this.capabilityRegistry.resolveCapability(tool);
+      if (cap) {
+        unit = this.modules.get(cap.name);
+        if (!unit) {
+          for (const alias of cap.aliases) {
+            unit = this.modules.get(alias);
+            if (unit) break;
+          }
+        }
+      }
+    }
+    if (!unit) return null;
+
+    let handler = unit.actions?.[action];
+    if (!handler && typeof action === "string") {
+      handler = unit.actions?.[action.toLowerCase()];
+    }
     if (!unit || typeof handler !== "function") return null;
     return { scope: "domain", unit, handler };
   }
