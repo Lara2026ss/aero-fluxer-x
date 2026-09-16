@@ -5,17 +5,17 @@
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
-export const CURRENT_VERSION = "3.0.0";
+export const CURRENT_VERSION = "20.0.0";
 export const APP_NAME = "fluxer-core";
 export const BRAND_NAME = "Fluxer Core";
 export const CHANNEL = "public-release";
-export const RELEASE_CODENAME = "Aero Fluxer v3.0 Phoenix — Clean Architecture, Integrated Notification Center, Dynamic Image-to-PDF, Smart Shortcuts & Web Intelligence";
+export const RELEASE_CODENAME = "Aero Fluxer v20.0 Phoenix — Clean Architecture, Integrated Notification Center, Dynamic Image-to-PDF, Smart Shortcuts & Web Intelligence";
 export const LEGACY_APP_NAME = "aeron-fluxer-x";
 export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 
 /**
  * Parsea una cadena de versión SemVer.
- * Acepta formatos como: "9.0.0", "v9.0.0", "9.2.5-1", "v9.1.2-hotfix.1", "v9.1.2-beta.1"
+ * Acepta formatos como: "20.0.0", "v20.0.0", "v20", "20.0", "9.2.5-1", "v9.1.2-hotfix.1", "v9.1.2-beta.1"
  *
  * @param {string} ver Cadena de versión
  * @returns {{ major: number, minor: number, patch: number, prerelease: string|null, hotfix: string|null, isHotfix: boolean, hotfixNum: number, raw: string } | null}
@@ -23,7 +23,7 @@ export const LEGACY_BRAND_NAME = "Aeron Fluxer X";
 export function parseSemVer(ver) {
   if (!ver || typeof ver !== "string") return null;
   const clean = ver.trim().replace(/^v/i, "");
-  const match = clean.match(/^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?$/);
+  const match = clean.match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([a-zA-Z0-9.-]+))?$/);
   if (!match) return null;
 
   const rawSuffix = match[4] || null;
@@ -46,8 +46,8 @@ export function parseSemVer(ver) {
 
   return {
     major: parseInt(match[1], 10),
-    minor: parseInt(match[2], 10),
-    patch: parseInt(match[3], 10),
+    minor: match[2] !== undefined ? parseInt(match[2], 10) : 0,
+    patch: match[3] !== undefined ? parseInt(match[3], 10) : 0,
     prerelease: isHotfix ? null : rawSuffix,
     hotfix: isHotfix ? rawSuffix : null,
     isHotfix,

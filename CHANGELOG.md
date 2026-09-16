@@ -5,7 +5,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y s
 
 ---
 
-## [v3.0.0] - 2026-09-15 (Major Phoenix Release — Clean Architecture, Notification Center, Dynamic Image-to-PDF & Smart Shortcuts)
+## [v20.0.0] - 2026-09-15 (Major Phoenix Release — Clean Architecture, Notification Center, Dynamic Image-to-PDF & Smart Shortcuts)
 
 ### 🔔 Centro de Notificaciones y Autorización Integrado en Fluxer (`core/notifications.mjs` & Dashboard UI)
 - **Notificaciones In-App Nativas en Fluxer (sin popups molestos de Windows)**:

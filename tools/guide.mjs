@@ -329,11 +329,11 @@ export function createGuideDomain({ runtime, domain }) {
       ok: true,
       current: CURRENT_VERSION,
       latest_changes: {
-        version: "3.0.0",
-        codename: "Aero Fluxer v3.0 Phoenix",
+        version: "20.0.0",
+        codename: "Aero Fluxer v20.0 Phoenix",
         date: "2026-09-15",
         highlights: [
-          "MAJOR v3.0: Clean major architecture version with reduced storage footprint and zero clutter",
+          "MAJOR v20.0: Clean major architecture version with reduced storage footprint and zero clutter",
           "NEW: Centro de Notificaciones y Autorizaciones integrado en Fluxer (conmutador entre Dashboard UI interactivo y Chat clásico)",
           "NEW: Botón 'Autorizar' de 1 clic y botón 'X' para denegar acceso a la IA en Dashboard",
           "NEW: web domain (DuckDuckGo, Wikipedia, Reddit, Safe Media Downloader con verificación anti-malware)",

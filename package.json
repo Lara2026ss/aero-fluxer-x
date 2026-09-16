@@ -1,7 +1,7 @@
 {
   "name": "fluxer-x",
-  "version": "3.0.0",
-  "description": "Fluxer Core MCP v3.0 — Clean Major Architecture, Integrated Notification Center, Dynamic Image-to-PDF, Smart Shortcuts & Web Intelligence",
+  "version": "20.0.0",
+  "description": "Fluxer Core MCP v20.0 — Clean Major Architecture, Integrated Notification Center, Dynamic Image-to-PDF, Smart Shortcuts & Web Intelligence",
   "type": "module",
   "main": "server.js",
   "bin": {

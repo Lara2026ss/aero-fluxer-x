@@ -7,7 +7,7 @@
     "created_at": "2026-09-16T04:02:48.000Z",
     "status": "resolved",
     "resolution_notes": "Implementado Centro de Notificaciones integrado en Fluxer (Dashboard SSE + API) con botones de Autorizar y Denegar ('X'). Opcion configurable por chat (security.configure_notifications { enabled: false }) para retornar al modo clasico.",
-    "fixed_in_version": "v3.0",
+    "fixed_in_version": "v20.0",
     "cached_at": "2026-09-16T04:02:48.856Z"
   },
   {
@@ -18,7 +18,7 @@
     "created_at": "2026-09-16T03:56:40.766Z",
     "status": "resolved",
     "resolution_notes": "Codigos de confirmacion estabilizados reutilizando solicitudes pendientes activas. Soporte directo para autorizar por confirmationCode/code en security.grant_elevation y router status.",
-    "fixed_in_version": "v3.0",
+    "fixed_in_version": "v20.0",
     "cached_at": "2026-09-16T03:56:46.854Z"
   }
 ]
