@@ -41,10 +41,13 @@ export function createUpdDomain({ runtime, domain }) {
           currentVersion: CURRENT_VERSION,
           generation: GENERATION,
           brand: BRAND_NAME,
+          autoUpdateEnabled: false,
+          updateMode: "manual_only",
+          notice: "Las actualizaciones automáticas están completamente DESACTIVADAS. Toda actualización requiere solicitud y confirmación manual expresa del usuario.",
           ...checkResult,
           summary: checkResult.updateAvailable
-            ? `New version available: v${checkResult.latestVersion} (currently v${CURRENT_VERSION}). Run upd { operation: 'apply', confirm: true } after asking user confirmation.`
-            : `System is up to date on version v${CURRENT_VERSION} (channel: ${channel}).`,
+            ? `Nueva versión disponible: v${checkResult.latestVersion} (actualmente v${CURRENT_VERSION}). Las actualizaciones automáticas están desactivadas; debes consultar al usuario en el chat y solo tras su visto bueno manual ejecutar upd { operation: 'apply', confirm: true }.`
+            : `El sistema está al día en la versión v${CURRENT_VERSION} (modo manual).`,
         };
       } catch (err) {
         return {
@@ -89,15 +92,25 @@ export function createUpdDomain({ runtime, domain }) {
 
     // ── 3. Apply Update ──────────────────────────────────────────────────────
     apply: async (params = {}) => {
+      const isAuto = Boolean(params.auto || params.autoUpdate || params.automatic || params.unattended);
+      if (isAuto) {
+        return {
+          ok: false,
+          code: "AUTO_UPDATE_DISABLED",
+          error: "Las actualizaciones automáticas están estrictamente DESHABILITADAS por directiva del usuario. No se permite ninguna actualización desatendida o automática.",
+          summary: "Operación rechazada: las actualizaciones automáticas están deshabilitadas. Solo se permiten actualizaciones manuales explícitamente autorizadas.",
+        };
+      }
+
       const confirmed = Boolean(params.confirm || params.confirmed);
 
-      // Strict consent verification
+      // Strict consent verification - updates are strictly manual
       if (!confirmed) {
         return {
           ok: false,
           code: "CONFIRMATION_REQUIRED",
-          error: "User consent required. Ask the user in chat: '¿Deseas descargar e instalar la actualización oficial de Fluxer XZ desde GitHub?' and call upd { operation: 'apply', confirm: true } upon confirmation.",
-          summary: "Update blocked by safety gate: explicit chat confirmation is required before applying updates.",
+          error: "Las actualizaciones automáticas están desactivadas. Para aplicar una actualización, se requiere la confirmación explícita y manual del usuario en el chat. Pregunta al usuario: '¿Deseas descargar e instalar la actualización oficial de FLUXER XZ desde GitHub?' y solo tras su confirmación manual llama a upd con confirm: true.",
+          summary: "Actualización bloqueada: el sistema de actualización automática está desactivado; solo se permiten actualizaciones manuales con consentimiento explícito del usuario.",
         };
       }
 
@@ -212,7 +225,7 @@ export function createUpdDomain({ runtime, domain }) {
   if (typeof domain === "function") {
     return domain(
       "upd",
-      `Centro Oficial de Actualización de FLUXER XZ (Gen ${GENERATION}). Operaciones: check | info | apply | rollback | status`,
+      `Centro Oficial de Actualización Manual de FLUXER XZ (Gen ${GENERATION}). Las actualizaciones automáticas están estrictamente DESACTIVADAS. Operaciones: check | info | apply | rollback | status`,
       actions,
       permissions
     );
@@ -220,7 +233,7 @@ export function createUpdDomain({ runtime, domain }) {
 
   return {
     name: "upd",
-    description: `Centro Oficial de Actualización de FLUXER XZ (Gen ${GENERATION}). Operaciones: check | info | apply | rollback | status`,
+    description: `Centro Oficial de Actualización Manual de FLUXER XZ (Gen ${GENERATION}). Las actualizaciones automáticas están estrictamente DESACTIVADAS. Operaciones: check | info | apply | rollback | status`,
     actions,
     permissions,
   };
