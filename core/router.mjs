@@ -135,10 +135,10 @@ export class Router {
       safetyNotice = "Protección de Privacidad Visual: Las capturas de pantalla pueden contener información confidencial del usuario. Este permiso es independiente ('visual_capture_grant') y requiere consentimiento explícito.";
       aiGuidance = "La captura de pantalla puede exponer información privada del usuario. Por favor solicita amablemente la confirmación explícita del usuario en el chat antes de capturar su pantalla.";
     } else if (isUpdate) {
-      operationTitle = "Actualización Oficial de Fluxer X (GitHub Releases / Repositorio)";
-      purpose = "Descargar e instalar la actualización oficial desde GitHub en el directorio local de Fluxer X, con copia de seguridad y verificación de integridad previa.";
-      safetyNotice = "Descarga oficial verificada: La actualización se obtiene del repositorio oficial y se aplica exclusivamente en la carpeta local de Fluxer X sin alterar otros archivos.";
-      aiGuidance = `La actualización requiere la confirmación explícita del usuario en el chat. Solicita amablemente su visto bueno antes de aplicar los cambios.`;
+      operationTitle = "Actualización Manual de FLUXER XZ (GitHub Releases / Repositorio)";
+      purpose = "Descargar e instalar la actualización oficial desde GitHub en el directorio local de FLUXER XZ, con copia de seguridad y verificación de integridad previa. Las actualizaciones automáticas están estrictamente deshabilitadas.";
+      safetyNotice = "Control de Actualizaciones Manuales: Toda actualización requiere autorización y confirmación manual previa del usuario. NUNCA se aplica de forma automática o desatendida.";
+      aiGuidance = `Las actualizaciones automáticas están estrictamente DESACTIVADAS. La IA NUNCA debe ejecutar ni aplicar actualizaciones automáticamente. Solicita siempre el visto bueno explícito y manual del usuario en el chat antes de aplicar cambios.`;
     } else if (isTerminal) {
       operationTitle = "Ejecución de Comando en Terminal Local (Windows 11)";
       purpose = `Se solicita ejecutar el comando '${args?.command || "especificado"}' en la consola local del usuario.`;
@@ -743,6 +743,17 @@ export class Router {
           needsMoreLevel = true;
           required = requestedTargetLevel;
         }
+      }
+
+      // Bloqueo estricto de actualizaciones automáticas
+      const isUpdateOp = tool === "upd" || (tool === "developer" && ["upd", "upd_install"].includes(action)) || ["apply", "update"].includes(action);
+      if (isUpdateOp && (args?.auto || args?.autoUpdate || args?.automatic || args?.unattended)) {
+        return {
+          ok: false,
+          code: "AUTO_UPDATE_DISABLED",
+          error: "Las actualizaciones automáticas están estrictamente DESACTIVADAS por directiva del usuario. No se permite ninguna actualización automática o desatendida. Solo se admiten actualizaciones manuales.",
+          summary: "Operación rechazada: las actualizaciones automáticas están deshabilitadas.",
+        };
       }
 
       // Requerimiento de Captura Visual: Permiso explícito e independiente 'visual_capture_grant'

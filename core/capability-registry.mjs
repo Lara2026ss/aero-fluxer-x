@@ -279,8 +279,8 @@ export const CAPABILITY_DEFINITIONS = [
     name: "upd",
     aliases: ["updater", "update_manager", "fluxer_updater"],
     category: CAPABILITY_CATEGORIES.MAINTENANCE,
-    summary: "Autonomous remote GitHub updater, atomic staging, zero-knowledge upgrades, and rollback.",
-    description: "Official self-contained remote updater for Fluxer XZ: checks GitHub releases, performs preflight health, atomic file staging, detached process execution on Windows, and verified rollback on failure.",
+    summary: "Manual GitHub updater with atomic staging, health verification, and rollback (strictly manual, never automatic).",
+    description: "Official manual updater for FLUXER XZ: checks GitHub releases, performs preflight health, atomic file staging, and verified rollback on failure. Operates strictly under manual user control; automatic updates are completely disabled.",
     operations: [
       { name: "check", summary: "Check GitHub repository and official releases for available updates.", params: ["force", "channel"] },
       { name: "info", summary: "Inspect changelog, migration notes, and version diff for a release.", params: ["version"] },
