@@ -32,6 +32,7 @@ const DEFAULTS = {
   ai: { provider: "auto", ollamaUrl: "http://127.0.0.1:11434", defaultModel: "llama3" },
   taskQueue: { concurrency: 4, maxQueue: 250 },
   workspace: { path: null, autoDetect: true },
+  updater: { auto: false, auto_update: false, auto_check: false, manual_only: true },
 };
 
 function deepMerge(base, override) {
