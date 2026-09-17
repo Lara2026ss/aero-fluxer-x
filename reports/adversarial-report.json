@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "totalTests": 4,
+  "passCount": 4,
+  "failCount": 0,
+  "results": [
+    {
+      "testName": "HTTP 200 Falso con discrepancia remota",
+      "riskLevel": "READ-ONLY TEST",
+      "expectedStatus": "VERIFICATION_FAILED",
+      "actualStatus": "VERIFICATION_FAILED",
+      "passed": true
+    },
+    {
+      "testName": "Rechazo de verificación desde Caché Stale",
+      "riskLevel": "READ-ONLY TEST",
+      "expectedStatus": "STALE_DATA_DETECTED",
+      "actualStatus": "STALE_DATA_DETECTED",
+      "passed": true
+    },
+    {
+      "testName": "Detección de Deploy/Commit Erróneo (Stale Deploy)",
+      "riskLevel": "READ-ONLY TEST",
+      "expectedStatus": "STALE_DEPLOY_DETECTED",
+      "actualStatus": "STALE_DEPLOY_DETECTED",
+      "passed": true
+    },
+    {
+      "testName": "Mutación Controlada y Eliminación en Sandbox Aislado",
+      "riskLevel": "CONTROLLED MUTATION",
+      "expectedStatus": "VERIFIED",
+      "actualStatus": "VERIFIED",
+      "passed": true
+    }
+  ]
+}

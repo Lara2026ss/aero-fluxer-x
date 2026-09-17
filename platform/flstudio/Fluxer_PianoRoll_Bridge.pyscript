@@ -1,0 +1,93 @@
+# ==============================================================================
+# FL Studio Piano Roll Script — Fluxer AI Piano Roll Bridge
+# Location: Documents/Image-Line/FL Studio/Settings/Piano roll scripts/Fluxer_PianoRoll_Bridge.pyscript
+# Arm in FL Studio: Piano Roll > Tools (Wrench) > Scripting > Fluxer_PianoRoll_Bridge
+# Keystroke trigger: Ctrl + Alt + Y (runs last used script immediately without dialog)
+# ==============================================================================
+import flpianoroll as flp
+import json
+import os
+import time
+
+QUEUE_PATHS = [
+    os.path.expanduser(r"~/.fluxer-flstudio/pianoroll_queue.json"),
+    os.path.expandvars(r"%USERPROFILE%\\OneDrive\\Documents\\Systems\\Flux-mcp-doc\\Windows MCP\\Fluxer X\\storage\\fl_session\\pianoroll_queue.json"),
+    os.path.expandvars(r"%USERPROFILE%\\Documents\\Systems\\Flux-mcp-doc\\Windows MCP\\Fluxer X\\storage\\fl_session\\pianoroll_queue.json"),
+]
+
+def get_queue_file():
+    for p in QUEUE_PATHS:
+        if os.path.exists(p):
+            return p
+    return QUEUE_PATHS[0]
+
+def createDialog():
+    """Returning None allows Ctrl+Alt+Y to run apply() directly without showing a dialog modal."""
+    return None
+
+def apply(form=None):
+    q_file = get_queue_file()
+    if not os.path.exists(q_file):
+        return
+
+    try:
+        with open(q_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as read_err:
+        return
+
+    req_id = data.get("id", str(time.time()))
+    notes = data.get("notes", [])
+    clear_existing = bool(data.get("clear_existing", True))
+    
+    if not notes and not clear_existing:
+        return
+
+    ppq = flp.score.PPQ if hasattr(flp.score, "PPQ") else 480
+
+    if clear_existing:
+        flp.score.clearNotes(True)
+
+    inserted_count = 0
+    for n in notes:
+        try:
+            pitch = int(n.get("pitch", n.get("note", 60)))
+            start_beats = float(n.get("start", 0.0))
+            dur_beats = float(n.get("duration", 0.5))
+            vel = float(n.get("velocity", 100)) / 127.0
+            pan = float(n.get("pan", 0.5))
+
+            new_note = flp.Note()
+            new_note.number = max(0, min(127, pitch))
+            new_note.time = max(0, int(round(start_beats * ppq)))
+            new_note.length = max(1, int(round(dur_beats * ppq)))
+            new_note.velocity = max(0.01, min(1.0, vel))
+            new_note.pan = max(0.0, min(1.0, pan))
+
+            flp.score.addNote(new_note)
+            inserted_count += 1
+        except Exception:
+            continue
+
+    # Write receipt next to queue file
+    receipt_dir = os.path.dirname(q_file)
+    receipt_file = os.path.join(receipt_dir, "pianoroll_receipt.json")
+    receipt_data = {
+        "id": req_id,
+        "status": "applied",
+        "timestamp": time.time(),
+        "notes_count": inserted_count,
+        "cleared_existing": clear_existing
+    }
+    try:
+        os.makedirs(receipt_dir, exist_ok=True)
+        with open(receipt_file, "w", encoding="utf-8") as rf:
+            json.dump(receipt_data, rf, indent=2)
+    except Exception:
+        pass
+
+    # Remove or archive queue file so it's not run twice
+    try:
+        os.remove(q_file)
+    except Exception:
+        pass

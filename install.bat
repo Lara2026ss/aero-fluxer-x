@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
-title Wizard de Instalacion Publico — Aeron Fluxer Core MCP v10.4.0
+title Wizard de Instalacion Publico — FLUXER XZ v30.0.1
 color 0A
 
 echo ╔══════════════════════════════════════════════════════════════════╗
-echo ║         AERON FLUXER CORE MCP v10.4.0 — INSTALL WIZARD         ║
+echo ║         FLUXER XZ v30.0.1 — GENERATION V4.0 INSTALL WIZARD         ║
 echo ║         Servidor MCP Autónomo, Seguro y de Alto Rendimiento    ║
 echo ╚══════════════════════════════════════════════════════════════════╝
 echo.

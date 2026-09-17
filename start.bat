@@ -1,4 +1,4 @@
 @echo off
-title Aeron Fluxer Core MCP Server
-echo [Aeron Fluxer Core] Iniciando servidor MCP con supervisor de proceso...
-node "%~dp0launcher.mjs" %*
+title FLUXER XZ MCP Server
+echo [FLUXER XZ] Iniciando servidor MCP (Generacion V4.0)...
+node "%~dp0server.js" %*

@@ -19,7 +19,7 @@
 
 import crypto from "node:crypto";
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutos para responder
+const DEFAULT_TTL_MS = 15 * 60 * 1000; // 15 minutos para responder sin que el codigo expire prematuramente
 const MAX_PENDING = 50; // evita fugas de memoria si nadie responde nunca
 
 export class ConfirmationStore {

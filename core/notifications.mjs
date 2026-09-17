@@ -202,14 +202,14 @@ export class NotificationCenter extends EventEmitter {
     try {
       this._activeDialogCode = confirmationCode;
       promptSecurityDialog({
-        title: "Fluxer X — Autorización de Seguridad",
+        title: "FLUXER XZ — Autorización de Seguridad",
         tool,
         action,
         required: badge,
         confirmationCode,
         requestId,
         clientName,
-        timeoutSec: 180,
+        timeoutSec: 300,
       }, (decision) => {
         this._activeDialogCode = null;
         if (decision === "approved") {
@@ -223,7 +223,7 @@ export class NotificationCenter extends EventEmitter {
     }
   }
 
-  notifyPermissionRequest({ tool, action, args, required, current, requestId, confirmationCode, ttlMs = 5 * 60 * 1000, clientName = null }) {
+  notifyPermissionRequest({ tool, action, args, required, current, requestId, confirmationCode, ttlMs = 15 * 60 * 1000, clientName = null }) {
     this.prune();
     const classification = this.classifyLevel(required);
     const clientLabel = (clientName && String(clientName).toLowerCase() !== "desconocida") ? clientName : "Cliente MCP";
@@ -349,12 +349,24 @@ export class NotificationCenter extends EventEmitter {
 
     // Si requiere elevación, activar sesión de workflow
     const targetLevel = notif?.level || "advanced";
-    if (this.permissions?.startWorkflow) {
+    const isVisualCapture = targetLevel === "visual_capture_grant" || notif?.tool === "screenshot" ||
+      (notif?.tool === "system" && ["capture_screen", "capture_window", "capture_region", "screenshot"].includes(notif?.action));
+
+    if (isVisualCapture && this.permissions?.grantVisualCapture) {
+      try {
+        this.permissions.grantVisualCapture({ durationMinutes: minutes, principal: "default" });
+      } catch (e) {
+        this.logger?.warn("permission_visual_capture_grant_error", { error: e.message });
+      }
+    }
+
+    const normLevel = this.permissions?.normalizeLevel ? this.permissions.normalizeLevel(targetLevel) : targetLevel;
+    if (this.permissions?.startWorkflow && (this.permissions?.levelRank ? this.permissions.levelRank(normLevel) >= 0 : true)) {
       try {
         this.permissions.startWorkflow({
-          level: targetLevel,
+          level: normLevel,
           durationMinutes: minutes,
-          reason: `Autorizado mediante notificación en Fluxer (código ${code || "directo"})`,
+          reason: `Autorizado mediante notificación en FLUXER XZ (código ${code || "directo"})`,
           principal: "default",
         });
       } catch (e) {

@@ -32,7 +32,8 @@
     "shortcuts": true,
     "network": true,
     "diagnostics": true,
-    "developer": true
+    "developer": true,
+    "github": true
   },
   "timeouts": {
     "filesystem": 10000,

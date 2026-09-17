@@ -1,17 +1,17 @@
-﻿# ============================================================================
+# ============================================================================
 # 🔔 FLUXER XZ — platform/security_notification.ps1
 # Notificacion Nativa de Windows Interactiva (Sin Ventana Emergente)
 # Clic en la notificacion = AUTORIZAR | Cerrar o quitar (X) = DENEGAR
 # ============================================================================
 
 param(
-  [string]$Title = "Fluxer X - Autorizacion de Seguridad",
+  [string]$Title = "FLUXER XZ - Autorizacion de Seguridad",
   [string]$Tool = "sistema",
   [string]$Action = "ejecutar",
   [string]$Required = "ELEVADO",
   [string]$ConfirmationCode = "",
   [string]$ClientName = "Agente IA",
-  [int]$TimeoutSec = 180,
+  [int]$TimeoutSec = 300,
   [string]$ResultFile = ""
 )
 
@@ -25,9 +25,10 @@ try {
 
 $global:decision = "WAITING"
 
-# 1. Configurar Tray NotifyIcon con BalloonTip
+# 1. Configurar Tray NotifyIcon con BalloonTip y Menu de Contexto
 $notify = New-Object System.Windows.Forms.NotifyIcon
 $notify.Icon = [System.Drawing.SystemIcons]::Shield
+$notify.Text = "FLUXER XZ - Clic para AUTORIZAR"
 $notify.Visible = $true
 
 $notify.Add_BalloonTipClicked({
@@ -35,12 +36,28 @@ $notify.Add_BalloonTipClicked({
   [System.Windows.Forms.Application]::ExitThread()
 })
 
-$notify.Add_BalloonTipClosed({
-  if ($global:decision -eq "WAITING") {
-    $global:decision = "DENIED"
-  }
+$notify.Add_Click({
+  $global:decision = "APPROVED"
   [System.Windows.Forms.Application]::ExitThread()
 })
+
+$notify.Add_DoubleClick({
+  $global:decision = "APPROVED"
+  [System.Windows.Forms.Application]::ExitThread()
+})
+
+$contextMenu = New-Object System.Windows.Forms.ContextMenuStrip
+$itemApprove = $contextMenu.Items.Add("Autorizar acceso (Aprobar)")
+$itemApprove.Add_Click({
+  $global:decision = "APPROVED"
+  [System.Windows.Forms.Application]::ExitThread()
+})
+$itemDeny = $contextMenu.Items.Add("Denegar acceso (Rechazar)")
+$itemDeny.Add_Click({
+  $global:decision = "DENIED"
+  [System.Windows.Forms.Application]::ExitThread()
+})
+$notify.ContextMenuStrip = $contextMenu
 
 $fullTitle = if ($ConfirmationCode) { "$Title [$ConfirmationCode]" } else { $Title }
 $bodyMsg = "La IA ($ClientName) solicita $Tool.$Action ($Required).`nHaz clic aqui para AUTORIZAR, o cierra para DENEGAR."
@@ -58,9 +75,13 @@ try {
       <text>$([System.Security.SecurityElement]::Escape($fullTitle))</text>
       <text>$([System.Security.SecurityElement]::Escape("La IA ($ClientName) solicita ejecutar $Tool.$Action (Nivel: $Required)"))</text>
       <text>$([System.Security.SecurityElement]::Escape("Haz clic en esta notificacion para AUTORIZAR | Cierra para DENEGAR"))</text>
-      <text placement="attribution">Seguridad Fluxer X</text>
+      <text placement="attribution">FLUXER XZ Security</text>
     </binding>
   </visual>
+  <actions>
+    <action content="Autorizar" arguments="approved" activationType="foreground"/>
+    <action content="Denegar" arguments="denied" activationType="foreground"/>
+  </actions>
 </toast>
 "@
   $xmlDoc = New-Object Windows.Data.Xml.Dom.XmlDocument
@@ -69,19 +90,29 @@ try {
 
   $toast.add_Activated({
     param($s, $e)
-    $global:decision = "APPROVED"
+    $arg = ""
+    try { $arg = $e.Arguments } catch {}
+    if ($arg -eq "denied") {
+      $global:decision = "DENIED"
+    } else {
+      $global:decision = "APPROVED"
+    }
     [System.Windows.Forms.Application]::ExitThread()
   }) | Out-Null
 
   $toast.add_Dismissed({
     param($s, $e)
-    if ($global:decision -eq "WAITING") {
-      $global:decision = "DENIED"
-    }
-    [System.Windows.Forms.Application]::ExitThread()
+    try {
+      if ($e.Reason.ToString() -eq "UserCanceled") {
+        if ($global:decision -eq "WAITING") {
+          $global:decision = "DENIED"
+          [System.Windows.Forms.Application]::ExitThread()
+        }
+      }
+    } catch {}
   }) | Out-Null
 
-  $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}WindowsPowerShell1.0powershell.exe'
+  $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}WindowsPowerShell 1.0powershell.exe'
   $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId)
   $notifier.Show($toast)
 } catch {}

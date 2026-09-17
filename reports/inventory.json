@@ -1,0 +1,1702 @@
+{
+  "version": "9.0.0",
+  "generatedAt": "2026-08-31T20:55:21.730Z",
+  "totalActions": 187,
+  "domainSummary": {
+    "files": 45,
+    "system": 48,
+    "terminal": 20,
+    "packages": 10,
+    "database": 12,
+    "security": 21,
+    "shortcuts": 17,
+    "network": 5,
+    "diagnostics": 5,
+    "developer": 4
+  },
+  "inventory": [
+    {
+      "domain": "files",
+      "action": "append_to_file",
+      "tool": "files.append_to_file",
+      "signature": "{ path, content, addNewline }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "batch_copy",
+      "tool": "files.batch_copy",
+      "signature": "{ files, overwrite, stopOnError }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "batch_delete",
+      "tool": "files.batch_delete",
+      "signature": "{ paths, stopOnError }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "batch_move",
+      "tool": "files.batch_move",
+      "signature": "{ files, stopOnError }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "batch_rename",
+      "tool": "files.batch_rename",
+      "signature": "{ directory, pattern, replacement }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "calculate_checksum",
+      "tool": "files.calculate_checksum",
+      "signature": "{ path, algorithm }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "compare_files",
+      "tool": "files.compare_files",
+      "signature": "{ left, right }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "compress_path",
+      "tool": "files.compress_path",
+      "signature": "{ source, destination }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "copy_file",
+      "tool": "files.copy_file",
+      "signature": "{ source, destination, overwrite }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "create_directory",
+      "tool": "files.create_directory",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "create_document",
+      "tool": "files.create_document",
+      "signature": "{ path, title, content, paragraphs, format }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "delete_lines",
+      "tool": "files.delete_lines",
+      "signature": "{ path, startLine, endLine, lineNumbers, backup }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "delete_path",
+      "tool": "files.delete_path",
+      "signature": "{ path, recursive, force }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "directory_tree",
+      "tool": "files.directory_tree",
+      "signature": "{ path, depth, maxEntries }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "edit_file",
+      "tool": "files.edit_file",
+      "signature": "{ path, oldText, find, search, targetContent, newText, replace, replacement, replacementContent, replaceAll, isRegex, backup }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "extract_archive",
+      "tool": "files.extract_archive",
+      "signature": "{ source, destination }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "file_diff",
+      "tool": "files.file_diff",
+      "signature": "{ left, right }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "file_exists",
+      "tool": "files.file_exists",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "find_and_replace_in_files",
+      "tool": "files.find_and_replace_in_files",
+      "signature": "{ directory, filePattern, pattern, searchText, replaceText, find, replace, search, oldText, newText, excludePatterns, git, dist, build }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "get_detailed_metadata",
+      "tool": "files.get_detailed_metadata",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "get_file_info",
+      "tool": "files.get_file_info",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "grep_files",
+      "tool": "files.grep_files",
+      "signature": "{ path, query, isRegex, caseInsensitive, include, includePattern, limit, maxFileSize }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "insert_lines",
+      "tool": "files.insert_lines",
+      "signature": "{ path, atLine, afterLine, afterPattern, lines, backup }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "json_manager",
+      "tool": "files.json_manager",
+      "signature": "{ path, op, key, value, createPath, backup }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "list_allowed_directories",
+      "tool": "files.list_allowed_directories",
+      "signature": "{ ok, directories, runtimedirshome, runtimedirsdownloads, runtimedirsdocuments, runtimedirsstorage }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "list_archive_contents",
+      "tool": "files.list_archive_contents",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "list_directory",
+      "tool": "files.list_directory",
+      "signature": "{ path, limit, sortBy, recursive }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "list_directory_with_sizes",
+      "tool": "files.list_directory_with_sizes",
+      "signature": "{ path, limit, sortBy }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "move_file",
+      "tool": "files.move_file",
+      "signature": "{ source, destination, overwrite }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "patch_file",
+      "tool": "files.patch_file",
+      "signature": "{ path, searchBlock, replaceBlock, backup }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_binary_file",
+      "tool": "files.read_binary_file",
+      "signature": "{ path, format, limitBytes }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_csv",
+      "tool": "files.read_csv",
+      "signature": "{ path, delimiter, hasHeader, maxRows }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_document",
+      "tool": "files.read_document",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_file_range",
+      "tool": "files.read_file_range",
+      "signature": "{ path, startLine, endLine, range, encoding, includeLineNumbers }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_json",
+      "tool": "files.read_json",
+      "signature": "{ path, key, defaultValue }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_multiple_files",
+      "tool": "files.read_multiple_files",
+      "signature": "{ paths, path, maxFiles }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "read_text_file",
+      "tool": "files.read_text_file",
+      "signature": "{ path, head, tail, maxLines, page, linesPerPage, startLine, endLine, range, encoding, includeLineNumbers }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "replace_lines",
+      "tool": "files.replace_lines",
+      "signature": "{ path, startLine, endLine, lines, backup }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "search_files",
+      "tool": "files.search_files",
+      "signature": "{ path, pattern, excludePatterns, git, dist, build, limit }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "set_attributes",
+      "tool": "files.set_attributes",
+      "signature": "{ path, readonly, hidden, mode }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "touch_file",
+      "tool": "files.touch_file",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "validate_workspace",
+      "tool": "files.validate_workspace",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "write_csv",
+      "tool": "files.write_csv",
+      "signature": "{ path, headers, rows, delimiter, append }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "write_file",
+      "tool": "files.write_file",
+      "signature": "{ path, content, overwrite, backup, encoding }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "files",
+      "action": "write_json",
+      "tool": "files.write_json",
+      "signature": "{ path, data }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Operaciones superiores de archivos: lectura paginada, escritura atómica con backups, edición quirúrgica por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal."
+    },
+    {
+      "domain": "system",
+      "action": "dns_lookup",
+      "tool": "system.dns_lookup",
+      "signature": "{ domain, rrtype }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_battery_info",
+      "tool": "system.get_battery_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_clipboard",
+      "tool": "system.get_clipboard",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_cpu_info",
+      "tool": "system.get_cpu_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_defender_status",
+      "tool": "system.get_defender_status",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_disk_info",
+      "tool": "system.get_disk_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_env",
+      "tool": "system.get_env",
+      "signature": "{ name }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_env_vars",
+      "tool": "system.get_env_vars",
+      "signature": "{ scope, filter }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_folder_size",
+      "tool": "system.get_folder_size",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_gpu_info",
+      "tool": "system.get_gpu_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_hardware_info",
+      "tool": "system.get_hardware_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_kernel_info",
+      "tool": "system.get_kernel_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_local_ip",
+      "tool": "system.get_local_ip",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_open_ports",
+      "tool": "system.get_open_ports",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_performance_stats",
+      "tool": "system.get_performance_stats",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_processes",
+      "tool": "system.get_processes",
+      "signature": "{ limit }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_public_ip",
+      "tool": "system.get_public_ip",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_ram_info",
+      "tool": "system.get_ram_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_resource_usage",
+      "tool": "system.get_resource_usage",
+      "signature": "{ ok, memory, uptime }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_sensors",
+      "tool": "system.get_sensors",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_storage_info",
+      "tool": "system.get_storage_info",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_system_info",
+      "tool": "system.get_system_info",
+      "signature": "{ ok, platform, isWindowsOnly, arch, release, hostname, nodeVersion }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_system_load",
+      "tool": "system.get_system_load",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_system_snapshot",
+      "tool": "system.get_system_snapshot",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_temperature",
+      "tool": "system.get_temperature",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_wifi_networks",
+      "tool": "system.get_wifi_networks",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_wifi_profile",
+      "tool": "system.get_wifi_profile",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "get_windows_update_status",
+      "tool": "system.get_windows_update_status",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "list_env",
+      "tool": "system.list_env",
+      "signature": "{ filter }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "list_scheduled_tasks",
+      "tool": "system.list_scheduled_tasks",
+      "signature": "{ filter }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "manage_services",
+      "tool": "system.manage_services",
+      "signature": "{ service, action }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "manage_startup",
+      "tool": "system.manage_startup",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "ping",
+      "tool": "system.ping",
+      "signature": "{ host, count }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "read_registry",
+      "tool": "system.read_registry",
+      "signature": "{ key, value }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "reload_server",
+      "tool": "system.reload_server",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "remove_env_var",
+      "tool": "system.remove_env_var",
+      "signature": "{ name, scope }",
+      "permissionLevel": "user",
+      "risk": "HIGH",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "run_scheduled_task",
+      "tool": "system.run_scheduled_task",
+      "signature": "{ name }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "send_notification",
+      "tool": "system.send_notification",
+      "signature": "{ title, message }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "set_clipboard",
+      "tool": "system.set_clipboard",
+      "signature": "{ text }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "set_env",
+      "tool": "system.set_env",
+      "signature": "{ name, value }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "set_env_var",
+      "tool": "system.set_env_var",
+      "signature": "{ name, value, scope }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "set_performance_mode",
+      "tool": "system.set_performance_mode",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "set_power_profile",
+      "tool": "system.set_power_profile",
+      "signature": "{ profile }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "shutdown_server",
+      "tool": "system.shutdown_server",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "sleep",
+      "tool": "system.sleep",
+      "signature": "{ seconds, ms }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "test_port",
+      "tool": "system.test_port",
+      "signature": "{ host, port, timeoutMs }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "wait",
+      "tool": "system.wait",
+      "signature": "{ seconds, ms }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "system",
+      "action": "write_registry",
+      "tool": "system.write_registry",
+      "signature": "{ key, name, data, type }",
+      "permissionLevel": "user",
+      "risk": "HIGH",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía."
+    },
+    {
+      "domain": "terminal",
+      "action": "attach_session",
+      "tool": "terminal.attach_session",
+      "signature": "{ sessionId }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "close_session",
+      "tool": "terminal.close_session",
+      "signature": "{ sessionId }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "create_session",
+      "tool": "terminal.create_session",
+      "signature": "{ sessionId, cwd, env }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "get_background_output",
+      "tool": "terminal.get_background_output",
+      "signature": "{ taskId, pid, tailLines }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "kill_background_task",
+      "tool": "terminal.kill_background_task",
+      "signature": "{ taskId, pid }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "kill_process",
+      "tool": "terminal.kill_process",
+      "signature": "{ pid }",
+      "permissionLevel": "poweruser",
+      "risk": "HIGH",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "kill_process_tree",
+      "tool": "terminal.kill_process_tree",
+      "signature": "{ pid }",
+      "permissionLevel": "poweruser",
+      "risk": "HIGH",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "list_background_tasks",
+      "tool": "terminal.list_background_tasks",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "list_processes",
+      "tool": "terminal.list_processes",
+      "signature": "{ filterName, limit, sortBy }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "list_sessions",
+      "tool": "terminal.list_sessions",
+      "signature": "{ id, cwd, createdAt, updatedAt, historyCount, envKeysCount }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "open_file_explorer",
+      "tool": "terminal.open_file_explorer",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "open_url",
+      "tool": "terminal.open_url",
+      "signature": "{ url }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "run_as_admin",
+      "tool": "terminal.run_as_admin",
+      "signature": "{ command, cwd }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "run_background",
+      "tool": "terminal.run_background",
+      "signature": "{ command, cwd }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "run_command",
+      "tool": "terminal.run_command",
+      "signature": "{ command, timeout, cwd, env, shell, stripAnsi, maxOutputChars }",
+      "permissionLevel": "poweruser",
+      "risk": "MEDIUM",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "run_inline_script",
+      "tool": "terminal.run_inline_script",
+      "signature": "{ code, language, args, cwd, timeout, stripAnsi }",
+      "permissionLevel": "poweruser",
+      "risk": "MEDIUM",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "run_script",
+      "tool": "terminal.run_script",
+      "signature": "{ path, args, interpreter, cwd, env, timeout, stripAnsi, maxOutputChars }",
+      "permissionLevel": "poweruser",
+      "risk": "MEDIUM",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "run_session_command",
+      "tool": "terminal.run_session_command",
+      "signature": "{ sessionId, command, cwd, env }",
+      "permissionLevel": "poweruser",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "stop_background_task",
+      "tool": "terminal.stop_background_task",
+      "signature": "{ taskId, pid }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "terminal",
+      "action": "wait_for_background_task",
+      "tool": "terminal.wait_for_background_task",
+      "signature": "{ taskId, pid, timeoutMs, pollIntervalMs }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Ejecución profesional de comandos, scripts interactivos, sesiones persistentes con gestión de entorno, tareas background y control de procesos del sistema."
+    },
+    {
+      "domain": "packages",
+      "action": "add_repository",
+      "tool": "packages.add_repository",
+      "signature": "{ manager, url, name }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "check_manager",
+      "tool": "packages.check_manager",
+      "signature": "{ manager }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "install_package",
+      "tool": "packages.install_package",
+      "signature": "{ manager, name }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "list_installed",
+      "tool": "packages.list_installed",
+      "signature": "{ manager }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "list_repositories",
+      "tool": "packages.list_repositories",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "package_info",
+      "tool": "packages.package_info",
+      "signature": "{ manager, name }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "remove_package",
+      "tool": "packages.remove_package",
+      "signature": "{ manager, name }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "remove_repository",
+      "tool": "packages.remove_repository",
+      "signature": "{ manager, name }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "search_package",
+      "tool": "packages.search_package",
+      "signature": "{ manager, query }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "packages",
+      "action": "update_package",
+      "tool": "packages.update_package",
+      "signature": "{ manager, name }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Gestor universal de paquetes (winget, choco, scoop, npm, pnpm, pip, cargo, go, apt, dnf, pacman, brew, flatpak)."
+    },
+    {
+      "domain": "database",
+      "action": "analyze_database",
+      "tool": "database.analyze_database",
+      "signature": "{ database }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "backup_database",
+      "tool": "database.backup_database",
+      "signature": "{ database, destination }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "create_database",
+      "tool": "database.create_database",
+      "signature": "{ database }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "delete_database",
+      "tool": "database.delete_database",
+      "signature": "{ database }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "describe_table",
+      "tool": "database.describe_table",
+      "signature": "{ database, table }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "execute_query",
+      "tool": "database.execute_query",
+      "signature": "{ engine, database, query, user, password, host }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "execute_script",
+      "tool": "database.execute_script",
+      "signature": "{ engine, database, scriptFile }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "explain_query",
+      "tool": "database.explain_query",
+      "signature": "{ database, query }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "export_table",
+      "tool": "database.export_table",
+      "signature": "{ database, table, format, destination }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "import_table",
+      "tool": "database.import_table",
+      "signature": "{ database, table, data, source }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "restore_database",
+      "tool": "database.restore_database",
+      "signature": "{ database, source }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "database",
+      "action": "search_tables",
+      "tool": "database.search_tables",
+      "signature": "{ database }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Consultas, análisis, exportación CSV/JSON y administración de bases de datos (SQLite, PostgreSQL, MySQL)."
+    },
+    {
+      "domain": "security",
+      "action": "analyze_process",
+      "tool": "security.analyze_process",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "approve_request",
+      "tool": "security.approve_request",
+      "signature": "{ requestId }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "audit_log",
+      "tool": "security.audit_log",
+      "signature": "{ limit, tool, action, result }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "audit_system",
+      "tool": "security.audit_system",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "check_permissions",
+      "tool": "security.check_permissions",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "decrypt_text",
+      "tool": "security.decrypt_text",
+      "signature": "{ encrypted, password }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "deny_request",
+      "tool": "security.deny_request",
+      "signature": "{ requestId, reason }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "encrypt_text",
+      "tool": "security.encrypt_text",
+      "signature": "{ text, password }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "generate_token",
+      "tool": "security.generate_token",
+      "signature": "{ length, bytes }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "generate_uuid",
+      "tool": "security.generate_uuid",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "get_security_mode",
+      "tool": "security.get_security_mode",
+      "signature": "{ ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "grant_permission",
+      "tool": "security.grant_permission",
+      "signature": "{ scope, role, level, args }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "hash_file",
+      "tool": "security.hash_file",
+      "signature": "{ path, algorithm }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "hash_text",
+      "tool": "security.hash_text",
+      "signature": "{ text, algorithm }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "health",
+      "tool": "security.health",
+      "signature": "{ runtime, registry, config }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "permissions_active",
+      "tool": "security.permissions_active",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "request_status",
+      "tool": "security.request_status",
+      "signature": "{ requestId }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "revoke_permission",
+      "tool": "security.revoke_permission",
+      "signature": "{ scope }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "scan_file",
+      "tool": "security.scan_file",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "set_security_mode",
+      "tool": "security.set_security_mode",
+      "signature": "{ mode }",
+      "permissionLevel": "admin",
+      "risk": "PRIVILEGED",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "security",
+      "action": "verify_hash",
+      "tool": "security.verify_hash",
+      "signature": "{ text, hash, algorithm }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos y auditoría de seguridad."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "clear_all",
+      "tool": "shortcuts.clear_all",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "HIGH",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "create",
+      "tool": "shortcuts.create",
+      "signature": "{ name, description, steps, category, tags }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "delete",
+      "tool": "shortcuts.delete",
+      "signature": "{ name, all }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "edit",
+      "tool": "shortcuts.edit",
+      "signature": "{ name, description, steps, category, tags }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "execute",
+      "tool": "shortcuts.execute",
+      "signature": "{ name, variables }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "export_shortcuts",
+      "tool": "shortcuts.export_shortcuts",
+      "signature": "{ destination }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "get",
+      "tool": "shortcuts.get",
+      "signature": "{ name }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "history",
+      "tool": "shortcuts.history",
+      "signature": "{ name }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "import_shortcuts",
+      "tool": "shortcuts.import_shortcuts",
+      "signature": "{ source, data, overwrite }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "inspect",
+      "tool": "shortcuts.inspect",
+      "signature": "{ name }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "list",
+      "tool": "shortcuts.list",
+      "signature": "{ category }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "reload",
+      "tool": "shortcuts.reload",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "remove",
+      "tool": "shortcuts.remove",
+      "signature": "{ name, all }",
+      "permissionLevel": "user",
+      "risk": "MEDIUM",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "rename",
+      "tool": "shortcuts.rename",
+      "signature": "{ name, newName }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "run",
+      "tool": "shortcuts.run",
+      "signature": "{ name, variables }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "save",
+      "tool": "shortcuts.save",
+      "signature": "{ name, description, steps, category, tags }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "shortcuts",
+      "action": "update",
+      "tool": "shortcuts.update",
+      "signature": "{ name, description, steps, category, tags }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload."
+    },
+    {
+      "domain": "network",
+      "action": "diagnose_network",
+      "tool": "network.diagnose_network",
+      "signature": "{}",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "domain": "network",
+      "action": "dns_query",
+      "tool": "network.dns_query",
+      "signature": "{ domain, rrtype }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "domain": "network",
+      "action": "get_interfaces",
+      "tool": "network.get_interfaces",
+      "signature": "{ name, item }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "domain": "network",
+      "action": "scan_ports",
+      "tool": "network.scan_ports",
+      "signature": "{ host, ports, 443, 3000, 5000, 8000, 8080, 8765, timeoutMs }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "domain": "network",
+      "action": "test_connection",
+      "tool": "network.test_connection",
+      "signature": "{ host, port, timeoutMs }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico de red, pruebas de puertos, consultas DNS y telemetría de interfaces."
+    },
+    {
+      "domain": "diagnostics",
+      "action": "benchmark",
+      "tool": "diagnostics.benchmark",
+      "signature": "{ loops }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "domain": "diagnostics",
+      "action": "health_check",
+      "tool": "diagnostics.health_check",
+      "signature": "{ runtime, registry, config }",
+      "permissionLevel": "user",
+      "risk": "SAFE",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "domain": "diagnostics",
+      "action": "resolve_toolchain",
+      "tool": "diagnostics.resolve_toolchain",
+      "signature": "{ forceRefresh }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "domain": "diagnostics",
+      "action": "self_test",
+      "tool": "diagnostics.self_test",
+      "signature": "{ name, value, status }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "domain": "diagnostics",
+      "action": "system_diagnose",
+      "tool": "diagnostics.system_diagnose",
+      "signature": "{ level, type, message }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación."
+    },
+    {
+      "domain": "developer",
+      "action": "detect_project",
+      "tool": "developer.detect_project",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "domain": "developer",
+      "action": "inspect_project",
+      "tool": "developer.inspect_project",
+      "signature": "{ path }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "domain": "developer",
+      "action": "run_project_build",
+      "tool": "developer.run_project_build",
+      "signature": "{ path, timeoutMs }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    },
+    {
+      "domain": "developer",
+      "action": "run_project_tests",
+      "tool": "developer.run_project_tests",
+      "signature": "{ path, timeoutMs }",
+      "permissionLevel": "user",
+      "risk": "LOW",
+      "description": "Detección, análisis, tests y builds de proyectos de software."
+    }
+  ]
+}

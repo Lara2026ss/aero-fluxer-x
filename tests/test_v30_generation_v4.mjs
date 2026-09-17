@@ -37,12 +37,12 @@ async function test(name, fn) {
 async function runAllTests() {
   // ── 1. Version and Product Identity ─────────────────────────────────────────
   await test("Version & Product Identity invariants", () => {
-    assert.equal(CURRENT_VERSION, "30.0.1");
+    assert.equal(CURRENT_VERSION, "30.0.2");
     assert.equal(GENERATION, "4.0");
     assert.equal(BRAND_NAME, "FLUXER XZ");
     const vInfo = getVersionInfo();
     assert.equal(vInfo.generation, "4.0");
-    assert.equal(vInfo.version, "30.0.1");
+    assert.equal(vInfo.version, "30.0.2");
   });
 
   // ── 2. Capability Registry ──────────────────────────────────────────────────

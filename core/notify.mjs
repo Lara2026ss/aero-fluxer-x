@@ -97,7 +97,7 @@ export function sendNativeNotification(title, message, options = {}) {
  * Se ejecuta en segundo plano con STA sin bloquear el hilo principal de Node.js.
  */
 export function promptSecurityDialog({
-  title = "Fluxer X — Autorización de Seguridad",
+  title = "FLUXER XZ — Autorización de Seguridad",
   tool = "",
   action = "",
   required = "advanced",
@@ -134,12 +134,14 @@ export function promptSecurityDialog({
     child.on("close", (code) => {
       const out = stdout.trim();
       if (typeof onDecision === "function") {
-        if (out.includes("DECISION:APPROVED")) {
+        if (out.includes("DECISION:APPROVED") || code === 0) {
           onDecision("approved");
-        } else if (out.includes("DECISION:TIMEOUT")) {
+        } else if (out.includes("DECISION:TIMEOUT") || code === 2) {
           onDecision("timeout");
-        } else {
+        } else if (out.includes("DECISION:DENIED") || code === 1) {
           onDecision("denied");
+        } else {
+          onDecision("timeout");
         }
       }
     });

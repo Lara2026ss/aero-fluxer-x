@@ -972,6 +972,7 @@ function Action-Print {
         }
 
         $doc = New-Object System.Drawing.Printing.PrintDocument
+        $doc.PrintController = New-Object System.Drawing.Printing.StandardPrintController
         $doc.PrinterSettings.PrinterName = $Name
 
         if (-not $doc.PrinterSettings.IsValid) {
@@ -1052,7 +1053,7 @@ function Action-Print {
             $pagesToPrint.Add([int]$idx)
         }
 
-        $currentPagePointer = 0
+        $pdfState = [hashtable]::Synchronized(@{ pointer = 0 })
         $totalSelected = $pagesToPrint.Count
 
         # Carga de documento según extensión
@@ -1067,12 +1068,12 @@ function Action-Print {
 
             $doc.add_PrintPage({
                 param($sender, $e)
-                if ($currentPagePointer -ge $totalSelected) {
+                if ($pdfState.pointer -ge $totalSelected) {
                     $e.HasMorePages = $false
                     return
                 }
 
-                $pageNum = $pagesToPrint[$currentPagePointer]
+                $pageNum = $pagesToPrint[$pdfState.pointer]
                 # Si hay más de 10 páginas y no se especificó DPI explícito, usar 200 DPI para velocidad y evitar timeouts
                 $targetRenderDpi = if ($ResX -gt 0) { $ResX } elseif ($totalSelected -gt 10) { 200 } else { 300 }
                 $bmp = RenderPdfPage -PdfPath $resolvedSrc -PageNumber $pageNum -TargetDpi $targetRenderDpi -LoadedDoc $loadedPdfDoc
@@ -1085,8 +1086,8 @@ function Action-Print {
 
                 $bmp.Dispose()
                 [GC]::Collect(0)
-                $currentPagePointer++
-                $e.HasMorePages = ($currentPagePointer -lt $totalSelected)
+                $pdfState.pointer++
+                $e.HasMorePages = ($pdfState.pointer -lt $totalSelected)
             })
         } elseif ($ext -in @(".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")) {
             $doc.add_PrintPage({
@@ -1105,7 +1106,7 @@ function Action-Print {
         } else {
             # Archivo de texto plano / Markdown / Log
             $lines = [System.IO.File]::ReadAllLines($resolvedSrc, [System.Text.Encoding]::UTF8)
-            $lineIndex = 0
+            $txtState = [hashtable]::Synchronized(@{ lineIndex = 0 })
             $font = New-Object System.Drawing.Font("Consolas", 10)
             $brush = [System.Drawing.Brushes]::Black
 
@@ -1116,15 +1117,15 @@ function Action-Print {
                 $linesPerPage = [int]($bounds.Height / $lineHeight)
                 $linesPrinted = 0
 
-                while ($lineIndex -lt $lines.Length -and $linesPrinted -lt $linesPerPage) {
-                    $line = $lines[$lineIndex]
+                while ($txtState.lineIndex -lt $lines.Length -and $linesPrinted -lt $linesPerPage) {
+                    $line = $lines[$txtState.lineIndex]
                     $y = $bounds.Top + ($linesPrinted * $lineHeight)
                     $e.Graphics.DrawString($line, $font, $brush, $bounds.Left, $y)
-                    $lineIndex++
+                    $txtState.lineIndex++
                     $linesPrinted++
                 }
 
-                $e.HasMorePages = ($lineIndex -lt $lines.Length)
+                $e.HasMorePages = ($txtState.lineIndex -lt $lines.Length)
             })
         }
 

@@ -206,13 +206,15 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
         });
       }
 
-      const retryArgs = { ...(req.args || {}), __confirmationRequestId: requestId };
+      const finalReqId = req.requestId || targetId || requestId;
+      const retryArgs = { ...(req.args || {}), __confirmationRequestId: finalReqId, confirmationCode: req.confirmationCode };
       try {
         const result = await router.execute({ tool: req.tool, action: req.action, args: retryArgs });
         return {
           ok: true,
           approved: true,
-          requestId,
+          requestId: finalReqId,
+          confirmationCode: req.confirmationCode,
           workflow_granted: Boolean(sessionWindow),
           grantMinutes: sessionWindow?.durationMinutes || 0,
           session_window: sessionWindow ? {
@@ -228,7 +230,7 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
           executed: result,
         };
       } catch (e) {
-        return { ok: false, approved: true, requestId, error: `Aprobado pero falló: ${e.message}` };
+        return { ok: false, approved: true, requestId: finalReqId, confirmationCode: req.confirmationCode, error: `Aprobado pero falló: ${e.message}` };
       }
     },
 
