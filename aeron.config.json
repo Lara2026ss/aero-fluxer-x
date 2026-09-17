@@ -61,5 +61,11 @@
     "endpoint": "https://aero-fluxer-feedback-gateway-4rp0.onrender.com/api/v1/feedback",
     "attach_logs": true,
     "queue_offline": true
+  },
+  "updater": {
+    "auto": false,
+    "auto_update": false,
+    "auto_check": false,
+    "manual_only": true
   }
 }

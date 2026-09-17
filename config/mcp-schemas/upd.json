@@ -1,6 +1,6 @@
 {
   "name": "upd",
-  "description": "Centro oficial de actualización segura de Fluxer X. Ejecuta subherramientas mediante 'action': 'check', 'info', 'apply', 'status'. NOTA: Para la acción 'apply', pide siempre confirmación al usuario en el chat antes de ejecutarla e incluye confirm: true.",
+  "description": "Centro oficial de actualización manual de FLUXER XZ. Las actualizaciones automáticas están estrictamente DESACTIVADAS por política del usuario. Solo se aplican actualizaciones mediante solicitud manual explícita del usuario. Subherramientas: 'check', 'info', 'apply', 'status'. NOTA: Para 'apply', se requiere confirmación expresa y manual del usuario en el chat.",
   "parameters": {
     "type": "object",
     "properties": {
