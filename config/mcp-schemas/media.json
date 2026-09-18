@@ -1,0 +1,31 @@
+{
+  "name": "media",
+  "description": "FLUXER media domain router\nAcciones y argumentos (usar en args): app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_screen { format, revealPath, allow_user_path } | capture_window { hwnd, handle, title, format, revealPath, allow_user_path } | desktop { format, revealPath, allow_user_path } | region { format, revealPath, allow_user_path } | screen { format, revealPath, allow_user_path } | window { hwnd, handle, title, format, revealPath, allow_user_path }",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "app",
+          "capture_app",
+          "capture_screen",
+          "capture_window",
+          "desktop",
+          "region",
+          "screen",
+          "window"
+        ],
+        "description": "Acción a ejecutar en el dominio media"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

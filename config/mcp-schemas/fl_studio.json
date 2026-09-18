@@ -1,0 +1,45 @@
+{
+  "name": "fl_studio",
+  "description": "FLUXER fl_studio domain router\nAcciones y argumentos (usar en args): bridge_status {} | change_tone { notes, semitones, tuning_hz, optimize, compact } | channels { action } | detect {} | edit { subaction } | file { subaction, path, format, name } | launch {} | live_session { mode, bpm, scale, root, progression, notes, style, optimize, compact } | mixer { action, subaction, track, value } | mixer_settings { track_type, optimize, compact } | music_create {} | music_theory { mode, scale, root, chord, optimize, compact } | open { project_path } | optimize { target, sessiontoggletokensdawstatusenabled, grid, remove_duplicates, normalize_velocity } | options { subaction, setting, value, confirm_security } | patterns { subaction, pattern, name } | plugins { subaction, type, optimize, compact } | sound_design { type, optimize, compact } | style_presets { style, optimize, compact } | tools { subaction, macro_name } | transport { action } | view { subaction }",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "bridge_status",
+          "change_tone",
+          "channels",
+          "detect",
+          "edit",
+          "file",
+          "launch",
+          "live_session",
+          "mixer",
+          "mixer_settings",
+          "music_create",
+          "music_theory",
+          "open",
+          "optimize",
+          "options",
+          "patterns",
+          "plugins",
+          "sound_design",
+          "style_presets",
+          "tools",
+          "transport",
+          "view"
+        ],
+        "description": "Acción a ejecutar en el dominio fl_studio"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

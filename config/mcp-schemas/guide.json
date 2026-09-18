@@ -1,16 +1,26 @@
 {
   "name": "guide",
-  "description": "Documentación oficial interna, reglas y mejores prácticas para IAs que operan este MCP.\nAcciones y argumentos (usar en args): best_practices {} | permissions_info { requestId, confirmationCode, grantMinutes } | search_tools { query, domain, limit } | tool_usage { tool_name }",
+  "description": "FLUXER XZ Documentation & Capability Discovery Engine (Gen 4.0). Operaciones: overview | search | category | capability_info | workflows\nAcciones y argumentos (usar en args): capability_info { operation, summary, params, example } | category { name, summary } | image_to_pdf_guide { ok, title, capability, operation, summary, recipes, code, path, paper_size } | index { mode } | merge_pdfs_guide { ok, title, capability, operation, summary, sindependerdescriptsexternosdePython, recipes, code, files, doc2pdf, outPath } | notifications_guide { ok, title, capability, summary, desconexinytoastsdeseguridad, controls, code, subaction, enabled } | overview { capability, category, summary, topOperations, 4mapo } | print_guide { ok, title, capability, summary, Word, imgenesytextoplanoconpreflight, dplex, escaladegrisesysoportemultipginacontinuo, steps, command } | quick_start { ok, brand, version, generation, steps, title, command } | search {} | tool_usage {} | tools { mode } | web_search_guide { ok, title, capability, summary, examples, code, query } | workflows {}",
   "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
-          "best_practices",
-          "permissions_info",
-          "search_tools",
-          "tool_usage"
+          "capability_info",
+          "category",
+          "image_to_pdf_guide",
+          "index",
+          "merge_pdfs_guide",
+          "notifications_guide",
+          "overview",
+          "print_guide",
+          "quick_start",
+          "search",
+          "tool_usage",
+          "tools",
+          "web_search_guide",
+          "workflows"
         ],
         "description": "Acción a ejecutar en el dominio guide"
       },

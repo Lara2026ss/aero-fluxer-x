@@ -1,0 +1,54 @@
+{
+  "name": "printcenter",
+  "description": "FLUXER printcenter domain router\nAcciones y argumentos (usar en args): cancel { printer, printer_name, job_id, id } | cancel_job { printer, printer_name, job_id, id } | capabilities { printer, printer_name, refresh } | configure { printer, printer_name, paper_size, color, duplex, collate } | discover {} | dry_run { paper_size, color, dpi, quality, duplex, copies } | get_pdf_info { file, file_path } | get_printer { printer, printer_name, refresh } | info { printer, printer_name, refresh } | inspect_pdf { file, file_path } | jobs { printer, printer_name } | layout {} | list {} | list_printers {} | manual { brand, model, topic } | pdf { file, file_path } | pdf_info { file, file_path } | preflight { paper_size, color, dpi, quality, duplex, copies } | preview {} | print { args, file, folder, directory, dir } | print_batch { args, file, folder, directory, dir } | print_file { args, file, folder, directory, dir } | print_folder { args, file, folder, directory, dir } | print_pdf { args, file, pages } | printers {} | purge_queue { printer, printer_name } | queue { printer, printer_name } | search {} | search_printers {} | status { printer, printer_name, refresh } | vista_previa {}",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "cancel",
+          "cancel_job",
+          "capabilities",
+          "configure",
+          "discover",
+          "dry_run",
+          "get_pdf_info",
+          "get_printer",
+          "info",
+          "inspect_pdf",
+          "jobs",
+          "layout",
+          "list",
+          "list_printers",
+          "manual",
+          "pdf",
+          "pdf_info",
+          "preflight",
+          "preview",
+          "print",
+          "print_batch",
+          "print_file",
+          "print_folder",
+          "print_pdf",
+          "printers",
+          "purge_queue",
+          "queue",
+          "search",
+          "search_printers",
+          "status",
+          "vista_previa"
+        ],
+        "description": "Acción a ejecutar en el dominio printcenter"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

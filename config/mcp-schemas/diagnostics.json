@@ -1,6 +1,6 @@
 {
   "name": "diagnostics",
-  "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación.\nAcciones y argumentos (usar en args): benchmark { loops } | compact_status { anonymize } | health_check { expose_host_info, compact, anonymize } | resolve_toolchain { forceRefresh } | self_test { name, value, status } | system_diagnose { level, type, message } | telemetry {} | verify_html_integrity { path, content, counts, selectors, baselineCounts }",
+  "description": "Diagnostics v11.0.0 -- compact mode AI-toggle (set_compact/get_compact), network_test, storage_test, mcp_test, report, health_check with real disk/memory/npm/python/dashboard checks.\nAcciones y argumentos (usar en args): benchmark { loops } | check { expose_host_info, compact, anonymize } | compact_status {} | diagnose { level, type, message } | get_compact { ok, compact_mode, set_at, set_by, tip } | health { expose_host_info, compact, anonymize } | health_check { expose_host_info, compact, anonymize } | mcp_test { name, ok, detail } | network_test { targets, timeout_ms } | report { format } | resolve_toolchain { forceRefresh } | self_test {} | set_compact { enabled, reason } | status {} | storage_test {} | system_diagnose { level, type, message } | telemetry {} | test {} | verify_html_integrity { path, content, checkEmbeddedJs }",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -8,12 +8,23 @@
         "type": "string",
         "enum": [
           "benchmark",
+          "check",
           "compact_status",
+          "diagnose",
+          "get_compact",
+          "health",
           "health_check",
+          "mcp_test",
+          "network_test",
+          "report",
           "resolve_toolchain",
           "self_test",
+          "set_compact",
+          "status",
+          "storage_test",
           "system_diagnose",
           "telemetry",
+          "test",
           "verify_html_integrity"
         ],
         "description": "Acción a ejecutar en el dominio diagnostics"

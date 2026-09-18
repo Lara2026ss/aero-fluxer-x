@@ -504,6 +504,114 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
       }
       return { ok: true, note: "Sandbox activo con protección de privacidad de rutas." };
     },
+
+    // ── Capability Leases ───────────────────────────────────────────────────
+    grant_lease: async ({ runId, taskId, scope = "*", budget, allowedPaths, allowed_paths, autoRevoke = true, expiresAt } = {}) => {
+      try {
+        const lease = runtime.permissions.grantLease({
+          runId,
+          taskId,
+          scope,
+          budget: budget || {},
+          allowedPaths: allowedPaths || allowed_paths || [],
+          autoRevoke: autoRevoke !== false,
+          expiresAt,
+        });
+        return { ok: true, lease, message: `Capability lease '${lease.leaseId}' granted for scope '${scope}'.` };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    revoke_lease: async ({ leaseId, runId, taskId, reason = "manual_revoke" } = {}) => {
+      try {
+        if (leaseId) {
+          return runtime.permissions.revokeLease(leaseId, reason);
+        }
+        if (runId) {
+          return runtime.permissions.revokeLeasesByRun(runId, reason);
+        }
+        if (taskId) {
+          return runtime.permissions.revokeLeasesByTask(taskId, reason);
+        }
+        return { ok: false, error: "leaseId, runId, or taskId is required" };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    list_leases: async ({ runId, taskId, scope } = {}) => {
+      try {
+        const leases = runtime.permissions.listActiveLeases({ runId, taskId, scope });
+        return { ok: true, count: leases.length, leases };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    get_lease: async ({ leaseId } = {}) => {
+      if (!leaseId) return { ok: false, error: "leaseId is required" };
+      const lease = runtime.permissions.getLease(leaseId);
+      if (!lease) return { ok: false, code: "LEASE_NOT_FOUND", error: `Lease '${leaseId}' not found.` };
+      return { ok: true, lease };
+    },
+
+    // ── Permission Levels & Action Approval (Gate 3) ────────────────────────
+    classify_permission_level: async ({ tool, action } = {}) => {
+      if (!tool || !action) return { ok: false, error: "tool and action are required." };
+      const classification = runtime.permissions.classifyPermissionLevel(tool, action);
+      return { ok: true, ...classification };
+    },
+
+    request_action_approval: async ({ tool, action, args, userId = "user", ...rest } = {}) => {
+      if (!tool || !action) return { ok: false, error: "tool and action are required." };
+      try {
+        const mergedArgs = { ...(args || {}), ...rest };
+        const approval = runtime.permissions.requestActionApproval({ tool, action, args: mergedArgs, userId, ...rest });
+        return { ok: true, approval };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    approve_user_action: async ({ actionId, userActionSignature, clickTimestamp } = {}) => {
+      if (!actionId || !userActionSignature) return { ok: false, error: "actionId and userActionSignature are required." };
+      try {
+        const approval = runtime.permissions.approveUserAction({ actionId, userActionSignature, clickTimestamp });
+        return { ok: true, approval };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    simulate_user_click: async ({ actionId, clickTimestamp } = {}) => {
+      if (!actionId) return { ok: false, error: "actionId is required." };
+      try {
+        const result = runtime.permissions.simulateUserClick(actionId, clickTimestamp);
+        return { ok: true, ...result };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    // ── Immutable WORM Audit Inspection (Gate 4) ────────────────────────────
+    worm_audit: async ({ limit = 50, action, tool, status } = {}) => {
+      try {
+        const entries = runtime.memory.getWormAuditLog({ limit, action, tool, status });
+        return { ok: true, count: entries.length, entries };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
+
+    worm_audit_verify: async () => {
+      try {
+        const verification = runtime.memory.verifyWormAuditIntegrity();
+        return { ok: true, ...verification };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    },
   };
 
   const permissions = {
@@ -535,6 +643,16 @@ export function createSecurityDomain({ runtime, fs, crypto, domain, splitLines }
     get_security_mode: "standard",
     health: "standard",
     audit_log: "standard",
+    grant_lease: "standard",
+    revoke_lease: "standard",
+    list_leases: "standard",
+    get_lease: "standard",
+    classify_permission_level: "standard",
+    request_action_approval: "standard",
+    approve_user_action: "standard",
+    simulate_user_click: "standard",
+    worm_audit: "standard",
+    worm_audit_verify: "standard",
   };
 
   return domain("security", "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.", actions, permissions);

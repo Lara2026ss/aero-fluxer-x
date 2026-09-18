@@ -17,6 +17,8 @@ const SCHEMAS_DIR = path.join(ROOT, "config", "mcp-schemas");
 const CONTRACTS_DIR = path.join(ROOT, "contracts");
 const AGY_MCP_DIRS = [
   process.env.ANTIGRAVITY_MCP_DIR,
+  path.join(os.homedir(), ".gemini", "antigravity", "mcp", "FLUXER_XZ"),
+  path.join(os.homedir(), ".gemini", "antigravity", "mcp", "AI_Fluxer"),
   path.join(os.homedir(), ".gemini", "antigravity", "mcp", "Aeron_Fluxer_X"),
   path.join(os.homedir(), ".gemini", "antigravity", "mcp", "fluxer"),
 ].filter(Boolean);

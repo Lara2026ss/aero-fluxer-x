@@ -85,3 +85,6 @@ Desktop.ini
 *.swo
 *~
 .gemini/
+
+__pycache__/
+*.pyc

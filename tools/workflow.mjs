@@ -40,6 +40,8 @@ export function createWorkflowDomain({ runtime, router, capabilityRegistry, doma
         concurrency,
         rollbackOnError,
         timeoutMs,
+        checkpoint: params.checkpoint !== false,
+        runId: params.runId || params.run_id || null,
       });
 
       return result;
@@ -97,20 +99,69 @@ export function createWorkflowDomain({ runtime, router, capabilityRegistry, doma
         return {
           ok: true,
           activeWorkflows: Array.from(engine.activeWorkflows.keys()),
+          recentRuns: engine.listRuns({ limit: 10 }),
           summary: "Pass workflowId to inspect details of a specific execution.",
         };
       }
 
-      const wf = engine.activeWorkflows.get(workflowId);
-      if (!wf) {
-        return {
-          ok: false,
-          code: "NOT_FOUND",
-          error: `Workflow with ID '${workflowId}' not found in active session memory.`,
-        };
+      const run = engine.getRun(workflowId);
+      const checkpoints = engine.getCheckpoints(workflowId);
+
+      return {
+        ok: true,
+        workflowId,
+        run: run || null,
+        checkpoints,
+      };
+    },
+
+    // ── 5. Resume DAG Workflow ───────────────────────────────────────────────
+    resume: async (params = {}) => {
+      const runId = params.runId || params.run_id || params.id;
+      const fromStep = params.fromStep || params.from_step || params.step || null;
+      const patchInput = params.patchInput || params.patch_input || params.input || {};
+      const patchTasks = params.patchTasks || params.patch_tasks || null;
+      const concurrency = Number(params.concurrency) || 4;
+      const rollbackOnError = Boolean(params.rollbackOnError || params.rollback);
+      const timeoutMs = Number(params.timeoutMs) || 120000;
+
+      if (!engine.router && runtime?.router) {
+        engine.router = runtime.router;
       }
 
-      return { ok: true, workflow: wf };
+      return engine.resume({
+        runId,
+        fromStep,
+        patchInput,
+        patchTasks,
+        concurrency,
+        rollbackOnError,
+        timeoutMs,
+      });
+    },
+
+    // ── 6. List Runs ─────────────────────────────────────────────────────────
+    runs: async (params = {}) => {
+      const limit = Number(params.limit) || 20;
+      const status = params.status || null;
+      return {
+        ok: true,
+        runs: engine.listRuns({ limit, status }),
+      };
+    },
+
+    // ── 7. Get Checkpoints ───────────────────────────────────────────────────
+    checkpoints: async (params = {}) => {
+      const runId = params.runId || params.run_id || params.id;
+      if (!runId) {
+        return { ok: false, code: "INVALID_ARGUMENT", error: "runId is required to view checkpoints." };
+      }
+      return {
+        ok: true,
+        runId,
+        run: engine.getRun(runId),
+        checkpoints: engine.getCheckpoints(runId),
+      };
     },
   };
 
@@ -119,6 +170,9 @@ export function createWorkflowDomain({ runtime, router, capabilityRegistry, doma
     validate: "standard",
     template: "standard",
     status: "standard",
+    resume: "standard",
+    runs: "standard",
+    checkpoints: "standard",
   };
 
   if (typeof domain === "function") {

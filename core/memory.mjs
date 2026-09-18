@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
 export function redactSecrets(text) {
@@ -177,6 +178,7 @@ export class MemoryStore {
       } catch (e) {}
 
       this.cleanup();
+      this._applyMigrations();
     });
     await this.migrateLegacyJson();
   }
@@ -735,5 +737,720 @@ export class MemoryStore {
     } catch {
       return fallback;
     }
+  }
+
+  // ── Versioned Migrations ──────────────────────────────────────────────────
+  _applyMigrations() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    const currentVersionRow = this.db.prepare("SELECT MAX(version) as ver FROM schema_migrations").get();
+    const currentVersion = currentVersionRow?.ver || 0;
+
+    if (currentVersion < 1) {
+      this.db.prepare("INSERT INTO schema_migrations (version, name) VALUES (?, ?)").run(1, "baseline_v30");
+    }
+
+    if (currentVersion < 2) {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS dag_runs (
+          run_id TEXT PRIMARY KEY,
+          status TEXT NOT NULL,
+          task_count INTEGER NOT NULL DEFAULT 0,
+          tasks_json TEXT NOT NULL,
+          input_json TEXT NOT NULL DEFAULT '{}',
+          error_json TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS dag_checkpoints (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          run_id TEXT NOT NULL,
+          task_id TEXT NOT NULL,
+          status TEXT NOT NULL,
+          output_json TEXT,
+          error_json TEXT,
+          duration_ms INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(run_id, task_id),
+          FOREIGN KEY(run_id) REFERENCES dag_runs(run_id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_dag_runs_status ON dag_runs(status, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_dag_checkpoints_run ON dag_checkpoints(run_id, task_id);
+      `);
+      this.db.prepare("INSERT INTO schema_migrations (version, name) VALUES (?, ?)").run(2, "dag_resilience_checkpoints");
+    }
+
+    if (currentVersion < 3) {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS capability_leases (
+          lease_id TEXT PRIMARY KEY,
+          run_id TEXT,
+          task_id TEXT,
+          scope TEXT NOT NULL,
+          budget_json TEXT NOT NULL,
+          cost_per_call INTEGER NOT NULL DEFAULT 1,
+          remaining_calls INTEGER NOT NULL DEFAULT 1,
+          allowed_paths_json TEXT NOT NULL DEFAULT '[]',
+          auto_revoke INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          expires_at TEXT,
+          revoked_at TEXT,
+          revoke_reason TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS capability_lease_events (
+          event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lease_id TEXT NOT NULL,
+          run_id TEXT,
+          task_id TEXT,
+          action TEXT NOT NULL,
+          route TEXT,
+          decision TEXT NOT NULL,
+          cost INTEGER NOT NULL DEFAULT 1,
+          reason TEXT,
+          timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_leases_lookup ON capability_leases(status, run_id, task_id, scope);
+        CREATE INDEX IF NOT EXISTS idx_lease_events ON capability_lease_events(lease_id, timestamp);
+      `);
+      this.db.prepare("INSERT INTO schema_migrations (version, name) VALUES (?, ?)").run(3, "capability_leases_cryptographic");
+    }
+
+    if (currentVersion < 4) {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS worm_audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ts TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          operation TEXT NOT NULL,
+          tool TEXT NOT NULL,
+          action TEXT NOT NULL,
+          permission_level INTEGER NOT NULL,
+          principal TEXT NOT NULL DEFAULT 'default',
+          lease_id TEXT,
+          details_json TEXT NOT NULL DEFAULT '{}',
+          prev_hash TEXT NOT NULL,
+          record_hash TEXT NOT NULL
+        );
+
+        CREATE TRIGGER IF NOT EXISTS trg_worm_no_update BEFORE UPDATE ON worm_audit_log BEGIN
+          SELECT RAISE(FAIL, 'WORM_IMMUTABLE: Updates are strictly prohibited on the audit log.');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_worm_no_delete BEFORE DELETE ON worm_audit_log BEGIN
+          SELECT RAISE(FAIL, 'WORM_IMMUTABLE: Deletions are strictly prohibited on the audit log.');
+        END;
+
+        CREATE INDEX IF NOT EXISTS idx_worm_ts ON worm_audit_log(ts DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_worm_op ON worm_audit_log(operation, ts DESC);
+      `);
+      this.db.prepare("INSERT INTO schema_migrations (version, name) VALUES (?, ?)").run(4, "worm_audit_log_immutable");
+    }
+  }
+
+  // ── DAG Runs and Checkpoints Operations ───────────────────────────────────
+  saveDagRun({ runId, status = "running", taskCount = 0, tasks = [], input = {}, error = null }) {
+    if (!runId) throw new Error("runId is required for saveDagRun");
+    const tasksJson = typeof tasks === "string" ? tasks : JSON.stringify(tasks);
+    const inputJson = typeof input === "string" ? input : JSON.stringify(input);
+    const errorJson = error ? (typeof error === "string" ? error : JSON.stringify(error)) : null;
+
+    const stmt = this.db.prepare(`
+      INSERT INTO dag_runs (run_id, status, task_count, tasks_json, input_json, error_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(run_id) DO UPDATE SET
+        status = excluded.status,
+        task_count = CASE WHEN excluded.task_count > 0 THEN excluded.task_count ELSE dag_runs.task_count END,
+        error_json = excluded.error_json,
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+
+    stmt.run(runId, status, taskCount, tasksJson, inputJson, errorJson);
+    return { ok: true, runId, status };
+  }
+
+  updateDagRunStatus(runId, status, { error = null, taskCount = null } = {}) {
+    if (!runId) throw new Error("runId is required for updateDagRunStatus");
+    const errorJson = error ? (typeof error === "string" ? error : JSON.stringify(error)) : null;
+
+    let query = "UPDATE dag_runs SET status = ?, updated_at = CURRENT_TIMESTAMP";
+    const params = [status];
+
+    if (errorJson !== null) {
+      query += ", error_json = ?";
+      params.push(errorJson);
+    }
+    if (taskCount !== null) {
+      query += ", task_count = ?";
+      params.push(taskCount);
+    }
+
+    query += " WHERE run_id = ?";
+    params.push(runId);
+
+    const res = this.db.prepare(query).run(...params);
+    return { ok: res.changes > 0, runId, status, changes: res.changes };
+  }
+
+  acquireResumeLock(runId) {
+    if (!runId) throw new Error("runId is required for acquireResumeLock");
+    const run = this.getDagRun(runId);
+    if (!run) {
+      const err = new Error(`DAG run '${runId}' not found.`);
+      err.code = "RUN_NOT_FOUND";
+      throw err;
+    }
+
+    if (run.status === "completed") {
+      const err = new Error(`DAG run '${runId}' is already completed and cannot be resumed.`);
+      err.code = "RUN_NOT_RESUMABLE";
+      throw err;
+    }
+
+    if (run.status === "resuming" || run.status === "running") {
+      const err = new Error(`DAG run '${runId}' is currently ${run.status} by another process.`);
+      err.code = "RUN_ALREADY_RESUMING";
+      throw err;
+    }
+
+    // Atomic state transition from paused/failed/pending/cancelled to resuming
+    const stmt = this.db.prepare(`
+      UPDATE dag_runs
+      SET status = 'resuming', updated_at = CURRENT_TIMESTAMP
+      WHERE run_id = ? AND status IN ('failed', 'paused', 'pending', 'cancelled');
+    `);
+    const res = stmt.run(runId);
+    if (res.changes === 0) {
+      const err = new Error(`DAG run '${runId}' could not acquire resume lock.`);
+      err.code = "RUN_ALREADY_RESUMING";
+      throw err;
+    }
+
+    return { ok: true, runId, previousStatus: run.status };
+  }
+
+  saveCheckpoint({ runId, taskId, status, data = null, error = null, durationMs = 0 }) {
+    if (!runId || !taskId) throw new Error("runId and taskId are required for saveCheckpoint");
+    const outputJson = data !== null && data !== undefined ? JSON.stringify(data) : null;
+    const errorJson = error ? (typeof error === "string" ? error : JSON.stringify(error)) : null;
+
+    // Ensure parent dag_runs entry exists to satisfy foreign key constraint
+    try {
+      this.db.prepare(`
+        INSERT OR IGNORE INTO dag_runs (run_id, status, task_count, tasks_json, input_json, created_at, updated_at)
+        VALUES (?, 'running', 0, '[]', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+      `).run(runId);
+    } catch {}
+
+    // Idempotent upsert: once completed, a checkpoint is immutable and cannot be degraded!
+    const stmt = this.db.prepare(`
+      INSERT INTO dag_checkpoints (run_id, task_id, status, output_json, error_json, duration_ms, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(run_id, task_id) DO UPDATE SET
+        status = CASE
+          WHEN dag_checkpoints.status = 'completed' AND excluded.status != 'completed' THEN dag_checkpoints.status
+          ELSE excluded.status
+        END,
+        output_json = CASE
+          WHEN dag_checkpoints.status = 'completed' AND excluded.status != 'completed' THEN dag_checkpoints.output_json
+          ELSE excluded.output_json
+        END,
+        error_json = CASE
+          WHEN dag_checkpoints.status = 'completed' AND excluded.status != 'completed' THEN dag_checkpoints.error_json
+          ELSE excluded.error_json
+        END,
+        duration_ms = CASE
+          WHEN dag_checkpoints.status = 'completed' AND excluded.status != 'completed' THEN dag_checkpoints.duration_ms
+          ELSE excluded.duration_ms
+        END,
+        updated_at = CURRENT_TIMESTAMP;
+    `);
+
+    stmt.run(runId, taskId, status, outputJson, errorJson, durationMs);
+    return { ok: true, runId, taskId, status };
+  }
+
+  getDagRun(runId) {
+    if (!runId) return null;
+    const row = this.db.prepare("SELECT * FROM dag_runs WHERE run_id = ?").get(runId);
+    if (!row) return null;
+
+    return {
+      runId: row.run_id,
+      status: row.status,
+      taskCount: row.task_count,
+      tasks: this.safeParseJson(row.tasks_json, []),
+      input: this.safeParseJson(row.input_json, {}),
+      error: this.safeParseJson(row.error_json, row.error_json),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  listDagRuns({ limit = 20, status = null } = {}) {
+    let query = "SELECT * FROM dag_runs";
+    const params = [];
+    if (status) {
+      query += " WHERE status = ?";
+      params.push(status);
+    }
+    query += " ORDER BY updated_at DESC LIMIT ?";
+    params.push(Math.max(1, Math.min(100, Number(limit) || 20)));
+
+    const rows = this.db.prepare(query).all(...params);
+    return rows.map((r) => ({
+      runId: r.run_id,
+      status: r.status,
+      taskCount: r.task_count,
+      tasks: this.safeParseJson(r.tasks_json, []),
+      input: this.safeParseJson(r.input_json, {}),
+      error: this.safeParseJson(r.error_json, r.error_json),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  }
+
+  getCheckpoints(runId) {
+    if (!runId) return [];
+    const rows = this.db.prepare("SELECT * FROM dag_checkpoints WHERE run_id = ? ORDER BY id ASC").all(runId);
+    return rows.map((r) => ({
+      id: r.id,
+      runId: r.run_id,
+      taskId: r.task_id,
+      status: r.status,
+      data: this.safeParseJson(r.output_json, r.output_json),
+      error: this.safeParseJson(r.error_json, r.error_json),
+      durationMs: r.duration_ms,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  }
+
+  getStepCheckpoint(runId, taskId) {
+    if (!runId || !taskId) return null;
+    const row = this.db.prepare("SELECT * FROM dag_checkpoints WHERE run_id = ? AND task_id = ?").get(runId, taskId);
+    if (!row) return null;
+    return {
+      id: row.id,
+      runId: row.run_id,
+      taskId: row.task_id,
+      status: row.status,
+      data: this.safeParseJson(row.output_json, row.output_json),
+      error: this.safeParseJson(row.error_json, row.error_json),
+      durationMs: row.duration_ms,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  getWorkflowRun(runId) {
+    const run = this.getDagRun(runId);
+    if (!run) return null;
+    const checkpoints = this.getCheckpoints(runId);
+    const completedCount = checkpoints.filter((c) => c.status === "completed").length;
+    return {
+      ...run,
+      run_id: run.runId,
+      completed_tasks: completedCount,
+    };
+  }
+
+  // ── Capability Leases Operations ──────────────────────────────────────────
+  createLease({
+    leaseId,
+    runId = null,
+    taskId = null,
+    scope,
+    budget = {},
+    costPerCall = 1,
+    remainingCalls = null,
+    allowedPaths = [],
+    autoRevoke = true,
+    expiresAt = null,
+  }) {
+    if (!leaseId || !scope) throw new Error("leaseId and scope are required for createLease");
+    const budgetJson = typeof budget === "string" ? budget : JSON.stringify(budget);
+    const parsedBudget = typeof budget === "string" ? this.safeParseJson(budget, {}) : budget;
+    const calls = remainingCalls !== null ? Number(remainingCalls) : (Number(parsedBudget.max_calls) || Number(parsedBudget.maxCalls) || Number(parsedBudget.calls) || 1);
+    const cost = Number(parsedBudget.cost_per_call || parsedBudget.costPerCall || costPerCall) || 1;
+    const allowedJson = JSON.stringify(Array.isArray(allowedPaths) ? allowedPaths : (parsedBudget.allowed_paths || parsedBudget.allowedPaths || []));
+
+    const stmt = this.db.prepare(`
+      INSERT INTO capability_leases (
+        lease_id, run_id, task_id, scope, budget_json, cost_per_call,
+        remaining_calls, allowed_paths_json, auto_revoke, status,
+        created_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP, ?);
+    `);
+
+    stmt.run(
+      leaseId,
+      runId,
+      taskId,
+      scope,
+      budgetJson,
+      cost,
+      calls,
+      allowedJson,
+      autoRevoke ? 1 : 0,
+      expiresAt
+    );
+
+    this.recordLeaseEvent({
+      leaseId,
+      runId,
+      taskId,
+      action: "grant",
+      route: scope,
+      decision: "GRANTED",
+      cost,
+      reason: "lease_created",
+    });
+
+    return this.getLease(leaseId);
+  }
+
+  getLease(leaseId) {
+    if (!leaseId) return null;
+    const row = this.db.prepare("SELECT * FROM capability_leases WHERE lease_id = ?").get(leaseId);
+    if (!row) return null;
+
+    return {
+      leaseId: row.lease_id,
+      runId: row.run_id,
+      taskId: row.task_id,
+      scope: row.scope,
+      budget: { ...this.safeParseJson(row.budget_json, {}), calls: row.remaining_calls },
+      costPerCall: row.cost_per_call,
+      remainingCalls: row.remaining_calls,
+      allowedPaths: this.safeParseJson(row.allowed_paths_json, []),
+      autoRevoke: Boolean(row.auto_revoke),
+      status: row.status,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      revokedAt: row.revoked_at,
+      revokeReason: row.revoke_reason,
+    };
+  }
+
+  listActiveLeases({ runId = null, taskId = null, scope = null } = {}) {
+    let query = "SELECT * FROM capability_leases WHERE status = 'active'";
+    const params = [];
+    if (runId) {
+      query += " AND (run_id = ? OR run_id IS NULL)";
+      params.push(runId);
+    }
+    if (taskId) {
+      query += " AND (task_id = ? OR task_id IS NULL)";
+      params.push(taskId);
+    }
+    if (scope && scope !== "*") {
+      query += " AND (scope = ? OR scope = '*')";
+      params.push(scope);
+    }
+    query += " ORDER BY created_at DESC";
+
+    const rows = this.db.prepare(query).all(...params);
+    return rows.map((r) => ({
+      leaseId: r.lease_id,
+      runId: r.run_id,
+      taskId: r.task_id,
+      scope: r.scope,
+      budget: { ...this.safeParseJson(r.budget_json, {}), calls: r.remaining_calls },
+      costPerCall: r.cost_per_call,
+      remainingCalls: r.remaining_calls,
+      allowedPaths: this.safeParseJson(r.allowed_paths_json, []),
+      autoRevoke: Boolean(r.auto_revoke),
+      status: r.status,
+      createdAt: r.created_at,
+      expiresAt: r.expires_at,
+      revokedAt: r.revoked_at,
+      revokeReason: r.revoke_reason,
+    }));
+  }
+
+  consumeLeaseQuota(leaseId, cost = 1, context = {}) {
+    if (!leaseId) throw new Error("leaseId is required for consumeLeaseQuota");
+    const lease = this.getLease(leaseId);
+    if (!lease) {
+      const err = new Error(`Capability lease '${leaseId}' not found.`);
+      err.code = "LEASE_NOT_FOUND";
+      throw err;
+    }
+
+    if (lease.status === "revoked") {
+      const err = new Error(`Capability lease '${leaseId}' is revoked (${lease.revokeReason || 'unknown'}).`);
+      err.code = "LEASE_REVOKED";
+      throw err;
+    }
+
+    if (lease.status === "exhausted") {
+      const err = new Error(`Capability lease '${leaseId}' budget is exhausted (0 remaining calls).`);
+      err.code = "LEASE_BUDGET_EXHAUSTED";
+      throw err;
+    }
+
+    if (lease.expiresAt && new Date(lease.expiresAt).getTime() <= Date.now()) {
+      this.db.prepare("UPDATE capability_leases SET status = 'expired', revoked_at = CURRENT_TIMESTAMP, revoke_reason = 'expired' WHERE lease_id = ?").run(leaseId);
+      const err = new Error(`Capability lease '${leaseId}' has expired.`);
+      err.code = "LEASE_EXPIRED";
+      throw err;
+    }
+
+    if (lease.remainingCalls < cost) {
+      const err = new Error(`Capability lease '${leaseId}' has insufficient budget (${lease.remainingCalls} remaining, requested ${cost}).`);
+      err.code = "LEASE_BUDGET_EXHAUSTED";
+      throw err;
+    }
+
+    // Atomic SQL decrement with auto-revocation to 'exhausted'
+    const stmt = this.db.prepare(`
+      UPDATE capability_leases
+      SET remaining_calls = remaining_calls - ?,
+          status = CASE
+            WHEN (remaining_calls - ?) <= 0 AND auto_revoke = 1 THEN 'exhausted'
+            ELSE status
+          END,
+          revoked_at = CASE
+            WHEN (remaining_calls - ?) <= 0 AND auto_revoke = 1 THEN CURRENT_TIMESTAMP
+            ELSE revoked_at
+          END,
+          revoke_reason = CASE
+            WHEN (remaining_calls - ?) <= 0 AND auto_revoke = 1 THEN 'quota_exhausted'
+            ELSE revoke_reason
+          END
+      WHERE lease_id = ?
+        AND status = 'active'
+        AND remaining_calls >= ?;
+    `);
+
+    const result = stmt.run(cost, cost, cost, cost, leaseId, cost);
+    if (result.changes === 0) {
+      const err = new Error(`Capability lease '${leaseId}' budget was exhausted concurrently.`);
+      err.code = "LEASE_BUDGET_EXHAUSTED";
+      this.recordLeaseEvent({
+        leaseId,
+        runId: lease.runId,
+        taskId: lease.taskId,
+        action: context.action || "execute",
+        route: context.route || "",
+        decision: "REJECTED",
+        cost,
+        reason: "LEASE_BUDGET_EXHAUSTED_CONCURRENT",
+      });
+      throw err;
+    }
+
+    const updated = this.getLease(leaseId);
+    this.recordLeaseEvent({
+      leaseId,
+      runId: lease.runId,
+      taskId: lease.taskId,
+      action: context.action || "execute",
+      route: context.route || "",
+      decision: updated.status === "exhausted" ? "EXHAUSTED" : "CONSUMED",
+      cost,
+      reason: updated.status === "exhausted" ? "quota_exhausted" : "authorized_call",
+    });
+
+    return {
+      ok: true,
+      leaseId,
+      remainingCalls: updated.remainingCalls,
+      status: updated.status,
+    };
+  }
+
+  revokeLease(leaseId, reason = "manual_revoke") {
+    if (!leaseId) return { ok: false, message: "leaseId required" };
+    const stmt = this.db.prepare(`
+      UPDATE capability_leases
+      SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revoke_reason = ?
+      WHERE lease_id = ? AND status = 'active';
+    `);
+    const res = stmt.run(reason, leaseId);
+
+    if (res.changes > 0) {
+      this.recordLeaseEvent({
+        leaseId,
+        action: "revoke",
+        decision: "REVOKED",
+        reason,
+      });
+    }
+
+    return { ok: true, leaseId, changes: res.changes };
+  }
+
+  revokeLeasesByRun(runId, reason = "workflow_finished") {
+    if (!runId) return { ok: true, changes: 0 };
+    const stmt = this.db.prepare(`
+      UPDATE capability_leases
+      SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revoke_reason = ?
+      WHERE run_id = ? AND status = 'active';
+    `);
+    const res = stmt.run(reason, runId);
+    return { ok: true, runId, changes: res.changes };
+  }
+
+  revokeLeasesByTask(taskId, reason = "task_finished") {
+    if (!taskId) return { ok: true, changes: 0 };
+    const stmt = this.db.prepare(`
+      UPDATE capability_leases
+      SET status = 'revoked', revoked_at = CURRENT_TIMESTAMP, revoke_reason = ?
+      WHERE task_id = ? AND status = 'active';
+    `);
+    const res = stmt.run(reason, taskId);
+    return { ok: true, taskId, changes: res.changes };
+  }
+
+  recordLeaseEvent({ leaseId, runId = null, taskId = null, action = "call", route = null, decision = "UNKNOWN", cost = 1, reason = null }) {
+    try {
+      this.db.prepare(`
+        INSERT INTO capability_lease_events (lease_id, run_id, task_id, action, route, decision, cost, reason, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+      `).run(leaseId, runId, taskId, action, route, decision, cost, reason);
+    } catch {}
+  }
+
+  // ── WORM (Write Once, Read Many) Audit Log ────────────────────────────────
+  appendWormAudit({
+    operation,
+    tool = null,
+    action = null,
+    permissionLevel = 0,
+    principal = "default",
+    leaseId = null,
+    details = {},
+  }) {
+    if (!this.db) return null;
+    const op = String(operation || `${tool}.${action}`);
+    const t = tool ? String(tool) : op.split(".")[0] || "system";
+    const a = action ? String(action) : (op.split(".")[1] || op);
+    const detailsJson = typeof details === "string" ? details : JSON.stringify(details || {});
+    const nowIso = new Date().toISOString();
+
+    // Get last record hash for the cryptographic chain
+    const lastRow = this.db.prepare("SELECT record_hash FROM worm_audit_log ORDER BY id DESC LIMIT 1").get();
+    const prevHash = lastRow?.record_hash || "GENESIS_FLUXER_WORM_V30";
+
+    const hashPayload = `${prevHash}:${nowIso}:${op}:${t}:${a}:${permissionLevel}:${principal}:${leaseId || ""}:${detailsJson}`;
+    const recordHash = crypto.createHash("sha256").update(hashPayload).digest("hex");
+
+    const stmt = this.db.prepare(`
+      INSERT INTO worm_audit_log (
+        ts, operation, tool, action, permission_level, principal, lease_id, details_json, prev_hash, record_hash
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    `);
+
+    const res = stmt.run(
+      nowIso,
+      op,
+      t,
+      a,
+      Number(permissionLevel) || 0,
+      principal,
+      leaseId,
+      detailsJson,
+      prevHash,
+      recordHash
+    );
+
+    const rowId = Number(res.lastInsertRowid);
+    const wormId = `worm_${rowId}`;
+    return {
+      id: rowId,
+      entryId: wormId,
+      entry_id: wormId,
+      ts: nowIso,
+      operation: op,
+      tool: t,
+      action: a,
+      permissionLevel: Number(permissionLevel) || 0,
+      principal,
+      leaseId,
+      prevHash,
+      recordHash,
+      toString() { return wormId; },
+      [Symbol.toPrimitive]() { return wormId; },
+    };
+  }
+
+  getWormAuditLog({ limit = 50, operation = null } = {}) {
+    if (!this.db) return [];
+    let sql = "SELECT * FROM worm_audit_log";
+    const params = [];
+    if (operation) {
+      sql += " WHERE operation = ? OR tool = ?";
+      params.push(operation, operation);
+    }
+    sql += " ORDER BY id DESC LIMIT ?";
+    params.push(Math.max(1, Math.min(Number(limit) || 50, 500)));
+
+    const rows = this.db.prepare(sql).all(...params);
+    return rows.map((r) => ({
+      id: r.id,
+      entryId: `worm_${r.id}`,
+      entry_id: `worm_${r.id}`,
+      ts: r.ts,
+      operation: r.operation,
+      tool: r.tool,
+      action: r.action,
+      permissionLevel: r.permission_level,
+      permission_level: r.permission_level,
+      principal: r.principal,
+      leaseId: r.lease_id,
+      details: this.safeParseJson(r.details_json, {}),
+      prevHash: r.prev_hash,
+      recordHash: r.record_hash,
+    }));
+  }
+
+  verifyWormAuditIntegrity() {
+    if (!this.db) return { ok: false, error: "Database not loaded" };
+    const rows = this.db.prepare("SELECT * FROM worm_audit_log ORDER BY id ASC").all();
+    let prev = "GENESIS_FLUXER_WORM_V30";
+    let verifiedCount = 0;
+
+    for (const r of rows) {
+      if (r.prev_hash !== prev) {
+        return {
+          ok: false,
+          verified: false,
+          error: `Chain broken at entry ID ${r.id}: expected prev_hash ${prev}, got ${r.prev_hash}`,
+          brokenId: r.id,
+        };
+      }
+      const hashPayload = `${r.prev_hash}:${r.ts}:${r.operation}:${r.tool}:${r.action}:${r.permission_level}:${r.principal}:${r.lease_id || ""}:${r.details_json}`;
+      const computedHash = crypto.createHash("sha256").update(hashPayload).digest("hex");
+      if (computedHash !== r.record_hash) {
+        return {
+          ok: false,
+          verified: false,
+          error: `Hash mismatch at entry ID ${r.id}: computed ${computedHash}, stored ${r.record_hash}`,
+          brokenId: r.id,
+        };
+      }
+      prev = r.record_hash;
+      verifiedCount++;
+    }
+
+    return {
+      ok: true,
+      verified: true,
+      totalEntries: verifiedCount,
+      verifiedCount,
+      headHash: prev,
+    };
   }
 }

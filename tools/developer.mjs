@@ -2793,6 +2793,29 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
           : "Notificaciones emergentes de seguridad desactivadas exitosamente.",
       };
     },
+
+    telemetry: async ({ limit = 50, tool, action, status } = {}) => {
+      const buffer = runtime.telemetryRingBuffer || [];
+      let filtered = [...buffer];
+      if (tool) filtered = filtered.filter(e => e.tool === tool);
+      if (action) filtered = filtered.filter(e => e.action === action);
+      if (status) {
+        if (status === "ok" || status === "success") filtered = filtered.filter(e => e.ok);
+        else if (status === "error" || status === "failed") filtered = filtered.filter(e => !e.ok);
+      }
+      const entries = filtered.slice(-Math.max(1, Math.min(Number(limit) || 50, 100)));
+      const totalCalls = buffer.length;
+      const errorCount = buffer.filter(e => !e.ok).length;
+      const successCount = totalCalls - errorCount;
+      return {
+        ok: true,
+        totalTracked: totalCalls,
+        successCount,
+        errorCount,
+        count: entries.length,
+        telemetry: entries,
+      };
+    },
   };
 
   actions.notification_connection = actions.notifications_connection;
@@ -2800,12 +2823,17 @@ export function createDeveloperDomain({ runtime, domain, fs, path }) {
   actions.notification_security = actions.notifications_security;
   actions.security_notifications = actions.notifications_security;
   actions.toggle_notifications = actions.notifications_connection;
+  actions.get_telemetry = actions.telemetry;
+  actions.telemetry_status = actions.telemetry;
 
   return domain(
     "developer",
     "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase), actualización y control de notificaciones.",
     actions,
     {
+      telemetry: "standard",
+      get_telemetry: "standard",
+      telemetry_status: "standard",
       notifications_connection: "standard",
       notifications_security: "standard",
       notification_connection: "standard",

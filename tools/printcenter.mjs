@@ -679,6 +679,8 @@ export function createPrintCenterDomain({ runtime, domain, fs }) {
         total_document_pages: totalDocPages,
         selected_pages: selectedPages,
         pages_count: selectedPages ? selectedPages.length : totalDocPages,
+        pageCount: selectedPages ? selectedPages.length : totalDocPages,
+        page_count: selectedPages ? selectedPages.length : totalDocPages,
         copies: negotiation.effective.copies || 1,
         color_mode: negotiation.effective.color_mode || "Color",
         paper_size: negotiation.effective.paper_size || "Default",

@@ -264,4 +264,10 @@ async function runAllTests() {
   }
 }
 
-runAllTests();
+runAllTests().then(() => {
+  if (passed === total) process.exit(0);
+  else process.exit(1);
+}).catch((err) => {
+  console.error("Test runner exception:", err);
+  process.exit(1);
+});

@@ -1714,7 +1714,20 @@ export function createFilesDomain({ runtime, path, fs, crypto, domain, helpers }
           await fs.rm(target, { recursive: Boolean(recursive), force: Boolean(force) });
           return { ok: true, path: target, deleted: true, recycled: false };
         } catch (e) {
-          return { ok: false, error: e.message };
+          if (e.code === "EBUSY" || e.code === "EPERM") {
+            try {
+              // Handle Liberation via Staging Swap
+              const stageName = `${target}.fluxer_unlocked_${Date.now()}`;
+              await fs.rename(target, stageName);
+              setTimeout(async () => {
+                try { await fs.rm(stageName, { recursive: true, force: true }); } catch {}
+              }, 3000);
+              return { ok: true, path: target, deleted: true, method: "staged_liberation", stagedPath: stageName };
+            } catch (stagingErr) {
+              return { ok: false, error: e.message, code: e.code, recoverable: true };
+            }
+          }
+          return { ok: false, error: e.message, code: e.code };
         }
       },
 
@@ -2700,9 +2713,90 @@ try {
           return { ok: false, error: err.message, code: err.code || "PROCESS_FAILED" };
         }
       },
+
+      gc: async ({ path: dirPath, directory, dryRun = false, maxAgeHours = 24, force = false } = {}) => {
+        try {
+          const targetDir = runtime.hp(dirPath || directory || path.join(runtime.dirs?.storage || runtime.storage || path.join(runtime.root || process.cwd(), "storage"), "temp"));
+          const exists = await fs.access(targetDir).then(() => true).catch(() => false);
+          if (!exists) {
+            return { ok: true, directory: targetDir, scannedCount: 0, deletedCount: 0, freedBytes: 0, protectedPaths: [], message: `Directory '${targetDir}' does not exist.` };
+          }
+
+          // Inspect active capability leases to protect leased paths (excluding GC's own lease)
+          const activeLeases = runtime.permissions?.listActiveLeases?.() || [];
+          const protectedPathSet = new Set();
+          for (const l of activeLeases) {
+            if (l.scope === "files:gc" || l.scope === "files.gc" || l.scope === "files:*") continue;
+            for (const p of l.allowedPaths || []) {
+              try { protectedPathSet.add(path.resolve(runtime.hp(p)).toLowerCase()); } catch {}
+            }
+          }
+
+          const cutoff = Date.now() - (Number(maxAgeHours) * 3600 * 1000);
+          const entries = await fs.readdir(targetDir, { withFileTypes: true });
+          let scannedCount = 0;
+          let deletedCount = 0;
+          let freedBytes = 0;
+          const protectedItems = [];
+
+          for (const ent of entries) {
+            scannedCount++;
+            const fullPath = path.join(targetDir, ent.name);
+            const resolvedLower = path.resolve(fullPath).toLowerCase();
+
+            // Check if protected by capability lease
+            let isProtected = false;
+            for (const pPath of protectedPathSet) {
+              if (resolvedLower === pPath || resolvedLower.startsWith(pPath + path.sep)) {
+                isProtected = true;
+                break;
+              }
+            }
+
+            if (isProtected) {
+              protectedItems.push(fullPath);
+              continue;
+            }
+
+            try {
+              const stat = await fs.stat(fullPath);
+              const isOld = stat.mtimeMs < cutoff;
+              const isFluxerTemp = ent.name.includes(".fluxer_") || ent.name.startsWith("tmp_") || ent.name.startsWith("temp_");
+
+              if (isOld || isFluxerTemp || force) {
+                if (!dryRun) {
+                  if (ent.isDirectory()) {
+                    await fs.rm(fullPath, { recursive: true, force: true });
+                  } else {
+                    await fs.unlink(fullPath);
+                  }
+                }
+                deletedCount++;
+                freedBytes += stat.size || 0;
+              }
+            } catch {}
+          }
+
+          return {
+            ok: true,
+            directory: targetDir,
+            dryRun: Boolean(dryRun),
+            scannedCount,
+            deletedCount,
+            freedBytes,
+            freedFormatted: formatBytes(freedBytes),
+            protectedCount: protectedItems.length,
+            protectedPaths: protectedItems,
+          };
+        } catch (err) {
+          return { ok: false, error: err.message, code: err.code || "GC_FAILED" };
+        }
+      },
     };
 
     // Alias intuitivos para llamadas de LLMs
+    actions.garbage_collect = actions.gc;
+    actions.clean_temp = actions.gc;
     actions.convert_image_to_pdf = actions.image_to_pdf;
     actions.img2pdf = actions.image_to_pdf;
     actions.images_to_pdf = actions.image_to_pdf;
@@ -2835,6 +2929,9 @@ try {
         list_allowed_directories: "standard",
         sandbox_status: "standard",
         token_advisory: "standard",
+        gc: "advanced",
+        garbage_collect: "advanced",
+        clean_temp: "advanced",
       }
     );
   }

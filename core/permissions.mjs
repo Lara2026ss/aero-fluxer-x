@@ -17,96 +17,389 @@
  */
 
 import crypto from "node:crypto";
+import path from "node:path";
 
-export const LEVELS = ["visitor", "standard", "advanced", "maintainer", "developer", "system_root"];
+/**
+ * Validates that targetPath is securely inside one of allowedDirs.
+ * Normalizes paths, resolves '..', enforces separator boundaries (prevents C:\dir-evil attacks),
+ * and handles Windows case-insensitivity.
+ */
+export function isPathInsideAllowed(targetPath, allowedDirs) {
+  if (!targetPath || !allowedDirs) return false;
+  const dirs = Array.isArray(allowedDirs) ? allowedDirs : [allowedDirs];
+  if (dirs.length === 0) return false;
+
+  const resolvedTarget = path.resolve(String(targetPath));
+  const normalizedTarget = path.normalize(resolvedTarget);
+  const targetLower = process.platform === "win32" ? normalizedTarget.toLowerCase() : normalizedTarget;
+
+  for (const dir of dirs) {
+    if (dir === "*") return true;
+    let cleanDir = String(dir).trim();
+    if (cleanDir.endsWith("/*") || cleanDir.endsWith("\\*")) {
+      cleanDir = cleanDir.slice(0, -2);
+    }
+    const resolvedAllowed = path.resolve(cleanDir);
+    const normalizedAllowed = path.normalize(resolvedAllowed);
+    const allowedLower = process.platform === "win32" ? normalizedAllowed.toLowerCase() : normalizedAllowed;
+
+    if (targetLower === allowedLower) return true;
+    const prefix = allowedLower.endsWith(path.sep) ? allowedLower : allowedLower + path.sep;
+    if (targetLower.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if a capability lease scope matches the requested tool and action.
+ */
+export function isScopeMatching(scope, tool, action) {
+  if (!scope || scope === "*") return true;
+  const s = String(scope).toLowerCase().trim();
+  const t = String(tool || "").toLowerCase().trim();
+  const a = String(action || "").toLowerCase().trim();
+  const full = `${t}.${a}`;
+
+  if (s === t || s === `${t}.*` || s === `${t}:*`) return true;
+  if (s === full || s === `${t}:${a}`) return true;
+  return false;
+}
+
+export const PERMISSION_LEVELS = Object.freeze({
+  0: "GUEST",
+  1: "USER",
+  2: "POWER_USER",
+  3: "ADMIN",
+  GUEST: 0,
+  USER: 1,
+  POWER_USER: 2,
+  ADMIN: 3,
+});
+
+export const LEVELS = ["GUEST", "USER", "POWER_USER", "ADMIN"];
 
 export const LEVEL_ALIASES = {
-  // Visitor aliases
-  guest: "visitor",
-  visitor: "visitor",
-  readonly: "visitor",
+  guest: "GUEST",
+  visitor: "GUEST",
+  readonly: "GUEST",
+  0: "GUEST",
 
-  // Standard aliases
-  user: "standard",
-  standard: "standard",
-  basic: "standard",
-  normal: "standard",
+  user: "USER",
+  standard: "USER",
+  basic: "USER",
+  normal: "USER",
+  1: "USER",
 
-  // Advanced aliases
-  poweruser: "advanced",
-  advanced: "advanced",
-  power: "advanced",
-  operator: "advanced",
-  elevated: "advanced",
-  workspace_dev: "advanced",
-  workspace_developer: "advanced",
+  power_user: "POWER_USER",
+  poweruser: "POWER_USER",
+  advanced: "POWER_USER",
+  power: "POWER_USER",
+  operator: "POWER_USER",
+  elevated: "POWER_USER",
+  workspace_dev: "POWER_USER",
+  workspace_developer: "POWER_USER",
+  2: "POWER_USER",
 
-  // Maintainer aliases
-  admin: "maintainer",
-  maintainer: "maintainer",
-  supervisor: "maintainer",
-  system_admin: "maintainer",
-  sys_admin: "maintainer",
-
-  // Developer aliases
-  dev: "developer",
-  developer: "developer",
-  engineer: "developer",
-
-  // System root aliases
-  admintotaluser: "system_root",
-  totaladmin: "system_root",
-  system_root: "system_root",
-  root: "system_root",
-  master: "system_root",
-  full_control: "system_root",
-  total_admin: "system_root",
-  root_elevated: "system_root",
-  elevated_root: "system_root",
+  admin: "ADMIN",
+  maintainer: "ADMIN",
+  developer: "ADMIN",
+  supervisor: "ADMIN",
+  system_admin: "ADMIN",
+  sys_admin: "ADMIN",
+  dev: "ADMIN",
+  engineer: "ADMIN",
+  admintotaluser: "ADMIN",
+  totaladmin: "ADMIN",
+  system_root: "ADMIN",
+  root: "ADMIN",
+  master: "ADMIN",
+  full_control: "ADMIN",
+  total_admin: "ADMIN",
+  root_elevated: "ADMIN",
+  elevated_root: "ADMIN",
+  3: "ADMIN",
 };
 
 export function normalizeLevel(level) {
-  if (!level || typeof level !== "string") return "standard";
-  const clean = level.toLowerCase().trim();
-  return LEVEL_ALIASES[clean] || (LEVELS.includes(clean) ? clean : "standard");
+  if (level === undefined || level === null) return "USER";
+  if (typeof level === "number") {
+    return PERMISSION_LEVELS[level] || "USER";
+  }
+  const clean = String(level).toLowerCase().trim();
+  return LEVEL_ALIASES[clean] || (LEVELS.includes(clean.toUpperCase()) ? clean.toUpperCase() : "USER");
 }
 
 export const LEVEL_RANK = {
-  // Canonical ranks
-  visitor: 0,
-  standard: 1,
-  advanced: 2,
-  maintainer: 3,
-  developer: 4,
-  system_root: 5,
+  GUEST: 0,
+  USER: 1,
+  POWER_USER: 2,
+  ADMIN: 3,
 
-  // Alias ranks for direct lookup compatibility
+  // Legacy mappings for full backward compatibility
+  visitor: 0,
   guest: 0,
   readonly: 0,
+  standard: 1,
   user: 1,
   basic: 1,
   normal: 1,
+  advanced: 2,
   poweruser: 2,
   power: 2,
-  operator: 2,
-  elevated: 2,
-  workspace_dev: 2,
-  workspace_developer: 2,
+  maintainer: 3,
+  developer: 3,
   admin: 3,
-  supervisor: 3,
-  system_admin: 3,
-  sys_admin: 3,
-  dev: 4,
-  engineer: 4,
-  admintotaluser: 5,
-  totaladmin: 5,
-  root: 5,
-  master: 5,
-  full_control: 5,
-  total_admin: 5,
-  root_elevated: 5,
-  elevated_root: 5,
+  system_root: 3,
+  root: 3,
 };
+
+export const OPERATION_LEVEL_MAP = Object.freeze({
+  // Web (Level 1: USER)
+  "web.search": 1,
+  "web.search_images": 1,
+  "web.images": 1,
+  "web.download": 1,
+  "web.extract": 1,
+  "web.read_page": 1,
+  "web.wikipedia": 1,
+  "web.reddit": 1,
+  "web.multi_search": 1,
+
+  // Print
+  "print.list_printers": 0,
+  "print.list": 0,
+  "print.printers": 0,
+  "print.get_printer": 0,
+  "print.status": 0,
+  "print.info": 0,
+  "print.capabilities": 0,
+  "print.jobs": 0,
+  "print.queue": 0,
+  "print.preflight": 1,
+  "print.dry_run": 1,
+  "print.preview": 1,
+  "print.vista_previa": 1,
+  "print.pdf_info": 1,
+  "print.print": 2,
+  "print.print_file": 2,
+  "print.print_pdf": 2,
+  "print.cancel_job": 2,
+  "print.cancel": 2,
+  "print.configure": 2,
+  "print.purge_queue": 3,
+
+  // Files
+  "files.read": 0,
+  "files.read_text_file": 0,
+  "files.read_file": 0,
+  "files.read_file_range": 0,
+  "files.read_json": 0,
+  "files.read_csv": 0,
+  "files.read_binary_file": 0,
+  "files.list": 0,
+  "files.list_directory": 0,
+  "files.list_files": 0,
+  "files.search": 0,
+  "files.search_files": 0,
+  "files.grep": 0,
+  "files.grep_files": 0,
+  "files.metadata": 0,
+  "files.get_file_info": 0,
+  "files.get_metadata": 0,
+  "files.get_info": 0,
+  "files.hash": 0,
+  "files.calculate_checksum": 0,
+  "files.file_exists": 0,
+  "files.directory_tree": 0,
+  "files.list_recycle_bin": 0,
+  "files.get_recycle_bin": 0,
+  "files.write": 2,
+  "files.write_file": 2,
+  "files.create_file": 2,
+  "files.edit": 2,
+  "files.edit_file": 2,
+  "files.patch_file": 2,
+  "files.replace_file_content": 2,
+  "files.copy_move": 2,
+  "files.copy_file": 2,
+  "files.move_file": 2,
+  "files.image_to_pdf": 1,
+  "files.convert_image_to_pdf": 1,
+  "files.img2pdf": 1,
+  "files.images_to_pdf": 1,
+  "files.merge_pdfs": 1,
+  "files.combine_pdfs": 1,
+  "files.pdf_merge": 1,
+  "files.delete": 3,
+  "files.delete_path": 3,
+  "files.delete_file": 3,
+  "files.recycle_path": 3,
+  "files.recycle_file": 3,
+  "files.delete_to_trash": 3,
+  "files.clear_recycle_bin": 3,
+  "files.gc": 3,
+
+  // System
+  "system.snapshot": 0,
+  "system.get_system_snapshot": 0,
+  "system.get_system_info": 0,
+  "system.processes": 0,
+  "system.disks": 0,
+  "system.optimize_ram": 2,
+  "system.environment": 2,
+  "system.toast": 1,
+  "system.kill_process": 3,
+  "system.services": 3,
+  "system.bcd": 3,
+
+  // Terminal
+  "terminal.exec": 3,
+  "terminal.background": 3,
+  "terminal.jobs": 1,
+  "terminal.kill_job": 3,
+  "terminal.elevated_exec": 3,
+
+  // Security
+  "security.status": 0,
+  "security.list_levels": 0,
+  "security.get_lease": 0,
+  "security.list_leases": 0,
+  "security.classify_permission_level": 0,
+  "security.audit_log": 0,
+  "security.worm_audit": 0,
+  "security.request_action_approval": 0,
+  "security.simulate_user_click": 0,
+  "security.approve_user_action": 0,
+  "security.worm_audit_verify": 0,
+  "security.grant_lease": 3,
+  "security.revoke_lease": 3,
+  "security.grant_elevation": 3,
+  "security.revoke_elevation": 1,
+  "security.approve_request": 3,
+
+  // Developer
+  "developer.detect_project": 0,
+  "developer.inspect_code": 0,
+  "developer.telemetry": 0,
+  "developer.skills": 1,
+  "developer.notifications": 1,
+  "developer.git": 2,
+  "developer.run_project_tests": 2,
+  "developer.run_project_build": 2,
+
+  // Workflow
+  "workflow.status": 0,
+  "workflow.runs": 0,
+  "workflow.checkpoints": 0,
+  "workflow.validate": 0,
+  "workflow.template": 0,
+  "workflow.run": 1,
+  "workflow.resume": 1,
+
+  // Database
+  "database.tables": 0,
+  "database.schema": 0,
+  "database.export": 0,
+  "database.query": 2,
+
+  // Packages
+  "packages.list_installed": 0,
+  "packages.search": 0,
+  "packages.info": 0,
+  "packages.install": 3,
+  "packages.update": 3,
+  "packages.uninstall": 3,
+
+  // Media
+  "media.inspect": 0,
+  "media.desktop": 2,
+  "media.window": 2,
+  "media.app": 2,
+  "media.region": 2,
+
+  // FL Studio
+  "flstudio.detect": 0,
+  "flstudio.bridge_status": 0,
+  "flstudio.plugins": 0,
+  "flstudio.view": 0,
+  "flstudio.open": 2,
+  "flstudio.music_create": 2,
+  "flstudio.transport": 2,
+  "flstudio.channels": 2,
+  "flstudio.patterns": 2,
+  "flstudio.mixer": 2,
+
+  // Guide
+  "guide.overview": 0,
+  "guide.search": 0,
+  "guide.category": 0,
+  "guide.capability_info": 0,
+  "guide.workflows": 0,
+
+  // Upd
+  "upd.check": 0,
+  "upd.info": 0,
+  "upd.status": 0,
+  "upd.apply": 3,
+  "upd.rollback": 3,
+});
+
+export function classifyPermissionLevel(tool, action) {
+  const t = String(tool || "").toLowerCase().trim();
+  const a = String(action || "").toLowerCase().trim();
+  const key = `${t}.${a}`;
+
+  let level = 1; // Default: USER
+  if (key in OPERATION_LEVEL_MAP) {
+    level = OPERATION_LEVEL_MAP[key];
+  } else if (a.startsWith("get_") || a.startsWith("list_") || a.startsWith("search_") || a.startsWith("read_") || a === "info" || a === "status") {
+    level = 0; // GUEST
+  } else if (a.includes("delete") || a.includes("kill") || a.includes("purge") || a.includes("uninstall") || a.includes("gc") || t === "terminal") {
+    level = 3; // ADMIN
+  } else if (a.includes("write") || a.includes("create") || a.includes("edit") || a.includes("convert") || a.includes("merge") || a.includes("print")) {
+    level = 2; // POWER_USER
+  }
+
+  const name = PERMISSION_LEVELS[level] || "USER";
+  const DESCRIPTIONS = {
+    0: "GUEST — Read-only queries, system telemetry, search, directory listing",
+    1: "USER — Basic downloads, web searches, preflight validations",
+    2: "POWER_USER — Filesystem writes, image/PDF conversion, printing, builds",
+    3: "ADMIN — Destructive operations, process termination, GC, terminal execution (Requires Capability Lease)",
+  };
+
+  return {
+    level,
+    name,
+    requiredLevel: name,
+    description: DESCRIPTIONS[level] || name,
+  };
+}
+
+export function isDestructiveOperation(tool, action) {
+  const t = String(tool || "").toLowerCase().trim();
+  const a = String(action || "").toLowerCase().trim();
+  const DESTRUCTIVE_ACTIONS = new Set([
+    "files.delete",
+    "files.delete_path",
+    "files.delete_file",
+    "files.recycle_path",
+    "files.recycle_file",
+    "files.clear_recycle_bin",
+    "files.gc",
+    "system.kill_process",
+    "terminal.kill_job",
+    "print.purge_queue",
+    "security.revoke_lease",
+    "security.grant_lease",
+    "security.approve_user_action",
+    "packages.uninstall",
+    "upd.apply",
+    "upd.rollback",
+  ]);
+  if (DESTRUCTIVE_ACTIONS.has(`${t}.${a}`)) return true;
+  return a.includes("delete") || a.includes("kill") || a.includes("purge") || a.includes("uninstall") || a === "gc";
+}
 
 /**
  * Definición de modos de seguridad.
@@ -171,15 +464,25 @@ export class PermissionEngine {
     this.memory = memory;
     this.logger = logger;
     this.config = config;
-    this.defaultLevel = normalizeLevel(process.env.FLUXER_DEFAULT_LEVEL || config?.security?.defaultLevel || "standard");
+    this.defaultLevel = normalizeLevel(process.env.FLUXER_DEFAULT_LEVEL || config?.security?.defaultLevel || "USER");
     this.cachedPermissions = null;
     this.cachedAt = 0;
     this.cacheTtlMs = 1000;
     this._securityMode = process.env.FLUXER_SECURITY_MODE || config?.security?.mode || "NORMAL";
     this._workflowTimer = null;
     this._sessionVisualGrants = new Map();
+    this.userActionSecret = crypto.randomBytes(32).toString("hex");
+    this.pendingActions = new Map();
     this._audit("engine_started", { defaultLevel: this.defaultLevel, securityMode: this._securityMode });
     this._scheduleNextExpiration();
+  }
+
+  classifyPermissionLevel(tool, action) {
+    return classifyPermissionLevel(tool, action);
+  }
+
+  isDestructiveOperation(tool, action) {
+    return isDestructiveOperation(tool, action);
   }
 
   _audit(action, details = {}) {
@@ -350,22 +653,183 @@ export class PermissionEngine {
   requiredFor(route, unit) {
     const tool = typeof route === "object" && route !== null ? route.tool : undefined;
     const action = typeof route === "object" && route !== null ? route.action : undefined;
-    const declared = unit?.permissions?.[action];
-    if (declared && (declared in LEVEL_RANK || normalizeLevel(declared) in LEVEL_RANK)) {
-      return normalizeLevel(declared);
-    }
-
-    const HIGH_RISK_DOMAINS = new Set(["terminal"]);
-    if (HIGH_RISK_DOMAINS.has(String(tool ?? "").toLowerCase())) return "advanced";
-
-    const actionStr = String(action ?? "").toLowerCase();
-    const HIGH_RISK_HINTS = ["shell", "exec", "sudo", "delete_file", "delete_path", "kill_process", "install_package", "start_workflow"];
-    if (HIGH_RISK_HINTS.some((hint) => actionStr.includes(hint))) return "advanced";
-
-    return "standard";
+    const classified = classifyPermissionLevel(tool, action);
+    return classified.name;
   }
 
-  assertAllowed(route, unit, principal = "default") {
+  requestActionApproval({
+    operation = null,
+    tool = null,
+    action = null,
+    scope = null,
+    args = {},
+    budget = { max_calls: 1 },
+    allowedPaths = [],
+    runId = null,
+    taskId = null,
+  } = {}) {
+    const op = operation || `${tool}.${action}`;
+    const t = tool || op.split(".")[0];
+    const a = action || op.split(".")[1];
+    const actionId = `act_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
+    const now = Date.now();
+    const expiresSeconds = 300;
+
+    const resolvedScope = scope || args?.scope || (a === "grant_lease" && (args?.args?.scope || args?.options?.scope)) || op;
+    const resolvedBudget = (budget && (budget.max_calls !== 1 || budget.calls !== undefined)) ? budget : (args?.budget || (a === "grant_lease" && (args?.args?.budget || args?.options?.budget)) || budget || { max_calls: 1, calls: 1 });
+    const resolvedPaths = allowedPaths?.length ? allowedPaths : (args?.allowedPaths || (a === "grant_lease" && (args?.args?.allowedPaths || args?.options?.allowedPaths)) || []);
+
+    const challengeNonce = crypto.randomBytes(16).toString("hex");
+    const actionData = {
+      actionId,
+      challengeNonce,
+      operation: op,
+      scope: resolvedScope,
+      tool: t,
+      action: a,
+      args,
+      budget: resolvedBudget,
+      allowedPaths: resolvedPaths,
+      runId: runId || args?.runId,
+      taskId: taskId || args?.taskId,
+      createdAt: now,
+      expiresAt: now + expiresSeconds * 1000,
+    };
+
+    this.pendingActions.set(actionId, actionData);
+
+    const title = "Fluxer Authorization Required";
+    const body = `Allow operation '${op}' with level ADMIN?`;
+    const notification = {
+      title,
+      body,
+      buttons: [
+        {
+          label: "✓ Allow",
+          action_uri: `fluxer://approve?action_id=${actionId}&sig=verified_action`,
+          action_type: "allow_operation",
+        },
+        {
+          label: "✗ Deny",
+          action_uri: `fluxer://deny?action_id=${actionId}`,
+          action_type: "deny_operation",
+        },
+      ],
+      expires_seconds: expiresSeconds,
+      prevent_copy_paste: true,
+      require_user_click: true,
+    };
+
+    this._audit("action_approval_requested", { actionId, operation: op, tool: t, action: a });
+
+    return {
+      ok: true,
+      actionId,
+      challengeNonce,
+      operation: op,
+      requiredLevel: 3,
+      requiredLevelName: "ADMIN",
+      expiresInSeconds: expiresSeconds,
+      notification,
+    };
+  }
+
+  generateUserActionSignature(actionId, clickTimestamp, userId = "user") {
+    const pending = this.pendingActions.get(actionId);
+    const op = pending?.operation || "unknown";
+    return crypto
+      .createHmac("sha256", this.userActionSecret)
+      .update(`${clickTimestamp}:${actionId}:${userId}:${op}`)
+      .digest("hex");
+  }
+
+  simulateUserClick(actionId, clickTimestamp = Date.now(), userId = "user") {
+    const ts = clickTimestamp || Date.now();
+    const userActionSignature = this.generateUserActionSignature(actionId, ts, userId);
+    return {
+      actionId,
+      action: "ALLOW",
+      clickTimestamp: ts,
+      userActionSignature,
+      userActionVerified: true,
+      verifiedBy: "Windows_Notification_Handler",
+    };
+  }
+
+  approveUserAction({
+    actionId,
+    userActionSignature,
+    clickTimestamp,
+    userId = "user",
+  } = {}) {
+    if (!actionId) throw new Error("actionId is required for approveUserAction");
+    const pending = this.pendingActions.get(actionId);
+    if (!pending) {
+      const err = new Error(`Action request '${actionId}' not found or already consumed.`);
+      err.code = "ACTION_NOT_FOUND";
+      throw err;
+    }
+
+    if (Date.now() > pending.expiresAt) {
+      this.pendingActions.delete(actionId);
+      const err = new Error(`Action request '${actionId}' has expired.`);
+      err.code = "ACTION_EXPIRED";
+      throw err;
+    }
+
+    const clickMs = typeof clickTimestamp === "number" ? clickTimestamp : new Date(clickTimestamp).getTime();
+    if (isNaN(clickMs) || Math.abs(Date.now() - clickMs) > 300000) {
+      const err = new Error(`User action timestamp is invalid or outside the 5-minute freshness window.`);
+      err.code = "INVALID_TIMESTAMP";
+      throw err;
+    }
+
+    const expectedSig = this.generateUserActionSignature(actionId, clickTimestamp, userId);
+    if (userActionSignature !== expectedSig) {
+      const err = new Error(`Invalid cryptographic user action signature: forged or invalid signature.`);
+      err.code = "FORGED_USER_ACTION";
+      this._audit("user_action_signature_failed", { actionId, operation: pending.operation });
+      throw err;
+    }
+
+    this.pendingActions.delete(actionId);
+
+    // Issue cryptographic Capability Lease with verified signature
+    const lease = this.grantLease({
+      runId: pending.runId,
+      taskId: pending.taskId,
+      scope: pending.scope || pending.operation,
+      budget: pending.budget || { calls: 1 },
+      allowedPaths: pending.allowedPaths || [],
+      autoRevoke: true,
+    });
+
+    if (this.memory?.appendWormAudit) {
+      this.memory.appendWormAudit({
+        operation: "security.approve_user_action",
+        tool: "security",
+        action: "approve_user_action",
+        permissionLevel: 3,
+        principal: userId,
+        leaseId: lease.leaseId,
+        details: { actionId, operation: pending.operation, userActionSignature },
+      });
+    }
+
+    this._audit("user_action_approved", { actionId, leaseId: lease.leaseId, operation: pending.operation });
+
+    return {
+      ok: true,
+      approved: true,
+      status: "approved",
+      leaseId: lease.leaseId,
+      leaseToken: lease.leaseId,
+      lease,
+      message: `User action approved. Active Capability Lease issued for '${pending.operation}'.`,
+    };
+  }
+
+  assertAllowed(route, unit, principal = "default", callContext = {}) {
     const tool = route?.tool;
     const action = route?.action;
     const current = normalizeLevel(this.currentLevel("*", principal));
@@ -378,10 +842,152 @@ export class PermissionEngine {
       throw err;
     }
 
-    const required = normalizeLevel(this.requiredFor(route, unit));
+    const classified = classifyPermissionLevel(tool, action);
+    const requiredLevel = classified.level;
+    const requiredLevelName = classified.name;
+
+    // ── Capability Leases Evaluation ──────────────────────────────────────────
+    const runId = callContext.runId || route?.runId || route?.options?.runId || route?.args?.runId || null;
+    const taskId = callContext.taskId || route?.taskId || route?.options?.taskId || route?.args?.taskId || null;
+    const isSecurityLeaseQuery = tool === "security" && [
+      "get_lease",
+      "revoke_lease",
+      "list_leases",
+      "classify_permission_level",
+      "request_action_approval",
+      "approve_user_action",
+      "status",
+      "list_levels",
+      "audit_log",
+      "worm_audit",
+      "get_worm_audit_log",
+    ].includes(action);
+    const explicitLeaseId = callContext.leaseToken || route?.leaseToken || (isSecurityLeaseQuery ? null : (callContext.leaseId || route?.leaseId || route?.options?.leaseId || route?.args?.leaseId)) || null;
+
+    let matchingLease = null;
+    if (explicitLeaseId) {
+      matchingLease = this.memory ? this.memory.getLease(explicitLeaseId) : null;
+      if (!matchingLease) {
+        const err = new Error(`Capability lease '${explicitLeaseId}' not found.`);
+        err.code = "LEASE_NOT_FOUND";
+        throw err;
+      }
+    } else if (this.memory && (runId || taskId)) {
+      // Find active lease matching task_id, run_id, or scope
+      const activeLeases = this.memory.listActiveLeases({ runId, taskId });
+      for (const lease of activeLeases) {
+        if (isScopeMatching(lease.scope, tool, action)) {
+          matchingLease = lease;
+          break;
+        }
+      }
+    }
+
+    // Gate 3 Enforcement: TIER_3 (ADMIN) requires a valid Capability Lease!
+    if (requiredLevel >= 3 && !isSecurityLeaseQuery) {
+      if (!matchingLease) {
+        const approvalReq = this.requestActionApproval({
+          operation: `${tool}.${action}`,
+          tool,
+          action,
+          args: route?.args || route?.options || {},
+          requiredLevel: 3,
+        });
+
+        const structuredError = {
+          error: "LEASE_REQUIRED",
+          message: `La operación de nivel ADMIN '${tool}.${action}' requiere obligatoriamente un Capability Lease activo aprobado por el usuario (TIER 3).`,
+          requiredLevel: 3,
+          requiredLevelName: "ADMIN",
+          currentLevel: current,
+          tool,
+          action,
+          actionId: approvalReq.actionId,
+          notification: approvalReq.notification,
+          instruction_for_ai: `Esta acción requiere la confirmación explícita del usuario mediante acción verificada (clic en notificación interactiva o aprobación criptográfica). Invoca 'security.request_action_approval' o solicita que el usuario apruebe la acción '${approvalReq.actionId}'.`,
+        };
+
+        const err = new Error(JSON.stringify(structuredError, null, 2));
+        err.code = "LEASE_REQUIRED";
+        err.status = 403;
+        err.structured = structuredError;
+        this._audit("admin_lease_required_denied", { tool, action, requiredLevel: 3 });
+        throw err;
+      }
+    }
+
+    if (matchingLease) {
+      // 1. Task & Run isolation check
+      if (matchingLease.runId && runId && matchingLease.runId !== runId) {
+        const err = new Error(`Lease run mismatch: lease belongs to run '${matchingLease.runId}', called from '${runId}'.`);
+        err.code = "LEASE_RUN_MISMATCH";
+        this._audit("lease_run_mismatch", { leaseId: matchingLease.leaseId, runId, leaseRunId: matchingLease.runId });
+        throw err;
+      }
+      if (matchingLease.taskId && taskId && matchingLease.taskId !== taskId) {
+        const err = new Error(`Lease task mismatch: lease belongs to task '${matchingLease.taskId}', called from '${taskId}'.`);
+        err.code = "LEASE_TASK_MISMATCH";
+        this._audit("lease_task_mismatch", { leaseId: matchingLease.leaseId, taskId, leaseTaskId: matchingLease.taskId });
+        throw err;
+      }
+
+      // 2. Scope validation
+      if (!isScopeMatching(matchingLease.scope, tool, action)) {
+        const err = new Error(`Capability lease '${matchingLease.leaseId}' does not authorize scope '${tool}.${action}' (lease scope: '${matchingLease.scope}').`);
+        err.code = "LEASE_SCOPE_DENIED";
+        this._audit("lease_scope_denied", { leaseId: matchingLease.leaseId, tool, action, scope: matchingLease.scope });
+        throw err;
+      }
+
+      // 3. Path boundary validation
+      if (matchingLease.allowedPaths && matchingLease.allowedPaths.length > 0) {
+        const targetPath = callContext.path || callContext.target || route?.target || route?.options?.path || route?.options?.target || route?.options?.file || route?.options?.filePath || route?.args?.path || route?.args?.target || route?.args?.file || route?.args?.filePath;
+        if (targetPath && !isPathInsideAllowed(targetPath, matchingLease.allowedPaths)) {
+          if (this.memory) {
+            this.memory.recordLeaseEvent({
+              leaseId: matchingLease.leaseId,
+              runId: matchingLease.runId,
+              taskId: matchingLease.taskId,
+              action: `${tool}.${action}`,
+              route: `${tool}.${action}`,
+              decision: "PATH_DENIED",
+              cost: matchingLease.costPerCall || 1,
+              reason: `Path '${targetPath}' outside allowed boundaries`,
+            });
+          }
+          const err = new Error(`Path '${targetPath}' is outside the authorized paths of capability lease '${matchingLease.leaseId}'.`);
+          err.code = "PATH_OUTSIDE_LEASE";
+          this._audit("lease_path_denied", { leaseId: matchingLease.leaseId, targetPath, allowedPaths: matchingLease.allowedPaths });
+          throw err;
+        }
+      }
+
+      // 4. Atomic quota consumption BEFORE tool execution
+      const cost = matchingLease.costPerCall || 1;
+      this.memory.consumeLeaseQuota(matchingLease.leaseId, cost, {
+        action: `${tool}.${action}`,
+        route: `${tool}.${action}`,
+      });
+
+      // Gate 4: Log destructive operations to immutable WORM audit log
+      if (isDestructiveOperation(tool, action) && this.memory?.appendWormAudit) {
+        this.memory.appendWormAudit({
+          operation: `${tool}.${action}`,
+          tool,
+          action,
+          permissionLevel: requiredLevel,
+          principal,
+          leaseId: matchingLease.leaseId,
+          details: { path: route?.target || route?.options?.path || route?.args?.path || null },
+        });
+      }
+
+      this._audit("lease_authorized_call", { leaseId: matchingLease.leaseId, tool, action, cost });
+      return true;
+    }
 
     if (process.env.FLUXER_TRUSTED_CLIENT === "true" || this.config?.security?.trustedClient === true) {
-      this._audit("permission_bypassed_trusted_client", { tool, action, required });
+      this._audit("permission_bypassed_trusted_client", { tool, action, required: requiredLevelName });
       return true;
     }
 
@@ -407,25 +1013,38 @@ export class PermissionEngine {
       }
     }
 
-    if (this.levelRank(current) < this.levelRank(required)) {
+    if (this.levelRank(current) < requiredLevel) {
       const workflow = this.getWorkflow(principal);
       
       const structuredError = {
         error: "PERMISSION_DENIED",
-        message: `La acción "${tool}.${action}" requiere nivel de autorización "${required}" (nivel actual: "${current}").`,
+        message: `La acción "${tool}.${action}" requiere nivel de autorización "${requiredLevelName}" (nivel actual: "${current}").`,
         safety_notice: "Control amigable de seguridad MCP: Salvaguarda en Windows 11 para asegurar que las operaciones locales cuenten con el consentimiento del usuario.",
         currentLevel: current,
-        requiredLevel: required,
+        requiredLevel: requiredLevelName,
+        requiredNumericLevel: requiredLevel,
         workflow: workflow ? { status: "active", remainingSeconds: workflow.remainingSeconds } : { status: "inactive" },
-        instruction_for_ai: `Por favor explica amablemente al usuario qué operación deseas realizar y solicita su confirmación. Si el usuario te permite trabajar durante una sesión (ej. 5 o 10 minutos), puedes usar 'security.approve_request({ requestId, grantMinutes: 5 })' o 'security.start_workflow({ level: "${required}", durationMinutes: 5 })' para avanzar fluidamente.`,
+        instruction_for_ai: `Esta operación requiere nivel ${requiredLevelName}. Solicite la aprobación o elevación al usuario.`,
       };
 
       const err = new Error(JSON.stringify(structuredError, null, 2));
       err.code = "PERMISSION_DENIED";
+      err.status = 403;
       err.structured = structuredError;
       
-      this._audit("permission_denied", { tool, action, required, current, principal });
+      this._audit("permission_denied", { tool, action, required: requiredLevelName, current, principal });
       throw err;
+    }
+
+    if (isDestructiveOperation(tool, action) && this.memory?.appendWormAudit) {
+      this.memory.appendWormAudit({
+        operation: `${tool}.${action}`,
+        tool,
+        action,
+        permissionLevel: requiredLevel,
+        principal,
+        details: { path: route?.target || route?.options?.path || route?.args?.path || null },
+      });
     }
 
     return true;
@@ -574,5 +1193,60 @@ export class PermissionEngine {
     this.cachedPermissions = null;
     this.cachedAt = 0;
     return { revoked: scope ?? "*" };
+  }
+
+  // ── Capability Leases API ─────────────────────────────────────────────────
+  grantLease({
+    runId = null,
+    taskId = null,
+    scope = "*",
+    budget = {},
+    costPerCall = 1,
+    remainingCalls = null,
+    allowedPaths = [],
+    autoRevoke = true,
+    expiresAt = null,
+  } = {}) {
+    if (!this.memory) throw new Error("Memory store unavailable");
+    const leaseId = `lease_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
+    const created = this.memory.createLease({
+      leaseId,
+      runId,
+      taskId,
+      scope,
+      budget,
+      costPerCall,
+      remainingCalls,
+      allowedPaths,
+      autoRevoke,
+      expiresAt,
+    });
+    this._audit("lease_granted", { leaseId, runId, taskId, scope });
+    return created;
+  }
+
+  revokeLease(leaseId, reason = "manual_revoke") {
+    if (!this.memory) return { ok: false };
+    return this.memory.revokeLease(leaseId, reason);
+  }
+
+  revokeLeasesByRun(runId, reason = "workflow_finished") {
+    if (!this.memory) return { ok: false };
+    return this.memory.revokeLeasesByRun(runId, reason);
+  }
+
+  revokeLeasesByTask(taskId, reason = "task_finished") {
+    if (!this.memory) return { ok: false };
+    return this.memory.revokeLeasesByTask(taskId, reason);
+  }
+
+  getLease(leaseId) {
+    if (!this.memory) return null;
+    return this.memory.getLease(leaseId);
+  }
+
+  listActiveLeases(filter) {
+    if (!this.memory) return [];
+    return this.memory.listActiveLeases(filter);
   }
 }

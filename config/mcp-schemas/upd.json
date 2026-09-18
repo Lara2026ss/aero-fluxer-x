@@ -1,55 +1,31 @@
 {
   "name": "upd",
-  "description": "Centro oficial de actualización manual de FLUXER XZ. Las actualizaciones automáticas están estrictamente DESACTIVADAS por política del usuario. Solo se aplican actualizaciones mediante solicitud manual explícita del usuario. Subherramientas: 'check', 'info', 'apply', 'status'. NOTA: Para 'apply', se requiere confirmación expresa y manual del usuario en el chat.",
-  "parameters": {
+  "description": "Centro Oficial de Actualización Manual de FLUXER XZ (Gen 4.0). Las actualizaciones automáticas están estrictamente DESACTIVADAS. Operaciones: check | info | apply | rollback | status\nAcciones y argumentos (usar en args): apply { repoRoot, force, backupPolicy } | check { repoRoot, force, channel, checkRepo } | data {} | doctor {} | info {} | rollback {} | status {} | update {}",
+  "inputSchema": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
         "enum": [
-          "check",
-          "info",
           "apply",
-          "update",
+          "check",
           "data",
-          "status"
+          "doctor",
+          "info",
+          "rollback",
+          "status",
+          "update"
         ],
-        "description": "Subherramienta de actualización"
-      },
-      "version": {
-        "type": "string",
-        "description": "Versión específica a consultar para 'info'."
-      },
-      "confirm": {
-        "type": "boolean",
-        "description": "Establecer en true cuando el usuario haya confirmado en el chat que desea aplicar la actualización."
-      },
-      "force": {
-        "type": "boolean",
-        "description": "Forzar actualización o comprobación si ya está al día."
-      },
-      "checkRepo": {
-        "type": "boolean",
-        "description": "Comprobar directamente el repositorio GitHub/Git además de releases (para 'check')."
-      },
-      "repoRoot": {
-        "type": "string",
-        "description": "Ruta opcional al repositorio Git local para auditar su estado."
-      },
-      "revealPath": {
-        "type": "boolean",
-        "description": "Permitir mostrar la ruta real del usuario de Windows sin ofuscar (default false para privacidad)."
-      },
-      "allow_user_path": {
-        "type": "boolean",
-        "description": "Alias de revealPath para permitir mostrar rutas de usuario."
+        "description": "Acción a ejecutar en el dominio upd"
       },
       "args": {
-        "type": "object"
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
       }
     },
     "required": [
       "action"
-    ]
+    ],
+    "additionalProperties": false
   }
 }

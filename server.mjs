@@ -40,7 +40,8 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
   }
 
   const now = Date.now();
-  const DEBOUNCE_MS = 12000;
+  // Debounce aumentado a 5 minutos (300,000 ms) para evitar repeticiones frustrantes
+  const DEBOUNCE_MS = 300000;
   const isConnectEvent = event === "connect" || event === "login";
   const isDisconnectEvent = event === "disconnect" || event === "logout";
 
@@ -52,7 +53,7 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
     return;
   }
 
-  // 2. Cross-process lock file debounce (evita duplicación entre múltiples procesos concurrentes de la IA)
+  // 2. Cross-process lock file debounce (evita repetición entre múltiples procesos/reconexiones)
   let lockFile = null;
   try {
     const storageDir = runtime?.dirs?.storage || (process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "FluxerX", "storage") : null);
@@ -91,17 +92,14 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
     }
   } catch {}
 
-  const displayAI = (clientName || "Agente IA").replace(/"/g, "'").trim();
-  let actionText = "se conectó exitosamente a";
-  if (event === "login") {
-    actionText = "inició sesión y se conectó exitosamente a";
-  } else if (event === "logout") {
-    actionText = "cerró sesión y se desconectó de";
-  } else if (event === "disconnect") {
-    actionText = "se desconectó exitosamente de";
-  }
-  const msg = `La Inteligencia Artificial "${displayAI}" ${actionText} FLUXER XZ v${version} (Gen 4.0)`;
-  sendNativeNotification("FLUXER XZ MCP", msg, options);
+  // Texto compacto, minimalista y no invasivo
+  const displayAI = (clientName || "IA").replace(/"/g, "'").trim();
+  const title = "FLUXER XZ";
+  const msg = isConnectEvent
+    ? `⚡ Conectado (${displayAI} · v${version})`
+    : `🔌 Desconectado (${displayAI})`;
+
+  sendNativeNotification(title, msg, options);
 }
 
 function mcpText(value, options = {}) {

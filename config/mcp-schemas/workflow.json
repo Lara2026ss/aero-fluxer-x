@@ -1,0 +1,30 @@
+{
+  "name": "workflow",
+  "description": "DAG Workflow Orchestration Engine — Parallel execution, dependency sorting, cycle detection, templating, and rollback.\nAcciones y argumentos (usar en args): checkpoints {} | resume { runId, fromStep, patchInput, patchTasks, concurrency, rollbackOnError, timeoutMs } | run { tasks, input, concurrency, rollbackOnError, timeoutMs, checkpoint, runId } | runs { limit, status } | status { limit } | template { tasks, input } | validate {}",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "checkpoints",
+          "resume",
+          "run",
+          "runs",
+          "status",
+          "template",
+          "validate"
+        ],
+        "description": "Acción a ejecutar en el dominio workflow"
+      },
+      "args": {
+        "type": "object",
+        "description": "Argumentos específicos de la acción"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "additionalProperties": false
+  }
+}

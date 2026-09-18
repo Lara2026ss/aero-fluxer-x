@@ -210,6 +210,9 @@ export class WorkflowEngine {
     concurrency = 4,
     rollbackOnError = false,
     timeoutMs = 120000,
+    checkpoint = true,
+    runId = null,
+    _restoredTasks = null,
   } = {}) {
     const validation = this.validate(tasks);
     if (!validation.ok) {
@@ -221,7 +224,7 @@ export class WorkflowEngine {
       };
     }
 
-    const workflowId = `wf_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
+    const workflowId = runId || `wf_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
     const startTime = performance.now();
     const taskMap = new Map(tasks.map((t) => [t.id, t]));
 
@@ -230,32 +233,71 @@ export class WorkflowEngine {
     const completedTasks = [];
     const failedTasks = [];
 
+    // Initialize states
     for (const task of tasks) {
       taskStates.set(task.id, "pending");
     }
 
+    // Ingest restored tasks from checkpoints if this is a resumed run
+    const preCompletedSet = new Set();
+    if (_restoredTasks && typeof _restoredTasks === "object") {
+      for (const [tId, res] of Object.entries(_restoredTasks)) {
+        if (taskMap.has(tId)) {
+          taskResults[tId] = res;
+          taskStates.set(tId, "completed");
+          completedTasks.push(tId);
+          preCompletedSet.add(tId);
+        }
+      }
+    }
+
     const executionContext = {
       workflowId,
+      runId: workflowId,
       input,
       tasks: taskResults,
     };
+
+    // Save or update initial run state in SQLite if checkpointing is enabled
+    if (checkpoint && this.runtime?.memory) {
+      try {
+        this.runtime.memory.saveDagRun({
+          runId: workflowId,
+          status: "running",
+          taskCount: tasks.length,
+          tasks,
+          input,
+        });
+      } catch (err) {
+        // Non-blocking fallback for memory persistence
+      }
+    }
 
     const taskDependents = new Map();
     const remainingDeps = new Map();
 
     for (const task of tasks) {
+      // If task was already completed from checkpoint, remaining deps is 0 and it won't be queued
+      if (preCompletedSet.has(task.id)) {
+        remainingDeps.set(task.id, 0);
+        continue;
+      }
+
       const deps = task.dependsOn || task.dependencies || [];
-      remainingDeps.set(task.id, deps.length);
-      for (const dep of deps) {
+      // Only count dependencies that are NOT already completed!
+      const pendingDeps = deps.filter((d) => !preCompletedSet.has(d));
+      remainingDeps.set(task.id, pendingDeps.length);
+
+      for (const dep of pendingDeps) {
         if (!taskDependents.has(dep)) taskDependents.set(dep, []);
         taskDependents.get(dep).push(task.id);
       }
     }
 
-    // Ready queue contains tasks with 0 pending dependencies
+    // Ready queue contains uncompleted tasks with 0 pending dependencies
     const readyQueue = [];
     for (const task of tasks) {
-      if (remainingDeps.get(task.id) === 0) {
+      if (!preCompletedSet.has(task.id) && remainingDeps.get(task.id) === 0) {
         readyQueue.push(task.id);
       }
     }
@@ -278,6 +320,12 @@ export class WorkflowEngine {
           resolvedOptions.target = resolvedTarget;
         }
 
+        // Attach runId and taskId for capability lease isolation
+        resolvedOptions.runId = workflowId;
+        resolvedOptions.taskId = taskId;
+        resolvedOptions.__runId = workflowId;
+        resolvedOptions.__taskId = taskId;
+
         const cap = taskDef.capability || taskDef.tool || "system";
         const op = taskDef.operation || taskDef.action || "default";
 
@@ -291,6 +339,8 @@ export class WorkflowEngine {
             options: resolvedOptions,
             args: resolvedOptions,
             target: resolvedTarget,
+            runId: workflowId,
+            taskId,
           });
         } else {
           result = { ok: true, message: `Task ${taskId} simulated (no router attached)` };
@@ -312,9 +362,36 @@ export class WorkflowEngine {
         if (isOk) {
           taskStates.set(taskId, "completed");
           completedTasks.push(taskId);
+
+          // Save checkpoint in SQLite idempotently
+          if (checkpoint && this.runtime?.memory) {
+            try {
+              this.runtime.memory.saveCheckpoint({
+                runId: workflowId,
+                taskId,
+                status: "completed",
+                data: taskResults[taskId].data,
+                durationMs: taskDurationMs,
+              });
+            } catch {}
+          }
         } else {
           taskStates.set(taskId, "failed");
           failedTasks.push({ id: taskId, error: result?.error || "Task failed" });
+
+          // Save failed checkpoint in SQLite
+          if (checkpoint && this.runtime?.memory) {
+            try {
+              this.runtime.memory.saveCheckpoint({
+                runId: workflowId,
+                taskId,
+                status: "failed",
+                error: result?.error || "Task failed",
+                durationMs: taskDurationMs,
+              });
+            } catch {}
+          }
+
           if (!taskDef.continueOnError) {
             aborted = true;
             abortReason = `Task '${taskId}' failed: ${result?.error || "unknown error"}`;
@@ -329,8 +406,22 @@ export class WorkflowEngine {
           id: taskId,
           durationMs: taskDurationMs,
           error: err.message,
-          code: "TASK_EXCEPTION",
+          code: err.code || "TASK_EXCEPTION",
         };
+
+        // Save exception checkpoint in SQLite
+        if (checkpoint && this.runtime?.memory) {
+          try {
+            this.runtime.memory.saveCheckpoint({
+              runId: workflowId,
+              taskId,
+              status: "failed",
+              error: err.message,
+              durationMs: taskDurationMs,
+            });
+          } catch {}
+        }
+
         if (!taskDef.continueOnError) {
           aborted = true;
           abortReason = `Task '${taskId}' threw exception: ${err.message}`;
@@ -389,11 +480,10 @@ export class WorkflowEngine {
     // Rollback handling if requested and failure occurred
     const rollbackLog = [];
     if (aborted && rollbackOnError && completedTasks.length > 0) {
-      // Execute rollback in reverse order
       const reversedCompleted = [...completedTasks].reverse();
       for (const taskId of reversedCompleted) {
         const taskDef = taskMap.get(taskId);
-        if (taskDef.rollback && this.router) {
+        if (taskDef?.rollback && this.router) {
           try {
             const rbCap = taskDef.rollback.capability || taskDef.rollback.tool || taskDef.capability;
             const rbOp = taskDef.rollback.operation || taskDef.rollback.action;
@@ -413,6 +503,23 @@ export class WorkflowEngine {
     }
 
     const isSuccess = !aborted && failedTasks.length === 0;
+    const finalStatus = isSuccess ? "completed" : "failed";
+
+    // Update final DAG run status in SQLite
+    if (checkpoint && this.runtime?.memory) {
+      try {
+        this.runtime.memory.updateDagRunStatus(workflowId, finalStatus, {
+          error: abortReason,
+        });
+      } catch {}
+    }
+
+    // Revoke associated capability leases upon finalization (Requirement 14)
+    try {
+      this.runtime?.permissions?.revokeLeasesByRun?.(workflowId, `workflow_${finalStatus}`);
+      this.runtime?.memory?.revokeLeasesByRun?.(workflowId, `workflow_${finalStatus}`);
+    } catch {}
+
     const summary = isSuccess
       ? `Workflow '${workflowId}' completed all ${completedTasks.length} tasks in ${totalDurationMs}ms.`
       : `Workflow '${workflowId}' aborted: ${abortReason || `${failedTasks.length} task(s) failed.`}`;
@@ -420,6 +527,7 @@ export class WorkflowEngine {
     return {
       ok: isSuccess,
       workflowId,
+      runId: workflowId,
       totalTasks: tasks.length,
       completed: completedTasks.length,
       failed: failedTasks.length,
@@ -429,7 +537,150 @@ export class WorkflowEngine {
       states: Object.fromEntries(taskStates),
       ...(failedTasks.length ? { errors: failedTasks } : {}),
       ...(rollbackLog.length ? { rollbackLog } : {}),
+      ...(preCompletedSet.size > 0 ? { resumed: true, reusedTaskCount: preCompletedSet.size, reusedTasks: Array.from(preCompletedSet) } : {}),
     };
+  }
+
+  /**
+   * Resumes an existing workflow run from SQLite checkpoints.
+   * Reuses completed task outputs without re-executing them,
+   * respects dependency integrity, and acquires an atomic resume lock.
+   */
+  async resume({
+    runId,
+    fromStep = null,
+    patchInput = {},
+    patchTasks = null,
+    concurrency = 4,
+    rollbackOnError = false,
+    timeoutMs = 120000,
+  } = {}) {
+    if (!runId) {
+      return { ok: false, code: "INVALID_ARGUMENT", error: "runId is required to resume a workflow." };
+    }
+
+    if (!this.runtime?.memory) {
+      return { ok: false, code: "MEMORY_UNAVAILABLE", error: "Persistent memory store is required for resume." };
+    }
+
+    // 1. Validate run exists
+    const run = this.runtime.memory.getDagRun(runId);
+    if (!run) {
+      const err = new Error(`DAG run '${runId}' not found.`);
+      err.code = "RUN_NOT_FOUND";
+      throw err;
+    }
+
+    // 2. Acquire atomic resume lock (fails if already running/resuming or already completed)
+    this.runtime.memory.acquireResumeLock(runId);
+
+    // 3. Load checkpoints
+    const checkpoints = this.runtime.memory.getCheckpoints(runId);
+    const checkpointMap = new Map(checkpoints.map((c) => [c.taskId, c]));
+
+    let allTasks = [...run.tasks];
+    if (Array.isArray(patchTasks)) {
+      const patchMap = new Map(patchTasks.map((t) => [t.id, t]));
+      allTasks = allTasks.map((t) => (patchMap.has(t.id) ? { ...t, ...patchMap.get(t.id) } : t));
+    }
+
+    const taskMap = new Map(allTasks.map((t) => [t.id, t]));
+
+    // 4. Determine verified completed tasks with strict dependency checking
+    const candidateCompleted = new Set();
+    for (const task of allTasks) {
+      const cp = checkpointMap.get(task.id);
+      if (cp && cp.status === "completed") {
+        candidateCompleted.add(task.id);
+      }
+    }
+
+    // If fromStep is requested, mark fromStep and its downstream dependents to re-execute
+    const forcedReexecute = new Set();
+    if (fromStep && taskMap.has(fromStep)) {
+      const queue = [fromStep];
+      while (queue.length > 0) {
+        const curr = queue.shift();
+        if (!forcedReexecute.has(curr)) {
+          forcedReexecute.add(curr);
+          for (const t of allTasks) {
+            const deps = t.dependsOn || t.dependencies || [];
+            if (deps.includes(curr) && !forcedReexecute.has(t.id)) {
+              queue.push(t.id);
+            }
+          }
+        }
+      }
+    }
+
+    // Fixed-point topological verification:
+    // A task is verified completed only if it is a candidate, NOT forced to re-execute,
+    // and ALL its dependencies are also in verifiedCompleted!
+    const verifiedCompleted = new Set();
+    let changed = true;
+    let iterations = 0;
+    while (changed && iterations < allTasks.length) {
+      changed = false;
+      iterations++;
+      for (const task of allTasks) {
+        if (candidateCompleted.has(task.id) && !forcedReexecute.has(task.id) && !verifiedCompleted.has(task.id)) {
+          const deps = task.dependsOn || task.dependencies || [];
+          const allDepsValid = deps.every((d) => verifiedCompleted.has(d));
+          if (allDepsValid) {
+            verifiedCompleted.add(task.id);
+            changed = true;
+          }
+        }
+      }
+    }
+
+    // 5. Build restored task outputs from checkpoints
+    const restoredTasks = {};
+    for (const taskId of verifiedCompleted) {
+      const cp = checkpointMap.get(taskId);
+      restoredTasks[taskId] = {
+        ok: true,
+        id: taskId,
+        durationMs: cp.durationMs || 0,
+        data: cp.data,
+        fromCheckpoint: true,
+      };
+    }
+
+    // 6. Resume execution using run()
+    const mergedInput = { ...run.input, ...patchInput };
+    const res = await this.run({
+      tasks: allTasks,
+      input: mergedInput,
+      concurrency,
+      rollbackOnError,
+      timeoutMs,
+      checkpoint: true,
+      runId,
+      _restoredTasks: restoredTasks,
+    });
+
+    return {
+      ...res,
+      resumed: true,
+      fromCheckpoint: Object.keys(restoredTasks).length > 0,
+      restoredCount: Object.keys(restoredTasks).length,
+    };
+  }
+
+  getRun(runId) {
+    if (!this.runtime?.memory) return null;
+    return this.runtime.memory.getDagRun(runId);
+  }
+
+  listRuns(options = {}) {
+    if (!this.runtime?.memory) return [];
+    return this.runtime.memory.listDagRuns(options);
+  }
+
+  getCheckpoints(runId) {
+    if (!this.runtime?.memory) return [];
+    return this.runtime.memory.getCheckpoints(runId);
   }
 
   getTemplate(templateId) {

@@ -730,6 +730,15 @@ export class Router {
 
       let needsMoreLevel = this.runtime.permissions.levelRank(current) < this.runtime.permissions.levelRank(required);
 
+      // Si se proporcionó una CapabilityLease activa, la operación está delegada criptográficamente
+      const incomingLeaseId = args?.leaseId || args?.leaseToken || args?.__leaseId;
+      if (incomingLeaseId && this.runtime.permissions?.getLease) {
+        const lease = this.runtime.permissions.getLease(incomingLeaseId);
+        if (lease && lease.status === "active") {
+          needsMoreLevel = false;
+        }
+      }
+
       // AFX-FB-3WVGDU Fix: Prevención de escalamiento desatendido de workflow.
       // Cuando se invoca start_workflow, grant_permission o grant_elevation,
       // el nivel requerido debe ser el nivel objetivo pedido (ej: admintotaluser).
@@ -916,7 +925,21 @@ export class Router {
       // esta llamada, así que no volvemos a exigir el nivel general aquí.
       // Una vez consumida, se marca como gastada para que no sirva dos veces.
       if (!wasJustConfirmed) {
-        this.runtime.permissions.assertAllowed({ tool, action }, resolved.unit);
+        this.runtime.permissions.assertAllowed(
+          {
+            tool,
+            action,
+            args,
+            options: args,
+            target: args?.target || args?.path || args?.file,
+            runId: args?.runId || args?.__runId,
+            taskId: args?.taskId || args?.__taskId,
+            leaseId: args?.leaseToken || (tool === "security" && ["get_lease", "revoke_lease"].includes(action) ? null : args?.leaseId) || args?.__leaseId,
+          },
+          resolved.unit,
+          "default",
+          args
+        );
       } else {
         confirmedReq.status = "consumed";
       }
@@ -1030,6 +1053,25 @@ export class Router {
         client: this.runtime.client,
         traceId: requestId,
       });
+
+      // Ring buffer telemetry (last 100 calls)
+      if (!this.runtime.telemetryRingBuffer) {
+        this.runtime.telemetryRingBuffer = [];
+      }
+      this.runtime.telemetryRingBuffer.push({
+        id: operationId,
+        timestamp: new Date().toISOString(),
+        tool,
+        action,
+        ok: isOk,
+        durationMs,
+        status: raw?.status || (isOk ? "success" : "error"),
+        code: raw?.code || (isOk ? null : "PROCESS_FAILED"),
+        error: isOk ? null : (raw?.error || raw?.message || auditResult),
+      });
+      if (this.runtime.telemetryRingBuffer.length > 100) {
+        this.runtime.telemetryRingBuffer.shift();
+      }
 
       // Audit log — registra el resultado real verificado
       const required2 = this.runtime.permissions.requiredFor({ tool, action }, resolved.unit);

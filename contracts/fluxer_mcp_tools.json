@@ -1,9 +1,9 @@
 {
-  "version": "10.3.3",
+  "version": "30.0.2",
   "tools": [
     {
       "name": "files",
-      "description": "Operaciones avanzadas de archivos: lectura paginada, escritura segura con backups, edición precisa por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF y compresión universal.\nAcciones y argumentos (usar en args): add_allowed_directory { path, label, persistent } | append_to_file {} | batch_copy {} | batch_delete {} | batch_move {} | batch_rename {} | calculate_checksum {} | compare_files {} | compress_path {} | convert_image {} | copy_file {} | create_directory {} | create_document {} | create_file {} | delete {} | delete_file {} | delete_lines {} | delete_path {} | directory_tree {} | edit_file {} | extract_archive {} | file_diff {} | file_exists {} | find_and_replace_in_files {} | get_detailed_metadata {} | get_file_info {} | get_image_metadata {} | get_info {} | get_metadata {} | grep_files {} | insert_lines {} | json_manager {} | list_allowed_directories { revealPath, allow_user_path } | list_archive_contents {} | list_directory {} | list_directory_with_sizes {} | list_files {} | move_file {} | patch_file {} | read_binary_file {} | read_csv {} | read_document {} | read_file {} | read_file_range {} | read_json {} | read_multiple_files {} | read_text_file {} | remove_allowed_directory { path } | replace_file_content {} | replace_in_file {} | replace_lines {} | resize_image {} | sandbox_status { revealPath, allow_user_path } | search_files {} | set_attributes {} | str_replace {} | surgical_edit {} | touch_file {} | validate_path { path } | validate_workspace {} | write_csv {} | write_file {} | write_json {}",
+      "description": "Operaciones avanzadas de archivos: lectura paginada, escritura segura con backups, edición precisa por líneas, gestor JSON dot-notation, CSV, documentos Office/PDF, papelera de reciclaje y compresión universal.\nAcciones y argumentos (usar en args): add_allowed_directory { path, label, persistent } | append_to_file {} | batch_copy {} | batch_delete {} | batch_move {} | batch_rename {} | calculate_checksum {} | clean_temp {} | clear_recycle_bin { driveLetter, drive } | combine_images_to_pdf {} | combine_pdfs {} | compare_files {} | compress_path {} | concat_pdfs {} | convert_image {} | convert_image_to_pdf {} | copy_file {} | create_directory {} | create_document {} | create_file {} | delete {} | delete_file {} | delete_lines {} | delete_path {} | delete_to_trash {} | directory_tree {} | edit_file {} | empty_recycle_bin { driveLetter, drive } | extract_archive {} | file_diff {} | file_exists {} | find_and_replace_in_files {} | garbage_collect {} | gc {} | get_detailed_metadata {} | get_file_info {} | get_image_metadata {} | get_info {} | get_metadata {} | get_recycle_bin {} | grep_files {} | image_to_pdf {} | image_to_pdf_multi {} | images_to_pdf {} | images_to_pdf_multi {} | img2pdf {} | insert_lines {} | join_pdfs {} | json_manager {} | list_allowed_directories { revealPath, allow_user_path } | list_archive_contents {} | list_directory {} | list_directory_with_sizes {} | list_files {} | list_recycle_bin {} | merge_pdf {} | merge_pdfs {} | move_file {} | move_to_trash {} | patch_file {} | pdf_merge {} | purge_trash { driveLetter, drive } | read_binary_file {} | read_csv {} | read_document {} | read_file {} | read_file_range {} | read_json {} | read_multiple_files {} | read_text_file {} | recycle_file {} | recycle_path {} | remove_allowed_directory { path } | replace_file_content {} | replace_in_file {} | replace_lines {} | resize_image {} | sandbox_status { revealPath, allow_user_path } | search_files {} | set_attributes {} | str_replace {} | surgical_edit {} | token_advisory {} | touch_file {} | trash {} | trash_path {} | trash_status {} | validate_path { path } | validate_workspace {} | write_csv {} | write_file {} | write_json {}",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -17,9 +17,15 @@
               "batch_move",
               "batch_rename",
               "calculate_checksum",
+              "clean_temp",
+              "clear_recycle_bin",
+              "combine_images_to_pdf",
+              "combine_pdfs",
               "compare_files",
               "compress_path",
+              "concat_pdfs",
               "convert_image",
+              "convert_image_to_pdf",
               "copy_file",
               "create_directory",
               "create_document",
@@ -28,27 +34,44 @@
               "delete_file",
               "delete_lines",
               "delete_path",
+              "delete_to_trash",
               "directory_tree",
               "edit_file",
+              "empty_recycle_bin",
               "extract_archive",
               "file_diff",
               "file_exists",
               "find_and_replace_in_files",
+              "garbage_collect",
+              "gc",
               "get_detailed_metadata",
               "get_file_info",
               "get_image_metadata",
               "get_info",
               "get_metadata",
+              "get_recycle_bin",
               "grep_files",
+              "image_to_pdf",
+              "image_to_pdf_multi",
+              "images_to_pdf",
+              "images_to_pdf_multi",
+              "img2pdf",
               "insert_lines",
+              "join_pdfs",
               "json_manager",
               "list_allowed_directories",
               "list_archive_contents",
               "list_directory",
               "list_directory_with_sizes",
               "list_files",
+              "list_recycle_bin",
+              "merge_pdf",
+              "merge_pdfs",
               "move_file",
+              "move_to_trash",
               "patch_file",
+              "pdf_merge",
+              "purge_trash",
               "read_binary_file",
               "read_csv",
               "read_document",
@@ -57,6 +80,8 @@
               "read_json",
               "read_multiple_files",
               "read_text_file",
+              "recycle_file",
+              "recycle_path",
               "remove_allowed_directory",
               "replace_file_content",
               "replace_in_file",
@@ -67,7 +92,11 @@
               "set_attributes",
               "str_replace",
               "surgical_edit",
+              "token_advisory",
               "touch_file",
+              "trash",
+              "trash_path",
+              "trash_status",
               "validate_path",
               "validate_workspace",
               "write_csv",
@@ -89,7 +118,7 @@
     },
     {
       "name": "system",
-      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.\nAcciones y argumentos (usar en args): analyze_memory {} | analyze_memory_usage {} | bcd_manager { action, guid, timeout, driveLetter } | capture_region { x, y, width, height, format, revealPath, allow_user_path } | capture_screen { mode, format, revealPath, allow_user_path } | capture_window { windowTitle, processName, format, revealPath, allow_user_path } | clean_memory {} | clean_ram {} | dns_lookup { domain, rrtype } | free_ram {} | get_battery_info {} | get_clipboard {} | get_cpu_info {} | get_defender_status {} | get_disk_info {} | get_env { name } | get_env_vars { scope, filter, sessionOnly } | get_folder_size { path } | get_gpu_info {} | get_hardware_info {} | get_info {} | get_kernel_info {} | get_local_ip {} | get_open_ports {} | get_optimization_status {} | get_performance_stats {} | get_performance_summary {} | get_processes { limit, compact, compact_mode } | get_public_ip {} | get_ram_info {} | get_resource_usage { ok, memory, uptime } | get_sensors {} | get_storage_info {} | get_system_info {} | get_system_load {} | get_system_snapshot {} | get_temperature {} | get_wifi_networks {} | get_wifi_profile {} | get_windows_update_status { u, InstalledOn } | info {} | inspect_port_owner { port, protocol } | kill_process_by_name {} | kill_process_tree { pid, force } | list_env { filter } | list_scheduled_tasks { filter, compact, compact_mode, include_run_times, includeSchedule } | manage_disks {} | manage_services { service, action } | manage_startup {} | optimize_gpu_memory {} | optimize_ram {} | optimize_windows {} | ping { host, count } | process_tree { pid, maxDepth } | read_registry { key, value } | reload_server {} | remove_env_var { name, scope } | revert_windows_optimization {} | run_scheduled_task { name } | screenshot { mode, format, revealPath, allow_user_path } | search_tools { query, domain, limit } | send_notification { title, message } | set_clipboard { text } | set_env { name, value } | set_env_var { name, value, scope } | set_performance_mode {} | set_power_profile { profile } | shutdown_server {} | sleep {} | snapshot {} | system_info {} | terminate_process { pid, name, force } | test_port { host, port, timeoutMs } | wait { seconds, ms, force } | wait_status {} | write_registry { key, name, data, type }",
+      "description": "Diagnóstico de hardware, clipboard, variables de entorno, red, servicios y control de energía.\nAcciones y argumentos (usar en args): analyze_memory {} | analyze_memory_usage {} | bcd_manager { action, guid, timeout, driveLetter } | capture_region { x, y, width, height, format, revealPath, allow_user_path } | capture_screen { mode, format, revealPath, allow_user_path } | capture_window { windowTitle, processName, format, revealPath, allow_user_path } | clean_memory {} | clean_ram {} | dns_lookup { domain, rrtype } | free_ram {} | get_battery_info {} | get_clipboard {} | get_cpu_info {} | get_defender_status {} | get_disk_info {} | get_env { name } | get_env_vars { scope, filter, sessionOnly } | get_folder_size { path } | get_gpu_info {} | get_hardware_info {} | get_info {} | get_kernel_info {} | get_local_ip {} | get_open_ports {} | get_optimization_status {} | get_performance_stats {} | get_performance_summary {} | get_processes { limit, compact, compact_mode } | get_public_ip {} | get_ram_info {} | get_resource_usage { ok, memory, uptime } | get_sensors {} | get_storage_info {} | get_system_info {} | get_system_load {} | get_system_snapshot {} | get_temperature {} | get_wifi_networks {} | get_wifi_profile {} | get_windows_update_status { u, InstalledOn } | info {} | inspect_port_owner { port, protocol } | kill_process_by_name {} | kill_process_tree { pid, force } | list_env { filter } | list_scheduled_tasks { filter, compact, compact_mode, include_run_times, includeSchedule } | manage_disks {} | manage_services { service, action } | manage_startup {} | optimize_gpu_memory {} | optimize_ram {} | optimize_windows {} | ping { host, count } | process_tree { pid, maxDepth } | read_registry { key, value } | reload_server {} | remove_env_var { name, scope } | revert_windows_optimization {} | run_scheduled_task { name } | screenshot { mode, format, revealPath, allow_user_path } | search_tools { query, domain, limit } | send_notification { title, message, level, type, native } | set_clipboard { text } | set_env { name, value } | set_env_var { name, value, scope } | set_performance_mode {} | set_power_profile { profile } | shutdown_server {} | sleep {} | snapshot {} | system_info {} | terminate_process { pid, name, force } | test_port { host, port, timeoutMs } | wait { seconds, ms, force } | wait_status {} | write_registry { key, name, data, type }",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -327,7 +356,7 @@
     },
     {
       "name": "security",
-      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId, confirmationCode, user_confirmed, confirmed, grantMinutes, minutes } | audit_log { limit, tool, action, result, compact, compact_mode } | audit_system {} | check_permissions {} | decrypt_text { encrypted, password } | deny_request { requestId, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_elevation_status {} | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | get_workflow { principal } | grant_elevation { durationMinutes, reason } | grant_permission { scope, role, level, minutes, args } | grant_visual_capture { durationMinutes } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | list_allowed_directories { revealPath, allow_user_path } | list_granted_permissions { limit } | list_permission_levels {} | permissions_active {} | request_status { requestId } | revoke_elevation {} | revoke_permission { scope } | revoke_workflow { principal } | scan_file { path } | set_security_mode { mode } | start_workflow { level, durationMinutes, reason, principal } | verify_hash { text, hash, algorithm }",
+      "description": "Cifrado AES-256, hashes seguros, tokens criptográficos, permisos internos y auditoría de seguridad para desarrollo y operaciones locales supervisadas.\nAcciones y argumentos (usar en args): analyze_process {} | approve_request { requestId, confirmationCode, code, user_confirmed, confirmed, grantMinutes, minutes } | approve_user_action { actionId, userActionSignature, clickTimestamp } | audit_log { limit, tool, action, result, compact, compact_mode } | audit_system {} | check_permissions {} | classify_permission_level { tool, action } | configure_notifications { enabled, in_app, mode } | decrypt_text { encrypted, password } | deny_request { requestId, confirmationCode, code, reason } | encrypt_text { text, password } | generate_token { length, bytes } | generate_uuid {} | get_elevation_status {} | get_lease { leaseId } | get_security_mode { ok, runtimepermissionsmodeInforuntimepermissionsmodeInfo } | get_workflow { principal } | grant_elevation { durationMinutes, reason, confirmationCode, code, requestId } | grant_lease { runId, taskId, scope, budget, allowedPaths, allowed_paths, autoRevoke, expiresAt } | grant_permission { scope, role, level, minutes, args } | grant_visual_capture { durationMinutes } | hash_file { path, algorithm } | hash_text { text, algorithm } | health { runtime, registry, config } | list_allowed_directories { revealPath, allow_user_path } | list_granted_permissions { limit } | list_leases { runId, taskId, scope } | list_notifications { status, limit } | list_permission_levels {} | permissions_active {} | request_action_approval { tool, action, args, userId, rest } | request_status { requestId } | respond_notification { id, confirmationCode, code, decision, grantMinutes, reason } | revoke_elevation {} | revoke_lease { leaseId, runId, taskId, reason } | revoke_permission { scope } | revoke_workflow { principal } | scan_file { path } | set_security_mode { mode } | simulate_user_click { actionId, clickTimestamp } | start_workflow { level, durationMinutes, reason, principal, confirmationCode, code, requestId } | verify_hash { text, hash, algorithm } | worm_audit { limit, action, tool, status } | worm_audit_verify {}",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -336,18 +365,23 @@
             "enum": [
               "analyze_process",
               "approve_request",
+              "approve_user_action",
               "audit_log",
               "audit_system",
               "check_permissions",
+              "classify_permission_level",
+              "configure_notifications",
               "decrypt_text",
               "deny_request",
               "encrypt_text",
               "generate_token",
               "generate_uuid",
               "get_elevation_status",
+              "get_lease",
               "get_security_mode",
               "get_workflow",
               "grant_elevation",
+              "grant_lease",
               "grant_permission",
               "grant_visual_capture",
               "hash_file",
@@ -355,16 +389,24 @@
               "health",
               "list_allowed_directories",
               "list_granted_permissions",
+              "list_leases",
+              "list_notifications",
               "list_permission_levels",
               "permissions_active",
+              "request_action_approval",
               "request_status",
+              "respond_notification",
               "revoke_elevation",
+              "revoke_lease",
               "revoke_permission",
               "revoke_workflow",
               "scan_file",
               "set_security_mode",
+              "simulate_user_click",
               "start_workflow",
-              "verify_hash"
+              "verify_hash",
+              "worm_audit",
+              "worm_audit_verify"
             ],
             "description": "Acción a ejecutar en el dominio security"
           },
@@ -381,7 +423,7 @@
     },
     {
       "name": "shortcuts",
-      "description": "Motor de atajos y macros multi-paso con persistencia local en USERPROFILE. Acciones: create, execute, list, get, delete, rename, update, history, export, import, reload.\nAcciones y argumentos (usar en args): add_shortcut { name, description, steps, category, tags } | backup_shortcuts { destination } | clear_all {} | create { name, description, steps, category, tags } | create_shortcut { name, description, steps, category, tags } | delete { name, all } | delete_shortcut { name, all } | edit { name, description, steps, category, tags } | execute { name, variables } | execute_shortcut { name, variables } | export_shortcuts { destination } | get { name } | get_shortcut { name } | history { name } | import_shortcuts { source, data, overwrite } | inspect { name } | list { category } | list_all { category } | list_shortcuts { category } | reload {} | remove { name, all } | rename { name, newName } | restore_shortcuts { source } | run { name, variables } | run_shortcut { name, variables } | save { name, description, steps, category, tags } | update { name, description, steps, category, tags }",
+      "description": "Motor universal de atajos, pipelines y macros multi-paso con soporte de variables dinámicas, condiciones de salto, simulación y plantillas predefinidas. Acciones: create, execute, list, get, delete, rename, update, history, list_templates, create_from_template, export_shortcuts, import_shortcuts, reload.\nAcciones y argumentos (usar en args): add_shortcut { name, description, steps, category, tags } | clear_all {} | create { name, description, steps, category, tags } | create_from_template { template, name, overrides } | create_shortcut { name, description, steps, category, tags } | delete { name, all } | delete_shortcut { name, all } | edit { name, description, steps, category, tags } | execute { name, steps, variables } | execute_shortcut { name, steps, variables } | export_shortcuts { destination } | get { name } | get_shortcut { name } | history { name } | import_shortcuts { source, data, overwrite } | inspect { name } | list { category } | list_all { category } | list_shortcuts { category } | list_templates {} | reload {} | remove { name, all } | rename { name, newName } | run { name, steps, variables } | run_shortcut { name, steps, variables } | save { name, description, steps, category, tags } | templates {} | update { name, description, steps, category, tags }",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -389,9 +431,9 @@
             "type": "string",
             "enum": [
               "add_shortcut",
-              "backup_shortcuts",
               "clear_all",
               "create",
+              "create_from_template",
               "create_shortcut",
               "delete",
               "delete_shortcut",
@@ -407,13 +449,14 @@
               "list",
               "list_all",
               "list_shortcuts",
+              "list_templates",
               "reload",
               "remove",
               "rename",
-              "restore_shortcuts",
               "run",
               "run_shortcut",
               "save",
+              "templates",
               "update"
             ],
             "description": "Acción a ejecutar en el dominio shortcuts"
@@ -459,7 +502,7 @@
     },
     {
       "name": "diagnostics",
-      "description": "Diagnóstico avanzado del sistema, benchmarks, salud del MCP y auto-evaluación.\nAcciones y argumentos (usar en args): benchmark { loops } | compact_status { anonymize } | health_check { expose_host_info, compact, anonymize } | resolve_toolchain { forceRefresh } | self_test { name, value, status } | system_diagnose { level, type, message } | telemetry {} | verify_html_integrity { path, content, counts, selectors, baselineCounts }",
+      "description": "Diagnostics v11.0.0 -- compact mode AI-toggle (set_compact/get_compact), network_test, storage_test, mcp_test, report, health_check with real disk/memory/npm/python/dashboard checks.\nAcciones y argumentos (usar en args): benchmark { loops } | check { expose_host_info, compact, anonymize } | compact_status {} | diagnose { level, type, message } | get_compact { ok, compact_mode, set_at, set_by, tip } | health { expose_host_info, compact, anonymize } | health_check { expose_host_info, compact, anonymize } | mcp_test { name, ok, detail } | network_test { targets, timeout_ms } | report { format } | resolve_toolchain { forceRefresh } | self_test {} | set_compact { enabled, reason } | status {} | storage_test {} | system_diagnose { level, type, message } | telemetry {} | test {} | verify_html_integrity { path, content, checkEmbeddedJs }",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -467,12 +510,23 @@
             "type": "string",
             "enum": [
               "benchmark",
+              "check",
               "compact_status",
+              "diagnose",
+              "get_compact",
+              "health",
               "health_check",
+              "mcp_test",
+              "network_test",
+              "report",
               "resolve_toolchain",
               "self_test",
+              "set_compact",
+              "status",
+              "storage_test",
               "system_diagnose",
               "telemetry",
+              "test",
               "verify_html_integrity"
             ],
             "description": "Acción a ejecutar en el dominio diagnostics"
@@ -490,13 +544,14 @@
     },
     {
       "name": "developer",
-      "description": "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase) y actualización.\nAcciones y argumentos (usar en args): create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite, compact, compact_mode } | delete_feedback { id } | delete_skill { name, path, compact, compact_mode } | detect_project { path } | diagnose_service { path, serviceId } | edit_skill { name, path, description, instructions, rules, examples, references, scripts, compact, compact_mode } | feedback_guide {} | feedback_outbox_status {} | get_skill { name, path, compact, compact_mode } | git_diff_summary { staged, path, revealPath, allow_user_path } | git_log_compact { maxCount, path, revealPath, allow_user_path } | git_status_structured { path, revealPath, allow_user_path } | git_switch_identity { account, name, email, path, revealPath, allow_user_path } | inspect_project { path } | list_feedbacks { type, severity, status, limit } | list_my_feedbacks { id, title, created_at, status, resolution_notes, fixed_in_version, cached_at } | list_skills { path, searchGlobal, compact, compact_mode } | read_feedback { id } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | submit_feedback { id, title, 200, type, severity, created_at, status, resolution_notes, fixed_in_version, cached_at } | upd { force, confirm, confirmed, user_confirmed, dry_run, dryRun, action, backup_id, backupId } | upd_backups { backupId, createdAt, version } | upd_check { repoRoot, force, checkRepo, revealPath, allow_user_path } | upd_data { id, path, created_at } | upd_info { version, full_history, include_full_history } | upd_rollback { backup_id, backupId, confirm, confirmed, user_confirmed } | validate_skill { path, compact, compact_mode } | verify_html_integrity {}",
+      "description": "Detección, análisis, tests, builds, gestión de skills, feedback público (Render/Firebase), actualización y control de notificaciones.\nAcciones y argumentos (usar en args): connection_notifications { state, enabled, toggle } | create_skill { name, description, instructions, path, rules, examples, references, scripts, overwrite, compact, compact_mode, encoding, skip_advisory, bypass_advisory, force, confirm, confirmed, disable_advisory_permanently, advisory, macros, repeat, boilerplate, numbers } | delete_feedback { id } | delete_skill { name, path, compact, compact_mode } | detect_project { path } | diagnose_service { path, serviceId } | edit_skill { name, path, description, instructions, rules, examples, references, scripts, compact, compact_mode } | feedback_guide {} | feedback_outbox_status {} | get_skill { name, path, compact, compact_mode } | get_telemetry { limit, tool, action, status } | git_diff_summary { staged, path, revealPath, allow_user_path } | git_log_compact { maxCount, path, revealPath, allow_user_path } | git_status_structured { path, revealPath, allow_user_path } | git_switch_identity { account, name, email, path, revealPath, allow_user_path } | inspect_project { path } | list_feedbacks { type, severity, status, limit } | list_my_feedbacks { id, title, created_at, status, resolution_notes, fixed_in_version, cached_at } | list_skills { path, searchGlobal, compact, compact_mode } | notification_connection { state, enabled, toggle } | notification_security { state, enabled, toggle } | notifications_connection { state, enabled, toggle } | notifications_security { state, enabled, toggle } | read_feedback { id } | refresh_service_state { path, serviceId } | run_project_build { path, timeoutMs } | run_project_tests { path, timeoutMs } | security_notifications { state, enabled, toggle } | submit_feedback { id, title, 200, type, severity, created_at, status, resolution_notes, fixed_in_version, cached_at } | telemetry { limit, tool, action, status } | telemetry_status { limit, tool, action, status } | toggle_notifications { state, enabled, toggle } | token_advisory { enabled, action, toggle } | upd { force, confirm, confirmed, user_confirmed, dry_run, dryRun, action, backup_id, backupId } | upd_backups { backupId, createdAt, version } | upd_check { repoRoot, force, checkRepo, revealPath, allow_user_path } | upd_data { id, path, created_at } | upd_doctor { name, ok, detail, remediation } | upd_info { version, full_history, include_full_history } | upd_install { mode, client, confirm } | upd_repair { step, status, note, error } | upd_rollback { backup_id, backupId, confirm, confirmed, user_confirmed } | upd_set_channel { channel, confirm } | validate_skill { path, compact, compact_mode } | verify_html_integrity {}",
       "inputSchema": {
         "type": "object",
         "properties": {
           "action": {
             "type": "string",
             "enum": [
+              "connection_notifications",
               "create_skill",
               "delete_feedback",
               "delete_skill",
@@ -506,6 +561,7 @@
               "feedback_guide",
               "feedback_outbox_status",
               "get_skill",
+              "get_telemetry",
               "git_diff_summary",
               "git_log_compact",
               "git_status_structured",
@@ -514,17 +570,30 @@
               "list_feedbacks",
               "list_my_feedbacks",
               "list_skills",
+              "notification_connection",
+              "notification_security",
+              "notifications_connection",
+              "notifications_security",
               "read_feedback",
               "refresh_service_state",
               "run_project_build",
               "run_project_tests",
+              "security_notifications",
               "submit_feedback",
+              "telemetry",
+              "telemetry_status",
+              "toggle_notifications",
+              "token_advisory",
               "upd",
               "upd_backups",
               "upd_check",
               "upd_data",
+              "upd_doctor",
               "upd_info",
+              "upd_install",
+              "upd_repair",
               "upd_rollback",
+              "upd_set_channel",
               "validate_skill",
               "verify_html_integrity"
             ],
@@ -543,19 +612,382 @@
     },
     {
       "name": "guide",
-      "description": "Documentación oficial interna, reglas y mejores prácticas para IAs que operan este MCP.\nAcciones y argumentos (usar en args): best_practices {} | permissions_info { requestId, confirmationCode, grantMinutes } | search_tools { query, domain, limit } | tool_usage { tool_name }",
+      "description": "FLUXER XZ Documentation & Capability Discovery Engine (Gen 4.0). Operaciones: overview | search | category | capability_info | workflows\nAcciones y argumentos (usar en args): capability_info { operation, summary, params, example } | category { name, summary } | image_to_pdf_guide { ok, title, capability, operation, summary, recipes, code, path, paper_size } | index { mode } | merge_pdfs_guide { ok, title, capability, operation, summary, sindependerdescriptsexternosdePython, recipes, code, files, doc2pdf, outPath } | notifications_guide { ok, title, capability, summary, desconexinytoastsdeseguridad, controls, code, subaction, enabled } | overview { capability, category, summary, topOperations, 4mapo } | print_guide { ok, title, capability, summary, Word, imgenesytextoplanoconpreflight, dplex, escaladegrisesysoportemultipginacontinuo, steps, command } | quick_start { ok, brand, version, generation, steps, title, command } | search {} | tool_usage {} | tools { mode } | web_search_guide { ok, title, capability, summary, examples, code, query } | workflows {}",
       "inputSchema": {
         "type": "object",
         "properties": {
           "action": {
             "type": "string",
             "enum": [
-              "best_practices",
-              "permissions_info",
-              "search_tools",
-              "tool_usage"
+              "capability_info",
+              "category",
+              "image_to_pdf_guide",
+              "index",
+              "merge_pdfs_guide",
+              "notifications_guide",
+              "overview",
+              "print_guide",
+              "quick_start",
+              "search",
+              "tool_usage",
+              "tools",
+              "web_search_guide",
+              "workflows"
             ],
             "description": "Acción a ejecutar en el dominio guide"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "flstudio",
+      "description": "FL Studio Suite v11.0.6 (con modo optimize para ahorro masivo de tokens). Acciones: detect | open { project_path? } | file { subaction: 'new'|'open'|'save'|'export'|'backup'|'info' } | edit | view | patterns | options | tools | plugins | live_session | music_theory { optimize? } | change_tone { optimize? } | style_presets { optimize? } | sound_design { optimize? } | mixer_settings { optimize? } | optimize { enabled?, target?: 'tokens'|'session'|'daw' }\nAcciones y argumentos (usar en args): bridge_status {} | change_tone { notes, semitones, tuning_hz, optimize, compact } | channels { action } | detect {} | edit { subaction } | file { subaction, path, format, name } | launch {} | live_session { mode, bpm, scale, root, progression, notes, style, optimize, compact } | mixer { action, subaction, track, value } | mixer_settings { track_type, optimize, compact } | music_create {} | music_theory { mode, scale, root, chord, optimize, compact } | open { project_path } | optimize { target, sessiontoggletokensdawstatusenabled, grid, remove_duplicates, normalize_velocity } | options { subaction, setting, value, confirm_security } | patterns { subaction, pattern, name } | plugins { subaction, type, optimize, compact } | sound_design { type, optimize, compact } | style_presets { style, optimize, compact } | tools { subaction, macro_name } | transport { action } | view { subaction }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "bridge_status",
+              "change_tone",
+              "channels",
+              "detect",
+              "edit",
+              "file",
+              "launch",
+              "live_session",
+              "mixer",
+              "mixer_settings",
+              "music_create",
+              "music_theory",
+              "open",
+              "optimize",
+              "options",
+              "patterns",
+              "plugins",
+              "sound_design",
+              "style_presets",
+              "tools",
+              "transport",
+              "view"
+            ],
+            "description": "Acción a ejecutar en el dominio flstudio"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "screenshot",
+      "description": "Captura visual no intrusiva de pantalla, aplicaciones y ventanas en tiempo real mediante WGC, GDI BitBlt y PrintWindow.\nAcciones y argumentos (usar en args): app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_screen { format, revealPath, allow_user_path } | capture_window { hwnd, handle, title, format, revealPath, allow_user_path } | desktop { format, revealPath, allow_user_path } | region { format, revealPath, allow_user_path } | screen { format, revealPath, allow_user_path } | window { hwnd, handle, title, format, revealPath, allow_user_path }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "app",
+              "capture_app",
+              "capture_screen",
+              "capture_window",
+              "desktop",
+              "region",
+              "screen",
+              "window"
+            ],
+            "description": "Acción a ejecutar en el dominio screenshot"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "print",
+      "description": "Centro Integral de Impresión y Gestión de Impresoras (HP, Canon, Epson, Brother y Windows). Soporta vista previa de alta fidelidad (preview) con esquemas ASCII, selección de páginas continuas o discretas (1, 5, 7 o 1-5), PDF, Word/DOCX, imágenes, copias, color/B&N y gestión de cola de impresión.\nAcciones y argumentos (usar en args): cancel { printer, printer_name, job_id, id } | cancel_job { printer, printer_name, job_id, id } | capabilities { printer, printer_name, refresh } | configure { printer, printer_name, paper_size, color, duplex, collate } | discover {} | dry_run { paper_size, color, dpi, quality, duplex, copies } | get_pdf_info { file, file_path } | get_printer { printer, printer_name, refresh } | info { printer, printer_name, refresh } | inspect_pdf { file, file_path } | jobs { printer, printer_name } | layout {} | list {} | list_printers {} | manual { brand, model, topic } | pdf { file, file_path } | pdf_info { file, file_path } | preflight { paper_size, color, dpi, quality, duplex, copies } | preview {} | print { args, file, folder, directory, dir } | print_batch { args, file, folder, directory, dir } | print_file { args, file, folder, directory, dir } | print_folder { args, file, folder, directory, dir } | print_pdf { args, file, pages } | printers {} | purge_queue { printer, printer_name } | queue { printer, printer_name } | search {} | search_printers {} | status { printer, printer_name, refresh } | vista_previa {}",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "cancel",
+              "cancel_job",
+              "capabilities",
+              "configure",
+              "discover",
+              "dry_run",
+              "get_pdf_info",
+              "get_printer",
+              "info",
+              "inspect_pdf",
+              "jobs",
+              "layout",
+              "list",
+              "list_printers",
+              "manual",
+              "pdf",
+              "pdf_info",
+              "preflight",
+              "preview",
+              "print",
+              "print_batch",
+              "print_file",
+              "print_folder",
+              "print_pdf",
+              "printers",
+              "purge_queue",
+              "queue",
+              "search",
+              "search_printers",
+              "status",
+              "vista_previa"
+            ],
+            "description": "Acción a ejecutar en el dominio print"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "web",
+      "description": "Búsqueda web multi-proveedor, imágenes frescas (>9 items con deduplicación), Wikipedia, extracción y descarga segura.\nAcciones y argumentos (usar en args): download { url, destination, filename, media_type, max_bytes, 100MBdefaultoverwrite } | extract {} | images {} | multi_search { query, queries, limit, compact } | read_page { url, max_length } | reddit { query, subreddit, limit } | search { query, domain, limit, engine, compact } | search_images { query, limit, compact, engine, provider } | wikipedia { query, lang, limit }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "download",
+              "extract",
+              "images",
+              "multi_search",
+              "read_page",
+              "reddit",
+              "search",
+              "search_images",
+              "wikipedia"
+            ],
+            "description": "Acción a ejecutar en el dominio web"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "workflow",
+      "description": "DAG Workflow Orchestration Engine — Parallel execution, dependency sorting, cycle detection, templating, and rollback.\nAcciones y argumentos (usar en args): checkpoints {} | resume { runId, fromStep, patchInput, patchTasks, concurrency, rollbackOnError, timeoutMs } | run { tasks, input, concurrency, rollbackOnError, timeoutMs, checkpoint, runId } | runs { limit, status } | status { limit } | template { tasks, input } | validate {}",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "checkpoints",
+              "resume",
+              "run",
+              "runs",
+              "status",
+              "template",
+              "validate"
+            ],
+            "description": "Acción a ejecutar en el dominio workflow"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "upd",
+      "description": "Centro Oficial de Actualización Manual de FLUXER XZ (Gen 4.0). Las actualizaciones automáticas están estrictamente DESACTIVADAS. Operaciones: check | info | apply | rollback | status\nAcciones y argumentos (usar en args): apply { repoRoot, force, backupPolicy } | check { repoRoot, force, channel, checkRepo } | data {} | doctor {} | info {} | rollback {} | status {} | update {}",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "apply",
+              "check",
+              "data",
+              "doctor",
+              "info",
+              "rollback",
+              "status",
+              "update"
+            ],
+            "description": "Acción a ejecutar en el dominio upd"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fl_studio",
+      "description": "FLUXER fl_studio domain router\nAcciones y argumentos (usar en args): bridge_status {} | change_tone { notes, semitones, tuning_hz, optimize, compact } | channels { action } | detect {} | edit { subaction } | file { subaction, path, format, name } | launch {} | live_session { mode, bpm, scale, root, progression, notes, style, optimize, compact } | mixer { action, subaction, track, value } | mixer_settings { track_type, optimize, compact } | music_create {} | music_theory { mode, scale, root, chord, optimize, compact } | open { project_path } | optimize { target, sessiontoggletokensdawstatusenabled, grid, remove_duplicates, normalize_velocity } | options { subaction, setting, value, confirm_security } | patterns { subaction, pattern, name } | plugins { subaction, type, optimize, compact } | sound_design { type, optimize, compact } | style_presets { style, optimize, compact } | tools { subaction, macro_name } | transport { action } | view { subaction }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "bridge_status",
+              "change_tone",
+              "channels",
+              "detect",
+              "edit",
+              "file",
+              "launch",
+              "live_session",
+              "mixer",
+              "mixer_settings",
+              "music_create",
+              "music_theory",
+              "open",
+              "optimize",
+              "options",
+              "patterns",
+              "plugins",
+              "sound_design",
+              "style_presets",
+              "tools",
+              "transport",
+              "view"
+            ],
+            "description": "Acción a ejecutar en el dominio fl_studio"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "media",
+      "description": "FLUXER media domain router\nAcciones y argumentos (usar en args): app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_screen { format, revealPath, allow_user_path } | capture_window { hwnd, handle, title, format, revealPath, allow_user_path } | desktop { format, revealPath, allow_user_path } | region { format, revealPath, allow_user_path } | screen { format, revealPath, allow_user_path } | window { hwnd, handle, title, format, revealPath, allow_user_path }",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "app",
+              "capture_app",
+              "capture_screen",
+              "capture_window",
+              "desktop",
+              "region",
+              "screen",
+              "window"
+            ],
+            "description": "Acción a ejecutar en el dominio media"
+          },
+          "args": {
+            "type": "object",
+            "description": "Argumentos específicos de la acción"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "printcenter",
+      "description": "FLUXER printcenter domain router\nAcciones y argumentos (usar en args): cancel { printer, printer_name, job_id, id } | cancel_job { printer, printer_name, job_id, id } | capabilities { printer, printer_name, refresh } | configure { printer, printer_name, paper_size, color, duplex, collate } | discover {} | dry_run { paper_size, color, dpi, quality, duplex, copies } | get_pdf_info { file, file_path } | get_printer { printer, printer_name, refresh } | info { printer, printer_name, refresh } | inspect_pdf { file, file_path } | jobs { printer, printer_name } | layout {} | list {} | list_printers {} | manual { brand, model, topic } | pdf { file, file_path } | pdf_info { file, file_path } | preflight { paper_size, color, dpi, quality, duplex, copies } | preview {} | print { args, file, folder, directory, dir } | print_batch { args, file, folder, directory, dir } | print_file { args, file, folder, directory, dir } | print_folder { args, file, folder, directory, dir } | print_pdf { args, file, pages } | printers {} | purge_queue { printer, printer_name } | queue { printer, printer_name } | search {} | search_printers {} | status { printer, printer_name, refresh } | vista_previa {}",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "cancel",
+              "cancel_job",
+              "capabilities",
+              "configure",
+              "discover",
+              "dry_run",
+              "get_pdf_info",
+              "get_printer",
+              "info",
+              "inspect_pdf",
+              "jobs",
+              "layout",
+              "list",
+              "list_printers",
+              "manual",
+              "pdf",
+              "pdf_info",
+              "preflight",
+              "preview",
+              "print",
+              "print_batch",
+              "print_file",
+              "print_folder",
+              "print_pdf",
+              "printers",
+              "purge_queue",
+              "queue",
+              "search",
+              "search_printers",
+              "status",
+              "vista_previa"
+            ],
+            "description": "Acción a ejecutar en el dominio printcenter"
           },
           "args": {
             "type": "object",

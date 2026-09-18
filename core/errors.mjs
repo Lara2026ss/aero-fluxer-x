@@ -17,6 +17,23 @@ export const ERROR_CODES = Object.freeze({
   DEPENDENCY_ERROR: "DEPENDENCY_ERROR",
   SECURITY_BLOCKED: "SECURITY_BLOCKED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
+
+  // Capability Leases Error Codes
+  LEASE_REQUIRED: "LEASE_REQUIRED",
+  LEASE_NOT_FOUND: "LEASE_NOT_FOUND",
+  LEASE_REVOKED: "LEASE_REVOKED",
+  LEASE_EXPIRED: "LEASE_EXPIRED",
+  LEASE_SCOPE_DENIED: "LEASE_SCOPE_DENIED",
+  LEASE_BUDGET_EXHAUSTED: "LEASE_BUDGET_EXHAUSTED",
+  PATH_OUTSIDE_LEASE: "PATH_OUTSIDE_LEASE",
+  LEASE_TASK_MISMATCH: "LEASE_TASK_MISMATCH",
+  LEASE_RUN_MISMATCH: "LEASE_RUN_MISMATCH",
+
+  // DAG & Checkpoints Error Codes
+  RUN_NOT_FOUND: "RUN_NOT_FOUND",
+  RUN_NOT_RESUMABLE: "RUN_NOT_RESUMABLE",
+  RUN_ALREADY_RESUMING: "RUN_ALREADY_RESUMING",
+  CHECKPOINT_CONFLICT: "CHECKPOINT_CONFLICT",
 });
 
 export class FluxerError extends Error {
@@ -105,4 +122,75 @@ export function normalizeError(err, { tool, action, operationId } = {}) {
     retryable,
     details: { tool, action, originalCode: err?.code },
   });
+}
+
+export const ERROR_TAXONOMY = Object.freeze({
+  RECOVERABLE: "RECOVERABLE",
+  TERMINAL: "TERMINAL",
+});
+
+/**
+ * Gate 2: Deterministic Error Classifier
+ * Classifies any error into RECOVERABLE or TERMINAL.
+ * EBUSY, timeouts, locked resources and transient network failures are RECOVERABLE.
+ * Schema violations, invalid arguments, permission denials, and exhausted leases are TERMINAL.
+ */
+export function classifyError(err) {
+  if (!err) {
+    return {
+      taxonomy: ERROR_TAXONOMY.TERMINAL,
+      retryable: false,
+      code: "TERMINAL_ERROR",
+      message: "No error provided",
+      toString() { return ERROR_TAXONOMY.TERMINAL; },
+      [Symbol.toPrimitive]() { return ERROR_TAXONOMY.TERMINAL; },
+    };
+  }
+
+  const code = String(err.code || "").toUpperCase();
+  const msg = String(err.message || err || "").toLowerCase();
+
+  // 1. Definite recoverable codes
+  const RECOVERABLE_CODES = new Set([
+    "EBUSY",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "TIMEOUT",
+    "CONFLICT",
+    "LOCKED",
+    "RATE_LIMITED",
+    "NETWORK_ERROR",
+  ]);
+
+  let isRecoverable = false;
+
+  if (RECOVERABLE_CODES.has(code)) {
+    isRecoverable = true;
+  } else if (
+    msg.includes("ebusy") ||
+    msg.includes("resource busy") ||
+    msg.includes("file is being used") ||
+    msg.includes("archivo en uso") ||
+    msg.includes("locked") ||
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("econnreset") ||
+    msg.includes("socket hang up") ||
+    msg.includes("temporarily unavailable")
+  ) {
+    isRecoverable = true;
+  } else if (err.retryable === true) {
+    isRecoverable = true;
+  }
+
+  const taxonomy = isRecoverable ? ERROR_TAXONOMY.RECOVERABLE : ERROR_TAXONOMY.TERMINAL;
+  return {
+    taxonomy,
+    retryable: isRecoverable,
+    code: err.code || (isRecoverable ? "RECOVERABLE_ERROR" : "TERMINAL_ERROR"),
+    message: err.message || String(err),
+    toString() { return taxonomy; },
+    [Symbol.toPrimitive]() { return taxonomy; },
+  };
 }

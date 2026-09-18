@@ -815,6 +815,14 @@ export async function startDashboardApi({
       if (cfg.ai) cfg.ai = { ...cfg.ai };
       return { ok: true, config: cfg };
     },
+    "/capabilities": async () => ({
+      ok: true,
+      capabilities: registry?.capabilityRegistry?.getAll?.() || [],
+    }),
+    "/api/capabilities": async () => ({
+      ok: true,
+      capabilities: registry?.capabilityRegistry?.getAll?.() || [],
+    }),
     "/health/full": async () => {
       const { runHealthCheck } = await import("./health.mjs");
       return runHealthCheck({ runtime, registry, config: runtime.config });
@@ -822,7 +830,12 @@ export async function startDashboardApi({
   };
 
   const server = http.createServer(async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "127.0.0.1");
+    const origin = req.headers.origin;
+    if (origin && (origin.startsWith("http://127.0.0.1") || origin.startsWith("http://localhost") || origin.startsWith("tauri://") || origin.startsWith("https://tauri.localhost"))) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "127.0.0.1");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Fluxer-Token");
 
@@ -909,6 +922,75 @@ export async function startDashboardApi({
           : { ok: false, error: "Notification center not available" };
         res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify(responsePayload, null, 2));
+        return;
+      }
+
+      // Endpoint thin bridge para ejecución autorizada de operaciones MCP
+      if (req.method === "POST" && (url.pathname === "/api/execute" || url.pathname === "/execute")) {
+        let body = {};
+        try {
+          const raw = await new Promise((resolve) => {
+            let buf = "";
+            req.on("data", (chunk) => (buf += chunk));
+            req.on("end", () => resolve(buf));
+          });
+          body = raw ? JSON.parse(raw) : {};
+        } catch (e) {
+          res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: false, error: "Invalid JSON payload: " + e.message }));
+          return;
+        }
+
+        if (!router) {
+          res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: false, error: "FLUXER XZ router not available" }));
+          return;
+        }
+
+        const tool = body.capability || body.tool;
+        const action = body.operation || body.action;
+        const rawArgs = body.args || body.options || body.params || {};
+
+        let normalized;
+        if (registry?.capabilityRegistry?.normalizeCall) {
+          normalized = registry.capabilityRegistry.normalizeCall({
+            tool,
+            action,
+            operation: action,
+            ...rawArgs,
+          });
+        } else {
+          normalized = {
+            capability: tool,
+            operation: action,
+            target: rawArgs.target || rawArgs.path,
+            options: rawArgs,
+          };
+        }
+
+        try {
+          const response = await router.execute({
+            capability: normalized.capability,
+            operation: normalized.operation,
+            target: normalized.target,
+            options: normalized.options,
+            tool: normalized.capability,
+            action: normalized.operation,
+            args: normalized.options,
+          });
+
+          res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ ok: true, result: response }, null, 2));
+        } catch (execErr) {
+          res.writeHead(execErr.status || 500, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({
+            ok: false,
+            error: execErr.message || String(execErr),
+            code: execErr.code || "EXECUTION_ERROR",
+            permissionRequired: execErr.permissionRequired || false,
+            details: execErr.details || null
+          }, null, 2));
+        }
         return;
       }
 
