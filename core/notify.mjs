@@ -35,6 +35,10 @@ export function sendNativeNotification(title, message, options = {}) {
     }
   }
 
+  const isSilent = Boolean(options.silent);
+  const allowModal = !options.noModal && !options.connectionEvent && !options.subtle;
+  const audioTag = isSilent ? "<audio silent='true'/>" : "";
+
   const script = `
     $title = '${safeTitle}'
     $text = '${safeMessage}'
@@ -43,7 +47,7 @@ export function sendNativeNotification(title, message, options = {}) {
       [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
       $xmlTitle = [System.Security.SecurityElement]::Escape($title)
       $xmlText = [System.Security.SecurityElement]::Escape($text)
-      $template = "<toast><visual><binding template='ToastGeneric'><text>$xmlTitle</text><text>$xmlText</text></binding></visual></toast>"
+      $template = "<toast><visual><binding template='ToastGeneric'><text>$xmlTitle</text><text>$xmlText</text></binding></visual>${audioTag}</toast>"
       $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
       $xml.LoadXml($template)
       $toast = New-Object Windows.UI.Notifications.ToastNotification $xml
@@ -58,10 +62,10 @@ export function sendNativeNotification(title, message, options = {}) {
       }
       if (-not $sent) { throw "ToastNotifier fallback required" }
     } catch {
-      try {
+      ${allowModal ? `try {
         $ws = New-Object -ComObject WScript.Shell
         $ws.Popup($text, 4, $title, 64) | Out-Null
-      } catch {
+      } catch {` : ``}
         try {
           Add-Type -AssemblyName System.Windows.Forms,System.Drawing -ErrorAction SilentlyContinue
           $n = New-Object System.Windows.Forms.NotifyIcon
@@ -69,11 +73,11 @@ export function sendNativeNotification(title, message, options = {}) {
           $n.BalloonTipTitle = $title
           $n.BalloonTipText = $text
           $n.Visible = $true
-          $n.ShowBalloonTip(4000)
-          Start-Sleep -Milliseconds 1500
+          $n.ShowBalloonTip(3000)
+          Start-Sleep -Milliseconds 1000
           $n.Dispose()
         } catch {}
-      }
+      ${allowModal ? `}` : ``}
     }
   `;
 

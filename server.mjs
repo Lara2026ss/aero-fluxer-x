@@ -33,6 +33,7 @@ const SERVER_NAME = BRAND_NAME;
 
 let inProcessLastConnect = 0;
 let inProcessLastDisconnect = 0;
+let inProcessConnectTime = 0;
 
 function notifyClient(clientName, event = "connect", version = VERSION, options = {}, runtime = null) {
   if (runtime?.notifications && !runtime.notifications.isConnectionEnabled()) {
@@ -40,10 +41,15 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
   }
 
   const now = Date.now();
-  // Debounce aumentado a 5 minutos (300,000 ms) para evitar repeticiones frustrantes
-  const DEBOUNCE_MS = 300000;
+  // Cooldown de 30 minutos (1,800,000 ms) para evitar cualquier molestia o repetición
+  const DEBOUNCE_MS = 1800000;
   const isConnectEvent = event === "connect" || event === "login";
   const isDisconnectEvent = event === "disconnect" || event === "logout";
+
+  // Suprimir alertas de desconexión si la conexión fue fugaz (menos de 2 minutos)
+  if (isDisconnectEvent && inProcessConnectTime > 0 && (now - inProcessConnectTime < 120000)) {
+    return;
+  }
 
   // 1. In-process cooldown
   if (isConnectEvent && now - inProcessLastConnect < DEBOUNCE_MS) {
@@ -73,7 +79,10 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
     }
   } catch {}
 
-  if (isConnectEvent) inProcessLastConnect = now;
+  if (isConnectEvent) {
+    inProcessLastConnect = now;
+    inProcessConnectTime = now;
+  }
   if (isDisconnectEvent) inProcessLastDisconnect = now;
 
   try {
@@ -92,14 +101,23 @@ function notifyClient(clientName, event = "connect", version = VERSION, options 
     }
   } catch {}
 
-  // Texto compacto, minimalista y no invasivo
-  const displayAI = (clientName || "IA").replace(/"/g, "'").trim();
-  const title = "FLUXER XZ";
+  // Texto ultra-compacto, minimalista, minúsculas y sin sonido ni popups invasivos
+  const rawClient = String(clientName || "").replace(/["']/g, "").trim().toLowerCase();
+  const displayAI = (rawClient && rawClient !== "ia" && rawClient !== "cliente mcp" && rawClient !== "desconocido")
+    ? ` · ${rawClient}`
+    : "";
+  const title = "fluxer xz";
   const msg = isConnectEvent
-    ? `⚡ Conectado (${displayAI} · v${version})`
-    : `🔌 Desconectado (${displayAI})`;
+    ? `conectado${displayAI}`
+    : `desconectado${displayAI}`;
 
-  sendNativeNotification(title, msg, options);
+  sendNativeNotification(title, msg, {
+    ...options,
+    silent: true,
+    noModal: true,
+    connectionEvent: true,
+    subtle: true,
+  });
 }
 
 function mcpText(value, options = {}) {
