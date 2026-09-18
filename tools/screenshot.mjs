@@ -313,6 +313,53 @@ export function createScreenshotDomain({ runtime, domain, fs }) {
         return { ok: false, error: "WINDOW_CAPTURE_FAILED", message: err.message };
       }
     },
+    // ── 4. Inspección de Imagen (inspect) ──────────────────────────────────
+    inspect: async ({ path: targetPath, file, filePath } = {}) => {
+      const rawPath = targetPath || file || filePath;
+      if (!rawPath) return { ok: false, error: "MISSING_ARGUMENT", message: "Se requiere 'path'." };
+      const resolved = path.resolve(String(rawPath));
+      if (!existsSync(resolved)) {
+        return { ok: false, error: "FILE_NOT_FOUND", message: `El archivo '${resolved}' no existe.` };
+      }
+      try {
+        const stat = await fs.stat(resolved);
+        const ext = path.extname(resolved).toLowerCase().replace(".", "");
+        const fd = await fs.open(resolved, "r");
+        const header = Buffer.alloc(64);
+        await fd.read(header, 0, 64, 0);
+        await fd.close();
+
+        let width = null;
+        let height = null;
+        let format = ext;
+
+        if (header.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
+          format = "png";
+          width = header.readUInt32BE(16);
+          height = header.readUInt32BE(20);
+        } else if (header.subarray(0, 2).toString("hex") === "ffd8") {
+          format = "jpeg";
+        } else if (header.subarray(0, 2).toString("ascii") === "BM") {
+          format = "bmp";
+          width = header.readInt32LE(18);
+          height = Math.abs(header.readInt32LE(22));
+        } else if (header.subarray(0, 4).toString("ascii") === "RIFF" && header.subarray(8, 12).toString("ascii") === "WEBP") {
+          format = "webp";
+        }
+
+        return {
+          ok: true,
+          path: resolved,
+          file_name: path.basename(resolved),
+          format,
+          size_bytes: stat.size,
+          dimensions: width && height ? { width, height } : null,
+          modified_at: stat.mtime.toISOString(),
+        };
+      } catch (err) {
+        return { ok: false, error: "INSPECT_FAILED", message: err.message };
+      }
+    },
   };
 
   // Alias para compatibilidad total con LLMs
@@ -331,6 +378,7 @@ export function createScreenshotDomain({ runtime, domain, fs }) {
     capture_app: "visual_capture_grant",
     screen: "visual_capture_grant",
     region: "visual_capture_grant",
+    inspect: "standard",
   };
 
   return domain(

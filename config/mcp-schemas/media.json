@@ -1,6 +1,6 @@
 {
   "name": "media",
-  "description": "FLUXER media domain router\nAcciones y argumentos (usar en args): app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_screen { format, revealPath, allow_user_path } | capture_window { hwnd, handle, title, format, revealPath, allow_user_path } | desktop { format, revealPath, allow_user_path } | region { format, revealPath, allow_user_path } | screen { format, revealPath, allow_user_path } | window { hwnd, handle, title, format, revealPath, allow_user_path }",
+  "description": "FLUXER media domain router\nAcciones y argumentos (usar en args): app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_app { process_name, app_name, title, format, revealPath, allow_user_path } | capture_screen { format, revealPath, allow_user_path } | capture_window { hwnd, handle, title, format, revealPath, allow_user_path } | desktop { format, revealPath, allow_user_path } | inspect { path, file, filePath } | region { format, revealPath, allow_user_path } | screen { format, revealPath, allow_user_path } | window { hwnd, handle, title, format, revealPath, allow_user_path }",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -12,6 +12,7 @@
           "capture_screen",
           "capture_window",
           "desktop",
+          "inspect",
           "region",
           "screen",
           "window"
